@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  tiduba_app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tiduba_store_service
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      - PORT=9000
+      - ENV=production
+    volumes:
+      - ./data:/app/data
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1024M
+    networks:
+      - tiduba_net
+
+networks:
+  tiduba_net:
+    driver: bridge

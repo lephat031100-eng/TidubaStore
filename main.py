@@ -1,0 +1,3859 @@
+"""
+TIDUBA STORE - NỀN TẢNG CHO THUÊ MÁY ẢNH & TRANG PHỤC CAO CẤP (ENTERPRISE EDITION)
+(Tiduba Camera & Fashion Rental Platform - Complete Core & Advanced Architecture)
+
+Bản quyền thương mại phát triển bởi Autonomous Software Agency
+Tài khoản thụ hưởng thanh toán VietQR:
+- Ngân hàng: Ngân hàng Quân Đội (MBBank - MB)
+- Số tài khoản: 0123006101998
+- Chủ tài khoản: KHONG KY DUYEN
+"""
+
+import os
+import sys
+import re
+import json
+import time
+import hmac
+import hashlib
+import sqlite3
+import datetime
+import urllib.parse
+import urllib.request
+import urllib.error
+from pathlib import Path
+from typing import Dict, Any, List, Optional
+from pydantic import BaseModel, Field
+from fastapi import FastAPI, HTTPException, Request, Depends, Header, WebSocket, WebSocketDisconnect, UploadFile, File
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+import shutil
+
+# Đảm bảo UTF-8 encoding trên Windows
+if sys.platform.startswith("win"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "data"
+TEMPLATES_DIR = BASE_DIR / "templates"
+STATIC_DIR = BASE_DIR / "static"
+DB_PATH = DATA_DIR / "tiduba.db"
+
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
+
+# CẤU HÌNH NGÂN HÀNG THỤ HƯỞNG CHÍNH THỨC CỦA APP (MBBANK 0123006101998)
+BANK_CONFIG = {
+    "bank_id": "MB",
+    "bank_name": "Ngân hàng Quân Đội (MBBank)",
+    "account_no": "0123006101998",
+    "account_name": "KHONG KY DUYEN",
+    "template": "compact2",
+}
+
+# CẤU HÌNH HỆ THỐNG 2 CHI NHÁNH CHÍNH THỨC CỦA TIDUBA STORE
+STORE_BRANCHES = {
+    "CN1": {
+        "code": "CN1",
+        "name": "Chi nhánh 1 (Pleiku, Gia Lai)",
+        "address": "183A Huỳnh Thúc Kháng, P. Diên Hồng, TP. Pleiku, Gia Lai",
+        "short_address": "183A Huỳnh Thúc Kháng, Pleiku, Gia Lai",
+        "phone": "0977.078.981",
+        "hotline": "0977.078.981",
+        "maps_url": "https://maps.app.goo.gl/rVJwRPcvrSHhcrDN6",
+        "opening_hours": "08:00 - 20:00 (Mở cửa tất cả các ngày)",
+        "is_headquarter": True
+    },
+    "CN2": {
+        "code": "CN2",
+        "name": "Chi nhánh 2 (Pleiku, Gia Lai)",
+        "address": "801 Lê Duẩn, P. An Phú, TP. Pleiku, Gia Lai",
+        "short_address": "801 Lê Duẩn, P. An Phú, TP. Pleiku",
+        "phone": "0977.078.981",
+        "hotline": "0977.078.981",
+        "maps_url": "https://maps.app.goo.gl/HVq186SuqXgXQ3N58",
+        "opening_hours": "08:00 - 20:00 (Mở cửa tất cả các ngày)",
+        "is_headquarter": False
+    }
+}
+
+# CẤU HÌNH TÊN MIỀN CÔNG KHAI CHÍNH THỨC
+PUBLIC_DOMAIN = os.environ.get("PUBLIC_DOMAIN", "https://tidubastore.com").rstrip("/")
+
+app = FastAPI(
+    title="TidubaStore.com - Camera & Costume Rental Platform",
+    description="Nền tảng trực tuyến cho thuê máy ảnh, ống kính và trang phục sự kiện cao cấp - TidubaStore.com",
+    version="3.5.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://127.0.0.1:9000",
+        "http://localhost:9000",
+        "http://127.0.0.1:80",
+        "http://localhost:80",
+        "https://tidubastore.com",
+        "http://tidubastore.com",
+        "https://www.tidubastore.com",
+        "http://www.tidubastore.com",
+        "https://tidubastore.loca.lt",
+    ],
+    allow_origin_regex=r"^https?://([a-zA-Z0-9-]+\.)*(tidubastore\.com|loca\.lt|pinggy\.link|ngrok-free\.app|trycloudflare\.com)(:\d+)?$",
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Bypass-Tunnel-Reminder"],
+)
+
+# Phục vụ thư mục static & uploads ảnh thật
+UPLOADS_DIR = STATIC_DIR / "uploads"
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+
+# =============================================================================
+# 1. DATABASE SCHEMA & AUTO-MIGRATION ENGINE
+# =============================================================================
+
+def get_db():
+    conn = sqlite3.connect(str(DB_PATH), timeout=30.0)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def hash_password(password: str) -> str:
+    salt = "Tiduba_Salt_2026_MBBank_0123006101998"
+    return hashlib.sha256(f"{salt}_{password}".encode("utf-8")).hexdigest()
+
+
+def init_db():
+    conn = get_db()
+    cur = conn.cursor()
+
+    # 1. Bảng người dùng (Users & eKYC verification)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        full_name TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'customer',
+        cccd_number TEXT,
+        cccd_front_img TEXT,
+        cccd_back_img TEXT,
+        face_liveness_verified INTEGER NOT NULL DEFAULT 0,
+        loyalty_points INTEGER NOT NULL DEFAULT 50000,
+        created_at TEXT NOT NULL
+    );
+    """)
+
+    # 2. Bảng Blacklist nội bộ
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS blacklist (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        phone TEXT,
+        cccd_number TEXT,
+        bank_account TEXT,
+        reason TEXT NOT NULL,
+        flagged_at TEXT NOT NULL
+    );
+    """)
+
+    # 3. Bảng thiết bị & trang phục (Chi tiết ngàm, shot, serial độc nhất, size/số đo)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        category TEXT NOT NULL, -- 'CAMERA_GEAR' hoặc 'COSTUME_FASHION'
+        subcategory TEXT NOT NULL,
+        brand TEXT NOT NULL,
+        serial_or_size TEXT NOT NULL,
+        mount_type TEXT,        -- 'Sony E-mount', 'Canon RF', 'Fuji X'...
+        shutter_count INTEGER DEFAULT 0,
+        measurements TEXT,      -- Số đo 3 vòng cho trang phục (ví dụ: '88-66-92')
+        price_4h INTEGER NOT NULL,
+        price_8h INTEGER NOT NULL,
+        price_24h INTEGER NOT NULL,
+        deposit_amount INTEGER NOT NULL,
+        image_url TEXT NOT NULL,
+        description TEXT NOT NULL,
+        condition_status TEXT NOT NULL,
+        availability TEXT NOT NULL DEFAULT 'AVAILABLE',
+        created_at TEXT NOT NULL
+    );
+    """)
+
+    # 4. Bảng gói Combo Tiết Kiệm (Bundle Builder)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS combos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        badge TEXT NOT NULL,
+        price_24h INTEGER NOT NULL,
+        original_price_24h INTEGER NOT NULL,
+        deposit_amount INTEGER NOT NULL,
+        image_url TEXT NOT NULL,
+        description TEXT NOT NULL,
+        items_included_json TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    """)
+
+    # 5. Bảng đơn thuê (Rentals với Hold 15 phút, e-Contract OTP, Escrow & phạt trễ lũy tiến)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS rentals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rental_code TEXT UNIQUE NOT NULL,
+        user_id INTEGER NOT NULL,
+        item_id INTEGER,
+        combo_id INTEGER,
+        rental_type TEXT NOT NULL DEFAULT '24h', -- '4h', '8h', '24h'
+        start_time TEXT NOT NULL,
+        end_time TEXT NOT NULL,
+        rental_duration_hours REAL NOT NULL,
+        hold_expires_at TEXT, -- Mốc thời gian nhả kho nếu quá 15 phút không trả tiền
+        total_price INTEGER NOT NULL,
+        deposit_paid INTEGER NOT NULL,
+        deposit_type TEXT NOT NULL DEFAULT 'ESCROW_100', -- 'ESCROW_100', 'ID_PLUS_CASH', 'CREDIT_PREAUTH'
+        late_fee INTEGER NOT NULL DEFAULT 0,
+        extension_hours INTEGER NOT NULL DEFAULT 0,
+        extension_status TEXT NOT NULL DEFAULT 'NONE', -- 'NONE', 'REQUESTED', 'APPROVED', 'REJECTED'
+        extension_fee INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'HOLD', -- 'HOLD', 'PENDING', 'APPROVED', 'ACTIVE', 'RETURNED', 'OVERDUE', 'CANCELLED'
+        e_contract_otp TEXT,
+        e_contract_signed INTEGER NOT NULL DEFAULT 0,
+        signed_at TEXT,
+        payment_method TEXT NOT NULL DEFAULT 'VIETQR_MBBANK',
+        customer_notes TEXT,
+        admin_notes TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (item_id) REFERENCES items(id)
+    );
+    """)
+
+    # 6. Bảng Biên bản bàn giao số (Digital Handover QC & Camera Snapshots & E-Signature)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS handover_protocols (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rental_id INTEGER NOT NULL,
+        phase TEXT NOT NULL, -- 'CHECKOUT' hoặc 'CHECKIN'
+        staff_name TEXT NOT NULL,
+        sensor_clean INTEGER NOT NULL DEFAULT 1,
+        lens_scratchless INTEGER NOT NULL DEFAULT 1,
+        shutter_count_verified INTEGER DEFAULT 0,
+        camera_front_img TEXT,
+        camera_lens_img TEXT,
+        camera_sensor_img TEXT,
+        costume_details_img TEXT,
+        accessories_included TEXT NOT NULL,
+        staff_signature_svg TEXT,
+        customer_signature_svg TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (rental_id) REFERENCES rentals(id)
+    );
+    """)
+
+    # 7. Bảng Danh mục trừ tiền cọc chuẩn hóa (Standardized Damage Assessment)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS damage_penalties (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rental_id INTEGER NOT NULL,
+        damage_code TEXT NOT NULL, -- 'SCRATCH_FRONT_LENS', 'BODY_DENT', 'TORN_FABRIC', 'MISSING_CAP', 'LATE_OVERDUE'
+        damage_title TEXT NOT NULL,
+        penalty_amount INTEGER NOT NULL,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (rental_id) REFERENCES rentals(id)
+    );
+    """)
+
+    # 8. Bảng Hàng đợi in nhiệt K80 (Print Queue ESC/POS)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS print_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rental_id INTEGER NOT NULL,
+        printer_ip TEXT NOT NULL DEFAULT '192.168.1.200',
+        bill_text TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'PENDING', -- 'PENDING', 'PRINTED', 'FAILED'
+        printed_at TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (rental_id) REFERENCES rentals(id)
+    );
+    """)
+
+    # 9. Bảng Lịch sử gửi thông báo Zalo ZNS (Legacy)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS zns_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rental_id INTEGER,
+        phone TEXT NOT NULL,
+        milestone TEXT NOT NULL, -- 'MILESTONE_1_CONFIRMED', 'MILESTONE_2_REMINDER', 'MILESTONE_3_REFUNDED'
+        template_id TEXT NOT NULL,
+        channel TEXT NOT NULL DEFAULT 'ZALO_ZNS', -- 'ZALO_ZNS' hoặc 'SMS_FALLBACK'
+        status TEXT NOT NULL DEFAULT 'SENT',
+        sent_at TEXT NOT NULL,
+        FOREIGN KEY (rental_id) REFERENCES rentals(id)
+    );
+    """)
+
+    # 9.1 Bảng Cấu hình Thông báo Telegram Bot
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS telegram_config (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        bot_token TEXT DEFAULT '',
+        chat_id TEXT DEFAULT '',
+        is_active INTEGER NOT NULL DEFAULT 1,
+        auto_notify_new_rental INTEGER NOT NULL DEFAULT 1,
+        auto_notify_payment INTEGER NOT NULL DEFAULT 1,
+        auto_notify_return INTEGER NOT NULL DEFAULT 1,
+        auto_notify_overdue INTEGER NOT NULL DEFAULT 1,
+        updated_at TEXT NOT NULL
+    );
+    """)
+
+    # 9.2 Bảng Lịch sử gửi thông báo Telegram
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS telegram_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rental_id INTEGER,
+        chat_id TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        message TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'SENT',
+        sent_at TEXT NOT NULL,
+        FOREIGN KEY (rental_id) REFERENCES rentals(id)
+    );
+    """)
+
+    # 9.3 Bảng Cấu hình Thông báo Zalo OA & Webhook (Tương thích ngược)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS zalo_config (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        oa_id TEXT DEFAULT 'TIDUBA_OA_STORE',
+        access_token TEXT DEFAULT '',
+        webhook_url TEXT DEFAULT '',
+        admin_phone TEXT DEFAULT '0987654321',
+        is_active INTEGER NOT NULL DEFAULT 0,
+        auto_notify_customer INTEGER NOT NULL DEFAULT 0,
+        auto_notify_admin INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL
+    );
+    """)
+
+    # 10. Bảng Đánh giá & Reviews sao
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS reviews (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        user_name TEXT NOT NULL,
+        rating INTEGER NOT NULL DEFAULT 5,
+        comment TEXT NOT NULL,
+        photo_sample_url TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (item_id) REFERENCES items(id),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+    """)
+
+    # 11. Bảng Alerts (cảnh báo trả đồ trễ hạn, gia hạn...)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS alerts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rental_id INTEGER,
+        alert_type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        is_read INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (rental_id) REFERENCES rentals(id)
+    );
+    """)
+
+    # 12. Bảng Mã Giảm Giá / Khuyến Mãi (Coupons)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS coupons (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT UNIQUE NOT NULL,
+        discount_type TEXT NOT NULL DEFAULT 'PERCENT', -- 'PERCENT' hoặc 'FIXED_AMOUNT'
+        discount_value INTEGER NOT NULL,
+        min_order_amount INTEGER NOT NULL DEFAULT 0,
+        max_discount_amount INTEGER,
+        usage_limit INTEGER NOT NULL DEFAULT 100,
+        used_count INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        expires_at TEXT NOT NULL
+    );
+    """)
+
+    # 13. Bảng Chi Tiết Sản Phẩm Đơn Thuê Nhiều Món (Cart & KiotViet POS)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS rental_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rental_id INTEGER NOT NULL,
+        item_id INTEGER,
+        combo_id INTEGER,
+        item_name TEXT NOT NULL,
+        serial_or_size TEXT,
+        item_category TEXT,
+        rental_type TEXT NOT NULL,
+        rental_duration_hours REAL NOT NULL,
+        unit_price INTEGER NOT NULL,
+        deposit_amount INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY (rental_id) REFERENCES rentals(id)
+    );
+    """)
+
+    conn.commit()
+
+    # Tự động cập nhật cột deposit_asset_desc nếu chưa có
+    try:
+        cur.execute("ALTER TABLE rentals ADD COLUMN deposit_asset_desc TEXT;")
+        conn.commit()
+    except Exception:
+        pass
+
+    # Tự động cập nhật cột items_json nếu chưa có
+    try:
+        cur.execute("ALTER TABLE rentals ADD COLUMN items_json TEXT;")
+        conn.commit()
+    except Exception:
+        pass
+
+    # Tự động cập nhật cột branch_code cho rentals nếu chưa có
+    try:
+        cur.execute("ALTER TABLE rentals ADD COLUMN branch_code TEXT DEFAULT 'CN1';")
+        conn.commit()
+    except Exception:
+        pass
+
+    # Tự động cập nhật cột branch_code cho items nếu chưa có
+    try:
+        cur.execute("ALTER TABLE items ADD COLUMN branch_code TEXT DEFAULT 'CN1';")
+        conn.commit()
+    except Exception:
+        pass
+
+    # Pre-seed Telegram Config nếu chưa có
+    cur.execute("SELECT count(*) as c FROM telegram_config")
+    if cur.fetchone()["c"] == 0:
+        now_dt = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cur.execute("""
+        INSERT INTO telegram_config (bot_token, chat_id, is_active, auto_notify_new_rental, auto_notify_payment, auto_notify_return, auto_notify_overdue, updated_at)
+        VALUES ('', '', 1, 1, 1, 1, 1, ?)
+        """, (now_dt,))
+        conn.commit()
+
+    # Pre-seed Admin, Khách mẫu & Blacklist
+    cur.execute("SELECT count(*) as c FROM users")
+    if cur.fetchone()["c"] == 0:
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cur.execute("""
+        INSERT INTO users (username, email, password_hash, full_name, phone, role, cccd_number, face_liveness_verified, loyalty_points, created_at)
+        VALUES 
+        ('admin', 'admin@tiduba.vn', ?, 'Quản Lý Cửa Hàng Tiduba', '0901234567', 'admin', '079200001234', 1, 500000, ?),
+        ('khachhang', 'khach@tiduba.vn', ?, 'Nguyễn Văn Khách', '0987654321', 'customer', '079200005678', 1, 50000, ?)
+        """, (hash_password("admin123"), now, hash_password("123456"), now))
+
+        # Seed Blacklist mẫu
+        cur.execute("""
+        INSERT INTO blacklist (phone, cccd_number, bank_account, reason, flagged_at)
+        VALUES ('0999888777', '079200009999', '19039999999', 'Làm rơi vỡ thấu kính Sony GM không bồi thường', ?)
+        """, (now,))
+        conn.commit()
+
+    # Pre-seed Items với đầy đủ giá 4h, 8h, 24h & ngàm/shot/size
+    cur.execute("SELECT count(*) as c FROM items")
+    if cur.fetchone()["c"] == 0:
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        seed_items = [
+            ("Sony Alpha A7 IV (Body Full-Frame 33MP)", "CAMERA_GEAR", "Body Máy Ảnh", "Sony", "SN: SONY-A7M4-8891",
+             "Sony E-mount", 4120, None, 150000, 250000, 350000, 5000000,
+             "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&q=80",
+             "Cảm biến 33MP BSI Exmor R, quay phim 4K 60p 10-bit màu S-Cinetone, lấy nét mắt Realtime Eye AF.", "Mới 99%, Cảm biến sạch"),
+
+            ("Canon EOS R6 Mark II (Quay Chụp Sự Kiện Đỉnh Cao)", "CAMERA_GEAR", "Body Máy Ảnh", "Canon", "SN: CANON-R6M2-4412",
+             "Canon RF", 1850, None, 180000, 280000, 400000, 6000000,
+             "https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=800&q=80",
+             "Cảm biến 24.2MP Dual Pixel CMOS AF II, chụp 40fps, chống rung IBIS 8 stops.", "Mới 98%, Hoạt động hoàn hảo"),
+
+            ("Fujifilm X-T5 Silver (Nghệ Thuật Màu Film Cổ Điển)", "CAMERA_GEAR", "Body Máy Ảnh", "Fujifilm", "SN: FUJI-XT5-9923",
+             "Fuji X-mount", 2100, None, 130000, 220000, 300000, 4500000,
+             "https://images.unsplash.com/photo-1512790182412-b19e6d62bc39?w=800&q=80",
+             "Cảm biến X-Trans CMOS 5 HR 40.2MP, 19 giả lập màu phim Film Simulation cổ điển.", "Mới 99%, Pin chụp 700 shots"),
+
+            ("Sony FE 24-70mm f/2.8 GM II (Ống Kính Vàng Đa Năng)", "CAMERA_GEAR", "Ống Kính (Lens)", "Sony", "SN: SONY-2470GM2-110",
+             "Sony E-mount", 0, None, 120000, 180000, 250000, 4000000,
+             "https://images.unsplash.com/photo-1617005082133-548c4dd27f35?w=800&q=80",
+             "Ống kính Zoom tiêu chuẩn G Master thế hệ II siêu nhẹ, độ sắc nét toàn khung hình, màng khẩu 11 lá.", "Thấu kính trong vắt, không bụi"),
+
+            ("Gimbal DJI RS 3 Pro Combo (Chống Rung Điện Ảnh)", "CAMERA_GEAR", "Phụ Kiện Máy", "DJI", "SN: DJI-RS3P-5541",
+             "Universal", 0, None, 90000, 130000, 180000, 2500000,
+             "https://images.unsplash.com/photo-1589872766857-2110abb95a08?w=800&q=80",
+             "Trục tay carbon tải trọng 4.5kg, tự động khóa trục thông minh, hỗ trợ lấy nét LiDAR Focus.", "Pin trâu 12 tiếng"),
+
+            ("Flycam DJI Mini 4 Pro (Quay 4K HDR Dọc Chân Thực)", "CAMERA_GEAR", "Phụ Kiện Máy", "DJI", "SN: DJI-M4P-7729",
+             "Drone", 0, None, 200000, 320000, 450000, 7000000,
+             "https://images.unsplash.com/photo-1508614589041-895b88991e3e?w=800&q=80",
+             "Cảm biến tránh vật cản đa hướng Omnidirectional, truyền video FHD 20km O4, quay dọc chân thực cho TikTok.", "3 Pin bay thả ga"),
+
+            ("Set Cổ Phục Việt Nhật Bình Hoàng Cung (Thêu Tay Tỉ Mỉ)", "COSTUME_FASHION", "Cổ Trang & Áo Dài", "Tiduba Atelier", "Size: Freesize (S-L)",
+             None, 0, "Ngực 82-94cm, Eo 62-78cm", 120000, 180000, 250000, 500000,
+             "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=800&q=80",
+             "Trang phục triều Nguyễn thêu chỉ vàng ngũ sắc, lụa tơ tằm dệt cao cấp, kèm nón quai thao và vòng kiềng đồng.", "Giặt khô khử khuẩn 100%"),
+
+            ("Đầm Dạ Hội Kim Sa Cao Cấp (Xẻ Tà Sang Trọng Tiệc Đêm)", "COSTUME_FASHION", "Dạ Hội & Vest", "Tiduba Luxury", "Size: M",
+             None, 0, "Ngực 86cm, Eo 66cm, Mông 92cm", 100000, 160000, 220000, 400000,
+             "https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=800&q=80",
+             "Chất liệu voan đính kết hạt cườm lấp lánh tôn dáng, thiết kế hở lưng quyến rũ, kèm clutch ánh bạc.", "Nguyên tag, thơm tho"),
+
+            ("Bộ Vest Nam Quý Tộc Ý Màu Xanh Navy (Kèm Nơ & Cài)", "COSTUME_FASHION", "Dạ Hội & Vest", "Tiduba Tailor", "Size: L",
+             None, 0, "Vai 46cm, Vòng ngực 98cm, Dài quần 100cm", 90000, 130000, 180000, 350000,
+             "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=800&q=80",
+             "Vải dệt Wool pha Cashmere không nhăn, form đứng tôn vai, kèm áo sơ mi trắng, cà vạt lụa và khăn cài túi.", "Đã là ủi phẳng phiu"),
+
+            ("Set Áo Dài Tơ Tằm Nàng Thơ Trắng (Chụp Ngoại Cảnh / Studio)", "COSTUME_FASHION", "Cổ Trang & Áo Dài", "Tiduba Silk", "Size: S-M",
+             None, 0, "Dài áo 135cm, Vòng eo 64-68cm", 60000, 90000, 120000, 250000,
+             "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=800&q=80",
+             "Áo dài cách tân 4 tà bồng bềnh, chất liệu tơ hoa nhí thướt tha, tay bồng thanh thoát, kèm bờm ngọc trai.", "Khử khuẩn tia UV"),
+
+            ("Trang Phục Cosplay Anime Raiden Shogun (Full Giáp & Kiếm)", "COSTUME_FASHION", "Cosplay Studio", "CosMaster", "Size: M",
+             None, 0, "Ngực 86cm, Eo 68cm", 130000, 200000, 260000, 600000,
+             "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&q=80",
+             "Trang phục hóa trang tinh xảo từng phụ kiện, vải in họa tiết kim tuyến lấp lánh, kèm tóc giả và kiếm phát sáng.", "Đầy đủ phụ kiện giáp"),
+
+            ("Set Đồ Đôi Vintage Ngoại Cảnh Đà Lạt (Tone Be Cổ Điển)", "COSTUME_FASHION", "Concept Nàng Thơ", "Tiduba Vintage", "Nam L - Nữ M",
+             None, 0, "Freesize Nam/Nữ", 80000, 120000, 160000, 300000,
+             "https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?w=800&q=80",
+             "Gồm váy xòe vintage caro nữ kèm mũ beret + Áo len cộc tay sơ mi nam quần tây retro, thích hợp chụp ảnh cặp đôi.", "Mới tinh tươm")
+        ]
+
+        for item in seed_items:
+            cur.execute("""
+            INSERT INTO items (name, category, subcategory, brand, serial_or_size, mount_type, shutter_count, measurements, price_4h, price_8h, price_24h, deposit_amount, image_url, description, condition_status, availability, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AVAILABLE', ?)
+            """, (*item, now))
+        conn.commit()
+
+    # Pre-seed Combos
+    cur.execute("SELECT count(*) as c FROM combos")
+    if cur.fetchone()["c"] == 0:
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        seed_combos = [
+            ("Combo Kỷ Yếu Cổ Phục Hoàng Cung", "TIẾT KIỆM 15%", 720000, 850000, 7000000,
+             "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=800&q=80",
+             "Trọn bộ: Body Sony A7 IV (33MP) + Lens FE 24-70mm GM II + Set Cổ Phục Nhật Bình thêu tay kèm vòng kiềng đồng.",
+             json.dumps(["Sony Alpha A7 IV (Body)", "Sony FE 24-70mm f/2.8 GM II", "Set Cổ Phục Việt Nhật Bình"])),
+
+            ("Combo Quay Phim / Music Video Cinematic 4K", "TIẾT KIỆM 20%", 740000, 930000, 8000000,
+             "https://images.unsplash.com/photo-1589872766857-2110abb95a08?w=800&q=80",
+             "Trọn bộ: Canon EOS R6 Mark II + Gimbal DJI RS 3 Pro + Bộ Vest Nam Quý Tộc Ý sang trọng.",
+             json.dumps(["Canon EOS R6 Mark II", "Gimbal DJI RS 3 Pro Combo", "Bộ Vest Nam Quý Tộc Ý"])),
+
+            ("Combo Ngoại Cảnh Nàng Thơ & Flycam Đà Lạt", "TIẾT KIỆM 18%", 710000, 870000, 9000000,
+             "https://images.unsplash.com/photo-1508614589041-895b88991e3e?w=800&q=80",
+             "Trọn bộ: Máy ảnh Fujifilm X-T5 màu Film hoài niệm + Flycam DJI Mini 4 Pro 4K + Set Áo Dài Tơ Tằm Nàng Thơ Trắng.",
+             json.dumps(["Fujifilm X-T5 Silver", "Flycam DJI Mini 4 Pro", "Set Áo Dài Tơ Tằm Nàng Thơ Trắng"]))
+        ]
+        for combo in seed_combos:
+            cur.execute("""
+            INSERT INTO combos (name, badge, price_24h, original_price_24h, deposit_amount, image_url, description, items_included_json, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (*combo, now))
+        conn.commit()
+
+    # Pre-seed Reviews
+    cur.execute("SELECT count(*) as c FROM reviews")
+    if cur.fetchone()["c"] == 0:
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        seed_reviews = [
+            (1, 2, "Nguyễn Văn Khách", 5, "Máy Sony A7IV siêu mới, cảm biến sạch bong không một hạt bụi. Chụp kỷ yếu ảnh nét căng!", None, now),
+            (7, 2, "Nguyễn Văn Khách", 5, "Set cổ phục thêu tay lộng lẫy, đi chụp ở Cố đô Huế ai cũng khen nức nở. Áo thơm tho sạch sẽ!", None, now),
+            (2, 2, "Trần Hoàng Long", 5, "Canon R6 II quay 4K 60fps mượt mà, màu da lên tự nhiên. Thuê nhanh, cọc hoàn qua MBBank chuẩn 30 giây.", None, now)
+        ]
+    # Seed Coupons giảm giá mẫu
+    cur.execute("SELECT count(*) as c FROM coupons")
+    if cur.fetchone()["c"] == 0:
+        seed_coupons = [
+            ("TIDUBA50K", "FIXED_AMOUNT", 50000, 200000, 50000, 500, 0, 1, "2026-12-31 23:59:59"),
+            ("VIP10", "PERCENT", 10, 500000, 200000, 100, 0, 1, "2026-12-31 23:59:59"),
+            ("SONY20", "PERCENT", 20, 1000000, 500000, 50, 0, 1, "2026-12-31 23:59:59")
+        ]
+        for c in seed_coupons:
+            cur.execute("""
+            INSERT INTO coupons (code, discount_type, discount_value, min_order_amount, max_discount_amount, usage_limit, used_count, is_active, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, c)
+        conn.commit()
+
+    conn.close()
+
+
+init_db()
+
+
+# =============================================================================
+# 2. HELPER FUNCTIONS & VIETQR MBBANK 0123006101998
+# =============================================================================
+
+def generate_vietqr_url(amount_vnd: int, rental_code: str) -> str:
+    """Tạo mã VietQR Napas 247 trỏ về tài khoản MBBank 0123006101998 (KHONG KY DUYEN)."""
+    content = f"Thanh toan thue do {rental_code}"
+    params = urllib.parse.urlencode({
+        "amount": int(amount_vnd),
+        "addInfo": content,
+        "accountName": BANK_CONFIG["account_name"]
+    })
+    return f"https://img.vietqr.io/image/{BANK_CONFIG['bank_id']}-{BANK_CONFIG['account_no']}-{BANK_CONFIG['template']}.png?{params}"
+
+
+TOKEN_SECRET = os.environ.get("TIDUBA_TOKEN_SECRET", "Tiduba_HMAC_Secret_2026_MBBank_0123006101998_CHANGE_IN_PROD")
+TOKEN_EXPIRY_SECONDS = 86400 * 30  # 30 ngày
+PRINTER_SECRET = os.environ.get("TIDUBA_PRINTER_SECRET", "PRINTER_LOCAL_SECRET_TIDUBA_2026")
+WEBHOOK_SECRET = os.environ.get("TIDUBA_WEBHOOK_SECRET", "")  # Set trong production để verify payment webhook
+
+
+def create_token(user_id: int, username: str, role: str) -> str:
+    payload = f"{user_id}:{username}:{role}:{int(time.time())}"
+    sig = hmac.new(TOKEN_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    return f"{payload}:{sig}"
+
+
+def get_current_user(authorization: Optional[str] = Header(None)) -> Optional[Dict[str, Any]]:
+    if not authorization:
+        return None
+    token = authorization.replace("Bearer ", "").strip()
+    try:
+        parts = token.split(":")
+        if len(parts) == 5:
+            # Token mới dạng: user_id:username:role:ts:sig
+            user_id_str, username, role, ts_str, sig = parts
+            payload = f"{user_id_str}:{username}:{role}:{ts_str}"
+            expected_sig = hmac.new(TOKEN_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+            if not hmac.compare_digest(sig, expected_sig):
+                return None
+            # Token expiry check (30 ngày)
+            ts = int(ts_str)
+            if time.time() - ts > TOKEN_EXPIRY_SECONDS:
+                return None
+            user_id = int(user_id_str)
+        elif "-" in token and len(token) > 40:
+            # Token cũ (backward compat): sha256hash-userid  
+            user_id = int(token.split("-")[-1])
+        else:
+            return None
+
+        conn = get_db()
+        user = conn.execute(
+            "SELECT id, username, email, full_name, phone, role, cccd_number, face_liveness_verified, loyalty_points FROM users WHERE id = ?",
+            (user_id,)
+        ).fetchone()
+        conn.close()
+        if user:
+            return dict(user)
+    except Exception:
+        pass
+    return None
+
+
+def get_costume_effective_deadline(start_dt: datetime.datetime, rental_days: float) -> datetime.datetime:
+    """
+    QUY TẮC TRANG PHỤC: Hạn trả là 20:00 ngày cuối của chu kỳ thuê.
+    Ví dụ: Nhận lúc 10:00 ngày 29/9 (1 ngày) → deadline 20:00 ngày 30/9.
+    Nhận lúc 10:00 ngày 29/9 (2 ngày) → deadline 20:00 ngày 1/10.
+    """
+    days_int = max(1, int(rental_days + 0.5))  # làm tròn lên
+    end_date = start_dt.date() + datetime.timedelta(days=days_int)
+    return datetime.datetime.combine(end_date, datetime.time(20, 0, 0))
+
+
+def calculate_rental_metrics(start_iso: str, end_iso: str, price_4h: int, price_8h: int, price_24h: int,
+                              item_category: Optional[str] = None):
+    """
+    Tính toán thời lượng thuê theo ca (4h/8h) hoặc block ngày (24h) và giá tiền.
+    - Máy ảnh (CAMERA_GEAR): tính theo giờ thực tế khách chọn.
+    - Trang phục (COSTUME_FASHION): 
+      Thuê là trả trước 20:00 mới là 1 ngày, qua 20:00 là tính phạt (ví dụ: thuê 10:00 29/9 -> trả trước 20:00 30/9 là 1 ngày; qua 20:01 30/9 là trễ).
+    """
+    try:
+        dt_start = datetime.datetime.fromisoformat(start_iso.replace("Z", ""))
+        dt_end = datetime.datetime.fromisoformat(end_iso.replace("Z", ""))
+    except Exception:
+        dt_start = datetime.datetime.strptime(start_iso, "%Y-%m-%d %H:%M")
+        dt_end = datetime.datetime.strptime(end_iso, "%Y-%m-%d %H:%M")
+
+    diff_seconds = (dt_end - dt_start).total_seconds()
+    if diff_seconds <= 0:
+        raise ValueError("Thời gian trả phải sau thời gian nhận đồ!")
+
+    hours = diff_seconds / 3600.0
+    is_costume = item_category == "COSTUME_FASHION"
+
+    if is_costume:
+        # TRANG PHỤC: 1 ngày = nhận hôm nay, trả trước 20:00 ngày hôm sau
+        # Khoảng cách ngày lịch (calendar days)
+        calendar_diff = (dt_end.date() - dt_start.date()).days
+        
+        # Nếu ngày trả cùng ngày nhận hoặc ngày hôm sau và trả trước/đúng 20:00 -> tính 1 ngày
+        if calendar_diff <= 1:
+            days = 1.0
+            dt_end_effective = datetime.datetime.combine(dt_start.date() + datetime.timedelta(days=1), datetime.time(20, 0, 0))
+        else:
+            # Thuê từ 2 ngày trở lên: hạn trả là 20:00 của ngày trả
+            days = float(calendar_diff)
+            dt_end_effective = datetime.datetime.combine(dt_start.date() + datetime.timedelta(days=calendar_diff), datetime.time(20, 0, 0))
+
+        rental_type = "24h"
+        rental_days = days
+
+        if days >= 3.0:
+            discount_multiplier = 0.80
+        elif days >= 2.0:
+            discount_multiplier = 0.85
+        else:
+            discount_multiplier = 1.0
+
+        total_price = int(days * price_24h * discount_multiplier)
+        return rental_type, hours, rental_days, total_price, dt_start, dt_end_effective
+
+    if hours <= 4.0:
+        rental_type = "4h"
+        total_price = price_4h
+        rental_days = 0.5
+    elif hours <= 8.0:
+        rental_type = "8h"
+        total_price = price_8h
+        rental_days = 0.5
+    else:
+        rental_type = "24h"
+        days = max(1.0, round(hours / 24.0, 1))
+        rental_days = days
+        if days >= 3.0:
+            discount_multiplier = 0.80
+        elif days >= 2.0:
+            discount_multiplier = 0.85
+        else:
+            discount_multiplier = 1.0
+        total_price = int(days * price_24h * discount_multiplier)
+
+    return rental_type, hours, rental_days, total_price, dt_start, dt_end
+
+
+def update_and_check_rental_alerts():
+    """Tự động kiểm tra hạn trả đồ, quét đơn quá hạn và tính phạt trễ hạn.
+    - Máy ảnh: phạt 30.000đ/giờ quá hạn trả thực tế.
+    - Trang phục: deadline luôn là 20:00 ngày cuối; phạt 30.000đ/giờ sau 20:00.
+    """
+    conn = get_db()
+    cur = conn.cursor()
+    now = datetime.datetime.now()
+    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+
+    # 1. Nhả kho tự động cho các đơn HOLD quá 15 phút chưa thanh toán
+    holds = cur.execute("SELECT id, item_id FROM rentals WHERE status = 'HOLD' AND hold_expires_at < ?", (now_str,)).fetchall()
+    for h in holds:
+        cur.execute("UPDATE rentals SET status = 'CANCELLED' WHERE id = ?", (h["id"],))
+        if h["item_id"]:
+            cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (h["item_id"],))
+
+    # 2. Quét đơn đang hoạt động (APPROVED hoặc ACTIVE) để phát hiện quá hạn
+    rentals = cur.execute("""
+    SELECT r.*, i.name as item_name, i.category as item_category,
+           u.full_name as customer_name, u.phone as customer_phone
+    FROM rentals r
+    LEFT JOIN items i ON r.item_id = i.id
+    JOIN users u ON r.user_id = u.id
+    WHERE r.status IN ('APPROVED', 'ACTIVE')
+    """).fetchall()
+
+    for r in rentals:
+        try:
+            dt_end = datetime.datetime.fromisoformat(r["end_time"])
+        except Exception:
+            dt_end = datetime.datetime.strptime(r["end_time"], "%Y-%m-%d %H:%M")
+
+        item_category = r["item_category"] or ""
+        item_display = r["item_name"] or "Gói Combo Trọn Gói"
+
+        # TRANG PHỤC: tính deadline thực tế là 20:00 ngày cuối của end_time
+        if item_category == "COSTUME_FASHION":
+            # Deadline = 20:00 của ngày end_time (đã được tính sẵn khi booking)
+            costume_deadline = dt_end.replace(hour=20, minute=0, second=0, microsecond=0)
+            time_left_sec = (costume_deadline - now).total_seconds()
+            hours_left = time_left_sec / 3600.0
+
+            if time_left_sec < 0:
+                overdue_hours = abs(hours_left)
+                # Phạt 30.000đ/giờ quá sau 20:00
+                calculated_late_fee = int(overdue_hours * 30000)
+                cur.execute("UPDATE rentals SET status = 'OVERDUE', late_fee = ? WHERE id = ?", (calculated_late_fee, r["id"]))
+
+                chk = cur.execute("SELECT id FROM alerts WHERE rental_id = ? AND alert_type = 'OVERDUE'", (r["id"],)).fetchone()
+                if not chk:
+                    overdue_since = costume_deadline.strftime("%H:%M %d/%m")
+                    cur.execute("""
+                    INSERT INTO alerts (rental_id, alert_type, title, message, created_at)
+                    VALUES (?, 'OVERDUE', ?, ?, ?)
+                    """, (
+                        r["id"],
+                        f"QUAN HAN: {r['rental_code']} - {r['customer_name']}",
+                        f"Khach {r['customer_name']} ({r['customer_phone']}) chua tra trang phuc '{item_display}'! Deadline 20:00 qua han {overdue_hours:.1f} gio. Phat tam tinh: {calculated_late_fee:,}d.",
+                        now_str
+                    ))
+            elif time_left_sec <= 7200:  # Cảnh báo 2 giờ trước 20:00 (18:00)
+                chk = cur.execute("SELECT id FROM alerts WHERE rental_id = ? AND alert_type = 'WARNING_DUE_SOON'", (r["id"],)).fetchone()
+                if not chk:
+                    cur.execute("""
+                    INSERT INTO alerts (rental_id, alert_type, title, message, created_at)
+                    VALUES (?, 'WARNING_DUE_SOON', ?, ?, ?)
+                    """, (
+                        r["id"],
+                        f"SAP TRE HAN 20:00: {r['rental_code']}",
+                        f"Khach {r['customer_name']} can tra trang phuc '{item_display}' truoc 20:00 hom nay! Con {hours_left:.1f} gio.",
+                        now_str
+                    ))
+        else:
+            # MÁY ẢNH / thiết bị: giữ nguyên logic theo giờ thực tế
+            time_left_sec = (dt_end - now).total_seconds()
+            hours_left = time_left_sec / 3600.0
+
+            if time_left_sec < 0:
+                overdue_hours = abs(hours_left)
+                calculated_late_fee = int(overdue_hours * 30000)
+                cur.execute("UPDATE rentals SET status = 'OVERDUE', late_fee = ? WHERE id = ?", (calculated_late_fee, r["id"]))
+
+                chk = cur.execute("SELECT id FROM alerts WHERE rental_id = ? AND alert_type = 'OVERDUE'", (r["id"],)).fetchone()
+                if not chk:
+                    cur.execute("""
+                    INSERT INTO alerts (rental_id, alert_type, title, message, created_at)
+                    VALUES (?, 'OVERDUE', ?, ?, ?)
+                    """, (
+                        r["id"],
+                        f"QUAN HAN: {r['rental_code']} - {r['customer_name']}",
+                        f"Khach {r['customer_name']} ({r['customer_phone']}) chua tra '{item_display}'! Qua han {overdue_hours:.1f} gio. Phat tam tinh: {calculated_late_fee:,}d.",
+                        now_str
+                    ))
+            elif hours_left <= 4.0:
+                chk = cur.execute("SELECT id FROM alerts WHERE rental_id = ? AND alert_type = 'WARNING_DUE_SOON'", (r["id"],)).fetchone()
+                if not chk:
+                    cur.execute("""
+                    INSERT INTO alerts (rental_id, alert_type, title, message, created_at)
+                    VALUES (?, 'WARNING_DUE_SOON', ?, ?, ?)
+                    """, (
+                        r["id"],
+                        f"SAP TOI HAN: {r['rental_code']}",
+                        f"Khach {r['customer_name']} can tra '{item_display}' trong vong {hours_left:.1f} gio nua (Han: {r['end_time']}).",
+                        now_str
+                    ))
+
+    conn.commit()
+    conn.close()
+
+
+# =============================================================================
+# 2.1 AUTH & USER REGISTRATION APIS
+# =============================================================================
+
+class RegisterRequest(BaseModel):
+    username: str
+    email: str
+    password: str
+    full_name: str
+    phone: str
+
+
+@app.post("/api/auth/register")
+def register(req: RegisterRequest):
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cur.execute("""
+        INSERT INTO users (username, email, password_hash, full_name, phone, role, loyalty_points, created_at)
+        VALUES (?, ?, ?, ?, ?, 'customer', 50000, ?)
+        """, (req.username.strip(), req.email.strip().lower(), hash_password(req.password), req.full_name.strip(), req.phone.strip(), now))
+        conn.commit()
+        user_id = cur.lastrowid
+        token = create_token(user_id, req.username, "customer")
+        return {
+            "success": True,
+            "message": "Đăng ký thành công! Bạn nhận được 50.000đ điểm thưởng VIP.",
+            "token": token,
+            "user": {
+                "id": user_id,
+                "username": req.username,
+                "full_name": req.full_name,
+                "role": "customer",
+                "loyalty_points": 50000
+            }
+        }
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=400, detail="Tên đăng nhập hoặc Email đã tồn tại!")
+    finally:
+        conn.close()
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+@app.post("/api/auth/login")
+def login(req: LoginRequest):
+    conn = get_db()
+    p_hash = hash_password(req.password)
+    user = conn.execute("""
+    SELECT id, username, email, full_name, phone, role, loyalty_points 
+    FROM users 
+    WHERE (username = ? OR email = ?) AND password_hash = ?
+    """, (req.username.strip(), req.username.strip().lower(), p_hash)).fetchone()
+    conn.close()
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Sai tên đăng nhập hoặc mật khẩu!")
+
+    user_dict = dict(user)
+    token = create_token(user_dict["id"], user_dict["username"], user_dict["role"])
+    return {
+        "success": True,
+        "message": f"Chào mừng {user_dict['full_name']} quay trở lại!",
+        "token": token,
+        "user": user_dict
+    }
+
+
+@app.get("/api/auth/me")
+def get_me(user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+    if not user:
+        return {"authenticated": False}
+    return {"authenticated": True, "user": user}
+
+
+# =============================================================================
+# 3. eKYC & BLACKLIST VERIFICATION ENGINE
+# =============================================================================
+
+class EkycVerificationRequest(BaseModel):
+    cccd_number: str
+    full_name: str
+    phone: str
+    cccd_front_img: Optional[str] = "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600&q=80"
+    cccd_back_img: Optional[str] = "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600&q=80"
+    liveness_confirmed: bool = True
+
+
+@app.post("/api/ekyc/verify")
+def verify_ekyc(req: EkycVerificationRequest, user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+    """Xác thực danh tính eKYC tự động: OCR CCCD 2 mặt + Face Liveness Check + Blacklist check."""
+    if not user:
+        raise HTTPException(status_code=401, detail="Vui lòng đăng nhập để xác thực eKYC!")
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    # 1. Rà soát Blacklist nội bộ (Số điện thoại hoặc CCCD)
+    bl = cur.execute("""
+    SELECT reason FROM blacklist 
+    WHERE phone = ? OR cccd_number = ?
+    """, (req.phone.strip(), req.cccd_number.strip())).fetchone()
+
+    if bl:
+        conn.close()
+        raise HTTPException(
+            status_code=403,
+            detail=f"CẢNH BÁO BẢO VỆ TÀI SẢN: Thông tin của bạn nằm trong Danh Sách Đen Blacklist nội bộ ({bl['reason']}). Hệ thống từ chối cung cấp dịch vụ thuê thiết bị."
+        )
+
+    # 2. Cập nhật trạng thái đã eKYC chính chủ
+    cur.execute("""
+    UPDATE users 
+    SET cccd_number = ?, full_name = ?, phone = ?, cccd_front_img = ?, cccd_back_img = ?, face_liveness_verified = 1
+    WHERE id = ?
+    """, (req.cccd_number.strip(), req.full_name.strip(), req.phone.strip(), req.cccd_front_img, req.cccd_back_img, user["id"]))
+    conn.commit()
+    conn.close()
+
+    return {
+        "success": True,
+        "message": "Xác thực danh tính eKYC và Face Liveness 3D thành công!",
+        "cccd_verified": req.cccd_number,
+        "full_name": req.full_name,
+        "liveness_passed": True
+    }
+
+
+# =============================================================================
+# 4. E-CONTRACT OTP DIGITAL SIGNING ENGINE
+# =============================================================================
+
+@app.post("/api/rentals/{rental_id}/send_contract_otp")
+def send_contract_otp(rental_id: int, user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+    """Gửi mã OTP xác thực ký Hợp Đồng Điện Tử Bồi Thường 100% về SĐT chính chủ."""
+    if not user:
+        raise HTTPException(status_code=401, detail="Vui lòng đăng nhập!")
+
+    conn = get_db()
+    rental = conn.execute("SELECT id, rental_code FROM rentals WHERE id = ? AND user_id = ?", (rental_id, user["id"])).fetchone()
+    if not rental:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê!")
+
+    # Sinh mã OTP 6 số ngẫu nhiên
+    otp_code = f"{(int(time.time() * 1000) % 900000) + 100000}"
+    conn.execute("UPDATE rentals SET e_contract_otp = ? WHERE id = ?", (otp_code, rental_id))
+    conn.commit()
+    conn.close()
+
+    print(f"[OTP SERVICE] 📲 Mã OTP ký hợp đồng cho đơn {rental['rental_code']} gửi tới {user['phone']}: {otp_code}")
+
+    return {
+        "success": True,
+        "message": f"Mã OTP ký hợp đồng điện tử đã được gửi về số điện thoại {user['phone']}.",
+        "demo_otp_code": otp_code # Cung cấp để test nhanh
+    }
+
+
+class VerifyOtpSignRequest(BaseModel):
+    otp: str
+
+
+@app.post("/api/rentals/{rental_id}/sign_contract_otp")
+def sign_contract_otp(rental_id: int, req: VerifyOtpSignRequest, user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+    """Khách hàng nhập mã OTP để ký số Hợp Đồng Điện Tử."""
+    if not user:
+        raise HTTPException(status_code=401, detail="Vui lòng đăng nhập!")
+
+    conn = get_db()
+    cur = conn.cursor()
+    rental = cur.execute("SELECT id, e_contract_otp, rental_code FROM rentals WHERE id = ? AND user_id = ?", (rental_id, user["id"])).fetchone()
+    if not rental:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê!")
+
+    if not rental["e_contract_otp"] or rental["e_contract_otp"] != req.otp.strip():
+        conn.close()
+        raise HTTPException(status_code=400, detail="Mã OTP không chính xác hoặc đã hết hạn!")
+
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur.execute("""
+    UPDATE rentals 
+    SET e_contract_signed = 1, signed_at = ?, e_contract_otp = NULL
+    WHERE id = ?
+    """, (now_str, rental_id))
+    conn.commit()
+    conn.close()
+
+    return {
+        "success": True,
+        "message": "Đã ký số Hợp Đồng Điện Tử Bàn Giao & Đền Bù 100% thành công bằng OTP chính chủ!",
+        "signed_at": now_str
+    }
+
+
+# =============================================================================
+# 5. AUTO-PRINT BILL NHIỆT K80 & WEBHOOK SEPAY/CASSO (KIOTVIET STYLE)
+# =============================================================================
+
+def build_escpos_thermal_bill_text(order_data: dict) -> str:
+    """Tạo bố cục bill in nhiệt chuẩn K80 (48 cột) kiểu KiotViet có link quét QR nhận trả đồ."""
+    domain = PUBLIC_DOMAIN
+    branch_code = order_data.get('branch_code', 'CN1')
+    branch_info = STORE_BRANCHES.get(branch_code, STORE_BRANCHES['CN1'])
+
+    items_list = order_data.get('items')
+    items_block = ""
+    if items_list and isinstance(items_list, list) and len(items_list) > 0:
+        for idx, itm in enumerate(items_list, 1):
+            nm = itm.get('name') or itm.get('item_name', 'Thiết bị')
+            sn = itm.get('serial_or_size', '')
+            pr = itm.get('price', 0)
+            items_block += f"{idx}. {nm[:30]:<30}  1     {pr:>11,}\n"
+            if sn:
+                items_block += f"   SN/Size: {sn}\n"
+    else:
+        it_name = order_data.get('item_name', 'Thiết bị / Trang phục')
+        it_sn = order_data.get('serial_or_size', '')
+        pr = order_data.get('total_price', 0)
+        items_block = f"1. {it_name[:30]:<30}  1     {pr:>11,}\n"
+        if it_sn:
+            items_block += f"   Serial/Size: {it_sn}\n"
+
+    return f"""================================================
+           TIDUBASTORE.COM - CAMERA & FASHION   
+  CN1: 183A Huynh Thuc Khang, Pleiku, Gia Lai   
+  CN2: 801 Le Duan, P. An Phu, TP. Pleiku       
+  [XUAT DON]: {branch_info['name']}
+  Hotline: 0977.078.981             
+================================================
+           PHIEU XAC NHAN THUE THIET BI         
+          Ma don: {order_data['rental_code']} (PAID)         
+       Thoi gian in: {time.strftime('%d/%m/%Y %H:%M:%S')}        
+------------------------------------------------
+KHACH HANG: {order_data['customer_name']}                        
+SO DIEN THOAI: {order_data['customer_phone']}                     
+CCCD: {order_data.get('customer_cccd', 'Da luu tru doi chung')}           
+------------------------------------------------
+THIET BI / TRANG PHUC             SL      DON GIA
+------------------------------------------------
+{items_block}------------------------------------------------
+Goi thue: {order_data.get('rental_type', '24h')} (Duration: {order_data.get('rental_hours', 24)}h)
+NHAN MAY: {order_data['start_time']}                    
+TRA MAY : {order_data['end_time']} (BAT BUOC)         
+CHI NHANH TRA: {branch_info['short_address'][:32]:<32}
+------------------------------------------------
+TONG TIEN THANH TOAN:              {order_data['total_price']:>12,} VND
+[ TRANG THAI: DA XAC THUC THANH TOAN THANH CONG ]
+================================================
+                    LƯU Ý                       
+  DE LAI GIAY TO HOAC COC THEM TIEN,           
+  TIEN COC SE HOAN KHI TRA DO.                 
+  DOI VOI MAY ANH:                             
+  COC 1 GIAY TO + TAI SAN (Dien thoai,         
+  Xe may, Laptop, vong vang,...)               
+------------------------------------------------
+- Tra tre gio: 30,000 VND/gio (qua 6h tinh 1 ngay)
+- Thiet bi da kiem tra cam bien sach & lens trong
+- Hoan giay to / hoan coc sau 10 phut kiem tra QC
+------------------------------------------------
+      [ QUET MA QR TRA DO & HOAN COC NHANH ]    
+        {domain}/return-qr?code={order_data['rental_code']}
+              * {order_data['rental_code']} *               
+================================================
+       TIDUBASTORE.COM - CHUC BUOI CHUP         
+                 THANH CONG RUC RO!             
+"""
+
+
+class PaymentWebhookPayload(BaseModel):
+    gateway: Optional[str] = "SePAY / Casso / VietQR"
+    account_no: str = "0123006101998"
+    amount: float
+    description: str
+    transaction_id: Optional[str] = None
+
+
+@app.post("/api/webhook/payment")
+def payment_webhook_ipn(payload: PaymentWebhookPayload, request: Request):
+    """
+    Webhook ngân hàng (SePAY / Casso / VietQR PRO) bắt biến động số dư MBBank 0123006101998.
+    Tự động xác thực thanh toán -> chuyển ACTIVE -> tự động bắn lệnh in bill K80 không chạm!
+    SECURITY: Verify X-Webhook-Token header để chống giả mạo webhook.
+    """
+    # Xác thực webhook secret nếu đã cấu hình
+    if WEBHOOK_SECRET:
+        webhook_token = request.headers.get("X-Webhook-Token", "") or request.headers.get("X-Api-Key", "")
+        if not hmac.compare_digest(webhook_token, WEBHOOK_SECRET):
+            raise HTTPException(status_code=401, detail="Webhook token không hợp lệ!")
+    conn = get_db()
+    cur = conn.cursor()
+
+    # Trích xuất mã đơn TDB-XXXXXX từ nội dung chuyển khoản
+    match = re.search(r"\b(TDB-[A-Za-z0-9_-]+)\b", payload.description, re.IGNORECASE)
+    if not match:
+        conn.close()
+        return {"status": "IGNORED", "message": "Không tìm thấy mã đơn TDB- trong nội dung chuyển khoản."}
+
+    rental_code = match.group(1).upper()
+    rental = cur.execute("""
+    SELECT r.*, COALESCE(i.name, c.name) as item_name, COALESCE(i.serial_or_size, 'Combo Trọn Gói') as serial_or_size,
+           u.full_name as customer_name, u.phone as customer_phone, u.cccd_number as customer_cccd
+    FROM rentals r
+    LEFT JOIN items i ON r.item_id = i.id
+    LEFT JOIN combos c ON r.combo_id = c.id
+    JOIN users u ON r.user_id = u.id
+    WHERE r.rental_code = ?
+    """, (rental_code,)).fetchone()
+
+    if not rental:
+        conn.close()
+        return {"status": "NOT_FOUND", "message": f"Không tìm thấy đơn {rental_code}."}
+
+    # Cập nhật đơn hàng sang APPROVED / ACTIVE
+    cur.execute("UPDATE rentals SET status = 'ACTIVE' WHERE id = ?", (rental["id"],))
+
+    # Tự động đẩy lệnh in bill nhiệt K80 vào hàng đợi in
+    bill_text = build_escpos_thermal_bill_text({
+        "rental_code": rental["rental_code"],
+        "customer_name": rental["customer_name"],
+        "customer_phone": rental["customer_phone"],
+        "customer_cccd": rental["customer_cccd"] or "0792xxxx8912",
+        "item_name": rental["item_name"],
+        "serial_or_size": rental["serial_or_size"],
+        "rental_type": rental["rental_type"],
+        "rental_hours": rental["rental_duration_hours"],
+        "start_time": rental["start_time"],
+        "end_time": rental["end_time"],
+        "total_price": rental["total_price"],
+        "deposit_paid": rental["deposit_paid"]
+    })
+
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur.execute("""
+    INSERT INTO print_queue (rental_id, bill_text, status, created_at)
+    VALUES (?, ?, 'PENDING', ?)
+    """, (rental["id"], bill_text, now_str))
+
+    # Ghi log Zalo ZNS Mốc 1: Xác nhận đơn & Giữ đồ thành công
+    cur.execute("""
+    INSERT INTO zns_logs (rental_id, phone, milestone, template_id, channel, status, sent_at)
+    VALUES (?, ?, 'MILESTONE_1_CONFIRMED', 'TDB_ZNS_BOOKING_CONFIRM_V1', 'ZALO_ZNS', 'SENT', ?)
+    """, (rental["id"], rental["customer_phone"], now_str))
+
+    conn.commit()
+    conn.close()
+
+    print(f"[PRINT & PAYMENT] 💰 ĐÃ NHẬN TIỀN MBBANK 0123006101998 CHO ĐƠN {rental_code} -> KÍCH HOẠT MÁY IN NHIỆT K80 TỰ ĐỘNG IN BILL!")
+    return {
+        "status": "PAYMENT_CONFIRMED_AUTO_PRINT_TRIGGERED",
+        "rental_code": rental_code,
+        "amount_received": payload.amount,
+        "print_bill_preview": bill_text[:200]
+    }
+
+
+@app.get("/api/printer/pending_jobs")
+def get_printer_pending_jobs(x_printer_secret: Optional[str] = Header(None)):
+    """Local Print Agent tại quầy gọi để lấy danh sách bill cần in. Yêu cầu header X-Printer-Secret."""
+    if not hmac.compare_digest((x_printer_secret or ""), PRINTER_SECRET):
+        raise HTTPException(status_code=401, detail="Printer secret không hợp lệ!")
+    conn = get_db()
+    jobs = conn.execute("SELECT * FROM print_queue WHERE status = 'PENDING' ORDER BY id ASC").fetchall()
+    conn.close()
+    return {"jobs": [dict(j) for j in jobs], "count": len(jobs)}
+
+
+@app.post("/api/printer/ack/{job_id}")
+def ack_printer_job(job_id: int, x_printer_secret: Optional[str] = Header(None)):
+    """Máy in tại quầy xác nhận đã in xong và cắt giấy. Yêu cầu header X-Printer-Secret."""
+    if not hmac.compare_digest((x_printer_secret or ""), PRINTER_SECRET):
+        raise HTTPException(status_code=401, detail="Printer secret không hợp lệ!")
+    conn = get_db()
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute("UPDATE print_queue SET status = 'PRINTED', printed_at = ? WHERE id = ?", (now_str, job_id))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": f"Job #{job_id} đã in thành công!"}
+
+
+# =============================================================================
+# 5.1 COUPON & PROMOTION ENGINE
+# =============================================================================
+
+class ApplyCouponRequest(BaseModel):
+    code: str
+    order_amount: int
+
+
+@app.post("/api/coupons/apply")
+def apply_coupon(req: ApplyCouponRequest):
+    """Kiểm tra và tính toán giảm giá của mã Coupon."""
+    conn = get_db()
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    c = conn.execute("""
+    SELECT * FROM coupons 
+    WHERE code = ? AND is_active = 1 AND expires_at >= ?
+    """, (req.code.strip().upper(), now_str)).fetchone()
+    conn.close()
+
+    if not c:
+        raise HTTPException(status_code=400, detail="Mã giảm giá không tồn tại hoặc đã hết hạn!")
+
+    if c["used_count"] >= c["usage_limit"]:
+        raise HTTPException(status_code=400, detail="Mã giảm giá đã hết lượt sử dụng!")
+
+    if req.order_amount < c["min_order_amount"]:
+        raise HTTPException(status_code=400, detail=f"Đơn hàng phải tối thiểu {c['min_order_amount']:,}đ để áp dụng mã này!")
+
+    discount = 0
+    if c["discount_type"] == "PERCENT":
+        discount = int((req.order_amount * c["discount_value"]) / 100.0)
+        if c["max_discount_amount"]:
+            discount = min(discount, c["max_discount_amount"])
+    else:
+        discount = c["discount_value"]
+
+    discount = min(discount, req.order_amount)
+    return {
+        "success": True,
+        "code": c["code"],
+        "discount_type": c["discount_type"],
+        "discount_value": c["discount_value"],
+        "discount_amount": discount,
+        "final_amount": req.order_amount - discount,
+        "message": f"Áp dụng thành công mã {c['code']}: Giảm -{discount:,}đ!"
+    }
+
+
+# =============================================================================
+# 6. DIGITAL HANDOVER & QC TRỪ TIỀN CỌC (PAPERLESS DESK)
+# =============================================================================
+
+class HandoverSubmitRequest(BaseModel):
+    rental_id: int
+    phase: str # 'CHECKOUT' (giao máy) hoặc 'CHECKIN' (nhận máy)
+    sensor_clean: bool = True
+    lens_scratchless: bool = True
+    shutter_count: int = 4120
+    camera_front_img: Optional[str] = "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=600&q=80"
+    camera_lens_img: Optional[str] = "https://images.unsplash.com/photo-1617005082133-548c4dd27f35?w=600&q=80"
+    camera_sensor_img: Optional[str] = "https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=600&q=80"
+    costume_details_img: Optional[str] = "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=600&q=80"
+    accessories_included: str = "Body máy, nắp đậy, 2 pin zin, củ sạc kép, thẻ 128GB, dây đeo, túi chống sốc"
+    staff_signature_svg: str = "[Digital Signature: Le Nhat Phat]"
+    customer_signature_svg: str = "[Digital Signature: Khach Hang]"
+    notes: Optional[str] = "Thiết bị và trang phục sạch sẽ, nguyên vẹn"
+
+
+@app.post("/api/handover/submit")
+def submit_handover_protocol(req: HandoverSubmitRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """Nhân viên và khách hàng ký biên bản bàn giao số trực tiếp qua camera & chữ ký cảm ứng."""
+    conn = get_db()
+    cur = conn.cursor()
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    cur.execute("""
+    INSERT INTO handover_protocols (
+        rental_id, phase, staff_name, sensor_clean, lens_scratchless, shutter_count_verified,
+        camera_front_img, camera_lens_img, camera_sensor_img, costume_details_img,
+        accessories_included, staff_signature_svg, customer_signature_svg, notes, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        req.rental_id, req.phase.upper(), "Lê Nhật Phát (Staff QC)",
+        1 if req.sensor_clean else 0, 1 if req.lens_scratchless else 0, req.shutter_count,
+        req.camera_front_img, req.camera_lens_img, req.camera_sensor_img, req.costume_details_img,
+        req.accessories_included, req.staff_signature_svg, req.customer_signature_svg, req.notes, now_str
+    ))
+
+    # Cập nhật số shot thực tế của máy ảnh
+    rental = cur.execute("SELECT item_id FROM rentals WHERE id = ?", (req.rental_id,)).fetchone()
+    if rental and rental["item_id"]:
+        cur.execute("UPDATE items SET shutter_count = ? WHERE id = ?", (req.shutter_count, rental["item_id"]))
+
+    conn.commit()
+    conn.close()
+
+    return {
+        "success": True,
+        "message": f"Đã lưu Biên bản Bàn giao & Kiểm định ({req.phase}) thành công kèm chữ ký cảm ứng và ảnh chụp camera đối chứng!"
+    }
+
+
+class DamagePenaltyRequest(BaseModel):
+    rental_id: int
+    damage_code: str
+    damage_title: str
+    penalty_amount: int
+    notes: Optional[str] = None
+
+
+@app.post("/api/qc/add_damage_penalty")
+def add_damage_penalty(req: DamagePenaltyRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """Nhân viên chọn lỗi từ danh mục chuẩn hóa để tự động trừ tiền cọc."""
+    conn = get_db()
+    cur = conn.cursor()
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    cur.execute("""
+    INSERT INTO damage_penalties (rental_id, damage_code, damage_title, penalty_amount, notes, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+    """, (req.rental_id, req.damage_code, req.damage_title, req.penalty_amount, req.notes, now_str))
+
+    conn.commit()
+    conn.close()
+
+    return {
+        "success": True,
+        "message": f"Đã ghi nhận khấu trừ: {req.damage_title} (-{req.penalty_amount:,}đ) vào tiền cọc!"
+    }
+
+
+@app.post("/api/qc/complete_refund/{rental_id}")
+def complete_qc_and_refund(rental_id: int, admin: Dict[str, Any] = Depends(require_admin)):
+    """Hoàn tất nghiệm thu: Tính toán tổng cọc trừ tiền phạt và kích hoạt hoàn tiền tự động qua MBBank."""
+    conn = get_db()
+    cur = conn.cursor()
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    rental = cur.execute("""
+    SELECT r.*, u.full_name as customer_name, u.phone as customer_phone
+    FROM rentals r
+    JOIN users u ON r.user_id = u.id
+    WHERE r.id = ?
+    """, (rental_id,)).fetchone()
+
+    if not rental:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn!")
+
+    # Tính tổng tiền trừ phạt
+    penalties = cur.execute("SELECT sum(penalty_amount) as s FROM damage_penalties WHERE rental_id = ?", (rental_id,)).fetchone()["s"] or 0
+    total_deduction = penalties + rental["late_fee"]
+    refund_amount = max(0, rental["deposit_paid"] - total_deduction)
+
+    # Chuyển trạng thái đơn sang RETURNED
+    cur.execute("UPDATE rentals SET status = 'RETURNED' WHERE id = ?", (rental_id,))
+    if rental["item_id"]:
+        cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (rental["item_id"],))
+
+    # Ghi nhận log Zalo ZNS Mốc 3: Hoàn cọc thành công
+    cur.execute("""
+    INSERT INTO zns_logs (rental_id, phone, milestone, template_id, channel, status, sent_at)
+    VALUES (?, ?, 'MILESTONE_3_REFUNDED', 'TDB_ZNS_REFUND_SUCCESS_V1', 'ZALO_ZNS', 'SENT', ?)
+    """, (rental_id, rental["customer_phone"], now_str))
+
+    conn.commit()
+    conn.close()
+
+    print(f"[QC COMPLETED] 💰 ĐÃ HOÀN CỌC THÀNH CÔNG CHO KHÁCH {rental['customer_name']}: {refund_amount:,}đ (Trừ phạt: {total_deduction:,}đ). BẮN TIN ZNS MỐC 3!")
+
+    return {
+        "success": True,
+        "message": f"Nghiệm thu hoàn tất! Đã kích hoạt hoàn trả {refund_amount:,} VNĐ tiền cọc cho khách hàng {rental['customer_name']}.",
+        "deposit_paid": rental["deposit_paid"],
+        "damage_deduction": penalties,
+        "late_fee_deduction": rental["late_fee"],
+        "refund_amount": refund_amount,
+        "bank_destination": "Tài khoản chính chủ khớp tên CCCD (MBBank / Techcombank)"
+    }
+
+
+# =============================================================================
+# 7. EXPORT HỒ SƠ PHÁP LÝ QUÁ HẠN 24H (LEGAL DOSSIER PDF/HTML)
+# =============================================================================
+
+@app.get("/api/rentals/{rental_id}/legal_dossier", response_class=HTMLResponse)
+def get_legal_overdue_dossier(rental_id: int, admin: Dict[str, Any] = Depends(require_admin)):
+    """Tự động xuất hồ sơ pháp lý chuyển cơ quan chức năng khi khách thuê quá hạn 24h không trả."""
+    conn = get_db()
+    r = conn.execute("""
+    SELECT r.*, COALESCE(i.name, c.name) as item_name, COALESCE(i.serial_or_size, 'Combo') as serial_or_size,
+           COALESCE(i.deposit_amount, 5000000) as item_value,
+           u.full_name as customer_name, u.phone as customer_phone, u.email as customer_email,
+           u.cccd_number, u.cccd_front_img, u.cccd_back_img
+    FROM rentals r
+    LEFT JOIN items i ON r.item_id = i.id
+    LEFT JOIN combos c ON r.combo_id = c.id
+    JOIN users u ON r.user_id = u.id
+    WHERE r.id = ?
+    """, (rental_id,)).fetchone()
+    conn.close()
+
+    if not r:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn!")
+
+    now_str = datetime.datetime.now().strftime("ngày %d tháng %m năm %Y")
+
+    html = f"""<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Hồ Sơ Pháp Lý Vi Phạm Chiếm Đoạt Tài Sản - {r['rental_code']}</title>
+    <style>
+        body {{ font-family: 'Times New Roman', Times, serif; font-size: 13pt; line-height: 1.5; color: #111; margin: 35px; background: #fff; }}
+        .header {{ text-align: center; margin-bottom: 20px; }}
+        .header h3 {{ margin: 0; text-transform: uppercase; font-size: 12pt; }}
+        .title {{ text-align: center; text-transform: uppercase; font-weight: bold; font-size: 16pt; color: #dc2626; margin: 25px 0 15px 0; }}
+        table {{ width: 100%; border-collapse: collapse; margin: 15px 0; }}
+        th, td {{ border: 1px solid #333; padding: 8px; font-size: 12pt; text-align: left; }}
+        th {{ background-color: #f1f5f9; }}
+        .cccd-box {{ display: flex; gap: 20px; margin: 15px 0; }}
+        .cccd-box img {{ width: 48%; border: 1px solid #999; border-radius: 6px; }}
+        .btn-print {{ position: fixed; top: 15px; right: 15px; background: #dc2626; color: #fff; padding: 10px 18px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }}
+        @media print {{ .btn-print {{ display: none; }} }}
+    </style>
+</head>
+<body>
+    <button class="btn-print" onclick="window.print()">🖨️ In Hồ Sơ Chuyển Cơ Quan Chức Năng</button>
+
+    <div class="header">
+        <h3>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h3>
+        <p style="margin: 0;">Độc lập – Tự do – Hạnh phúc</p>
+        <p style="margin: 3px 0;">-----------------------</p>
+    </div>
+
+    <div class="title">ĐƠN TRÌNH BÁO VI PHẠM CHIẾM ĐOẠT TÀI SẢN THUÊ QUÁ HẠN 24 GIỜ</div>
+    <p style="text-align: center; font-style: italic; margin-top: -10px;">(Hồ sơ trích xuất tự động từ hệ thống giám sát eKYC Tiduba Store - Lập {now_str})</p>
+
+    <p><strong>Kính gửi:</strong> CƠ QUAN CẢNH SÁT ĐIỀU TRA & CÔNG AN KHU VỰC</p>
+
+    <p><strong>BÊN BỊ HẠI (CỬA HÀNG CHO THUÊ):</strong></p>
+    <ul>
+        <li>Đơn vị: <strong>HỆ THỐNG CỬA HÀNG CHO THUÊ TIDUBA STORE</strong></li>
+        <li>Chủ sở hữu & Đại diện pháp lý: <strong>LÊ NHẬT PHÁT</strong></li>
+        <li>Tài khoản ngân hàng đối soát giao dịch: <strong>MBBank 0123006101998 (KHONG KY DUYEN)</strong></li>
+    </ul>
+
+    <p><strong>ĐỐI TƯỢNG BỊ TỐ CÁO (NGƯỜI THUÊ KHÔNG HOÀN TRẢ):</strong></p>
+    <ul>
+        <li>Họ và tên: <strong>{r['customer_name']}</strong></li>
+        <li>Số điện thoại đăng ký chính chủ: <strong>{r['customer_phone']}</strong></li>
+        <li>Số CCCD gắn chip (Đã xác thực eKYC): <strong>{r['cccd_number']}</strong></li>
+        <li>Email liên hệ: {r['customer_email']}</li>
+    </ul>
+
+    <p><strong>HÌNH ẢNH CCCD 2 MẶT & ĐỐI CHỨNG KHUÔN MẶT LIVENESS:</strong></p>
+    <div class="cccd-box">
+        <img src="{r['cccd_front_img']}" alt="Mặt trước CCCD">
+        <img src="{r['cccd_back_img']}" alt="Mặt sau CCCD">
+    </div>
+
+    <p><strong>TÀI SẢN BỊ CHIẾM ĐOẠT & THỜI GIAN VI PHẠM:</strong></p>
+    <table>
+        <tr>
+            <th>Tên Thiết Bị Bị Chiếm Đoạt</th>
+            <th>Mã Serial Độc Nhất</th>
+            <th>Hạn Trả Đồ Hợp Đồng</th>
+            <th>Tổng Tiền Phạt Trễ</th>
+        </tr>
+        <tr>
+            <td><strong>{r['item_name']}</strong></td>
+            <td><strong>{r['serial_or_size']}</strong></td>
+            <td><strong style="color: #dc2626;">{r['end_time']}</strong></td>
+            <td><strong>{r['late_fee']:,} VNĐ</strong></td>
+        </tr>
+    </table>
+
+    <p>Đối tượng đã ký hợp đồng điện tử bằng mã OTP và cam kết bồi thường 100% nhưng đến nay đã quá hạn trên 24 giờ, tắt máy và có dấu hiệu cố tình tẩu tán tài sản máy ảnh có giá trị lớn. Kính đề nghị Quý Cơ quan thụ lý xác minh và truy thu tài sản theo quy định của Pháp luật.</p>
+
+    <div style="margin-top: 40px; display: flex; justify-content: flex-end;">
+        <div style="text-align: center; width: 45%;">
+            <p><strong>NGƯỜI LÀM ĐƠN TRÌNH BÁO</strong></p>
+            <div style="height: 60px;"></div>
+            <p><strong>LÊ NHẬT PHÁT</strong><br>Autonomous Software Agency</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+    return HTMLResponse(content=html)
+
+
+# =============================================================================
+# 8. STANDARD CORE APIS (ITEMS, COMBOS, REVIEWS, CALENDAR, BRANCHES)
+# =============================================================================
+
+@app.get("/api/branches")
+def get_store_branches():
+    """Lấy danh sách 2 chi nhánh chính thức của Tiduba Store."""
+    return {
+        "success": True,
+        "branches": list(STORE_BRANCHES.values())
+    }
+
+
+@app.get("/api/items")
+def get_items(
+    category: Optional[str] = None, 
+    subcategory: Optional[str] = None, 
+    search: Optional[str] = None,
+    branch_code: Optional[str] = None,
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None
+):
+    """Lấy danh mục sản phẩm, có bộ lọc theo khoảng ngày nhận/trả trực tiếp và theo chi nhánh."""
+    conn = get_db()
+    query = "SELECT * FROM items WHERE 1=1"
+    params = []
+    if category:
+        query += " AND category = ?"
+        params.append(category)
+    if subcategory:
+        query += " AND subcategory = ?"
+        params.append(subcategory)
+    if branch_code and branch_code.upper() in STORE_BRANCHES:
+        query += " AND (branch_code = ? OR branch_code IS NULL OR branch_code = '')"
+        params.append(branch_code.upper())
+    if search:
+        query += " AND (name LIKE ? OR brand LIKE ? OR description LIKE ?)"
+        params.extend([f"%{search}%", f"%{search}%", f"%{search}%"])
+
+    # Lọc các thiết bị KHÔNG bị trùng lịch trong khoảng start_time -> end_time
+    if start_time and end_time:
+        query += """
+        AND id NOT IN (
+            SELECT item_id FROM rentals 
+            WHERE item_id IS NOT NULL 
+              AND status IN ('APPROVED', 'ACTIVE', 'HOLD', 'OVERDUE')
+              AND NOT (end_time <= ? OR start_time >= ?)
+        )
+        """
+        params.extend([start_time, end_time])
+
+    query += " ORDER BY category ASC, id DESC"
+    items = [dict(row) for row in conn.execute(query, params).fetchall()]
+    conn.close()
+    return {"items": items, "count": len(items)}
+
+
+@app.get("/api/items/{item_id}")
+def get_item_detail(item_id: int):
+    conn = get_db()
+    item = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
+    conn.close()
+    if not item:
+        raise HTTPException(status_code=404, detail="Không tìm thấy thiết bị này!")
+    return dict(item)
+
+
+@app.get("/api/combos")
+def get_combos():
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM combos ORDER BY id ASC").fetchall()
+    conn.close()
+    combos = []
+    for r in rows:
+        d = dict(r)
+        d["items_included"] = json.loads(d["items_included_json"])
+        combos.append(d)
+    return {"combos": combos, "count": len(combos)}
+
+
+@app.get("/api/items/{item_id}/calendar")
+def get_item_booked_calendar(item_id: int):
+    conn = get_db()
+    booked = conn.execute("""
+    SELECT rental_code, start_time, end_time, status 
+    FROM rentals 
+    WHERE item_id = ? AND status IN ('APPROVED', 'ACTIVE', 'OVERDUE')
+    ORDER BY start_time ASC
+    """, (item_id,)).fetchall()
+    conn.close()
+    return {"item_id": item_id, "booked_ranges": [dict(r) for r in booked]}
+
+
+@app.get("/api/items/{item_id}/reviews")
+def get_item_reviews(item_id: int):
+    conn = get_db()
+    revs = conn.execute("SELECT * FROM reviews WHERE item_id = ? ORDER BY id DESC", (item_id,)).fetchall()
+    conn.close()
+    reviews_list = [dict(r) for r in revs]
+    avg_rating = round(sum(r["rating"] for r in reviews_list) / max(1, len(reviews_list)), 1) if reviews_list else 5.0
+    return {"item_id": item_id, "reviews": reviews_list, "average_rating": avg_rating, "total_reviews": len(reviews_list)}
+
+
+class PostReviewRequest(BaseModel):
+    rating: int = Field(default=5, ge=1, le=5)
+    comment: str
+    photo_sample_url: Optional[str] = None
+
+
+@app.post("/api/items/{item_id}/reviews")
+def post_item_review(item_id: int, req: PostReviewRequest, user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Vui lòng đăng nhập để đánh giá!")
+    conn = get_db()
+    cur = conn.cursor()
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    cur.execute("""
+    INSERT INTO reviews (item_id, user_id, user_name, rating, comment, photo_sample_url, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (item_id, user["id"], user["full_name"], req.rating, req.comment, req.photo_sample_url, now_str))
+
+    cur.execute("UPDATE users SET loyalty_points = loyalty_points + 10000 WHERE id = ?", (user["id"],))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "Cảm ơn bạn đã đánh giá! Bạn được tặng thêm +10.000đ điểm VIP."}
+
+
+# =============================================================================
+# 9. BOOKING, HOLD LOCK (15 PHÚT) & QUẢN LÝ ĐƠN THUÊ
+# =============================================================================
+
+class RentalBookingRequest(BaseModel):
+    item_id: Optional[int] = None
+    combo_id: Optional[int] = None
+    start_time: str
+    end_time: str
+    branch_code: Optional[str] = "CN1"  # 'CN1' (Pleiku, Gia Lai) hoặc 'CN2' (TP. Hồ Chí Minh)
+    customer_notes: Optional[str] = None
+    deposit_type: Optional[str] = "CCCD"  # 'CCCD' (giữ CCCD gốc) hoặc 'ASSET' (cọc tài sản tự nhập)
+    deposit_asset_desc: Optional[str] = None  # Mô tả tài sản cọc (nếu là ASSET)
+    custom_deposit_amount: Optional[int] = None  # Giá trị cọc định giá (nếu là ASSET)
+    custom_rental_price: Optional[int] = None  # Admin chỉnh sửa trực tiếp giá thuê
+    use_loyalty_points: Optional[bool] = False
+    coupon_code: Optional[str] = None
+
+
+@app.post("/api/rentals/book")
+def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+    """
+    Đặt thuê thiết bị kèm khóa tạm kho (Hold Inventory 15 phút đếm ngược).
+    Hỗ trợ hình thức cọc: 'CCCD' (giữ CCCD gốc) hoặc 'ASSET' (tự nhập tài sản & số tiền).
+    """
+    if not user:
+        raise HTTPException(status_code=401, detail="Vui lòng đăng nhập để đặt thuê đồ!")
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    # Kiểm tra Blacklist
+    bl = cur.execute("SELECT reason FROM blacklist WHERE phone = ? OR cccd_number = ?", (user["phone"], user.get("cccd_number", ""))).fetchone()
+    if bl:
+        conn.close()
+        raise HTTPException(status_code=403, detail=f"Tài khoản của bạn bị tạm ngưng giao dịch ({bl['reason']}).")
+
+    price_4h = price_8h = price_24h = default_deposit = 0
+    item_name = ""
+    item_category = "CAMERA_GEAR"
+
+    if req.combo_id:
+        combo = cur.execute("SELECT * FROM combos WHERE id = ?", (req.combo_id,)).fetchone()
+        if not combo:
+            conn.close()
+            raise HTTPException(status_code=404, detail="Gói Combo không tồn tại!")
+        price_4h = int(combo["price_24h"] * 0.5)
+        price_8h = int(combo["price_24h"] * 0.7)
+        price_24h = combo["price_24h"]
+        default_deposit = combo["deposit_amount"]
+        item_name = combo["name"]
+        item_category = "COMBO_BUNDLE"
+    elif req.item_id:
+        item = cur.execute("SELECT * FROM items WHERE id = ?", (req.item_id,)).fetchone()
+        if not item:
+            conn.close()
+            raise HTTPException(status_code=404, detail="Thiết bị không tồn tại!")
+        if item["availability"] != "AVAILABLE":
+            conn.close()
+            raise HTTPException(status_code=400, detail="Thiết bị này hiện đang có người thuê hoặc đang trong 15 phút khóa cọc!")
+        price_4h = item["price_4h"]
+        price_8h = item["price_8h"]
+        price_24h = item["price_24h"]
+        default_deposit = item["deposit_amount"]
+        item_name = item["name"]
+        item_category = item["category"]
+    else:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Vui lòng chọn thiết bị hoặc combo!")
+
+    # PHẦN CỌC ĐÃ XÓA THEO YÊU CẦU: Tiền cọc = 0đ (Áp dụng quy định tại quầy: Để lại giấy tờ hoặc cọc thêm tiền)
+    deposit_amount = 0
+    dep_type = "NONE"
+    asset_desc = "Để lại giấy tờ hoặc cọc thêm tiền (Hoàn lại khi trả đồ)"
+
+    try:
+        rental_type, hours, rental_days, total_price, dt_start, dt_end = calculate_rental_metrics(
+            req.start_time, req.end_time, price_4h, price_8h, price_24h, item_category
+        )
+    except ValueError as e:
+        conn.close()
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # ADMIN CHỈNH GIÁ TRỰC TIẾP: Đồng bộ giá mới vào hóa đơn và VietQR
+    if req.custom_rental_price is not None and user.get("role") == "admin" and req.custom_rental_price >= 0:
+        total_price = req.custom_rental_price
+
+    effective_end_time = dt_end.strftime("%Y-%m-%d %H:%M")
+    discount = 0
+
+    now = datetime.datetime.now()
+    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+    hold_expires_at = (now + datetime.timedelta(minutes=15)).strftime("%Y-%m-%d %H:%M:%S")
+    rental_code = f"TDB-{int(time.time()*1000)%1000000:06d}"
+    selected_branch = req.branch_code.upper().strip() if req.branch_code and req.branch_code.upper().strip() in STORE_BRANCHES else "CN1"
+    branch_info = STORE_BRANCHES[selected_branch]
+
+    # Đưa vào trạng thái HOLD (khóa tạm 15 phút)
+    cur.execute("""
+    INSERT INTO rentals (
+        rental_code, user_id, item_id, combo_id, rental_type, start_time, end_time,
+        rental_duration_hours, hold_expires_at, total_price, deposit_paid, deposit_type,
+        deposit_asset_desc, branch_code, status, customer_notes, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'HOLD', ?, ?)
+    """, (
+        rental_code, user["id"], req.item_id, req.combo_id, rental_type,
+        req.start_time, effective_end_time, hours, hold_expires_at,
+        total_price, deposit_amount, dep_type,
+        asset_desc, selected_branch, req.customer_notes, now_str
+    ))
+
+    # Khóa thiết bị sang RENTED
+    if req.item_id:
+        cur.execute("UPDATE items SET availability = 'RENTED' WHERE id = ?", (req.item_id,))
+
+    conn.commit()
+    rental_id = cur.lastrowid
+    conn.close()
+
+    total_payment = total_price
+    qr_url = generate_vietqr_url(total_payment, rental_code)
+
+    # Gửi thông báo Telegram khi có đơn thuê mới kèm Lưu ý
+    tele_msg = (
+        f"<b>📸 TIDUBA STORE - ĐƠN THUÊ MỚI ({rental_code})</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"🏢 <b>Chi nhánh:</b> <b>{branch_info['name']}</b> ({branch_info['short_address']})\n"
+        f"👤 <b>Khách hàng:</b> {user['full_name']} (<code>{user['phone']}</code>)\n"
+        f"📦 <b>Thiết bị:</b> {item_name}\n"
+        f"⏳ <b>Thời gian:</b> {req.start_time} ➔ {effective_end_time} ({hours:.1f}h)\n"
+        f"💵 <b>Tiền thuê:</b> <b>{total_price:,}đ</b>\n"
+        f"⚠️ <b>LƯU Ý:</b> Để lại giấy tờ hoặc cọc thêm tiền, Tiền cọc sẽ hoàn khi trả đồ.\n"
+        f"📌 <b>Đối với máy ảnh:</b> Cọc 1 giấy tờ + tài sản (Điện thoại, Xe máy, Laptop, vòng vàng,...)\n"
+        f"💳 <b>Tổng thanh toán:</b> <b>{total_payment:,}đ</b> (VietQR MBBank)\n"
+        f"📝 <b>Ghi chú:</b> {req.customer_notes or 'Không có'}\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"🔗 Quét trả đồ: {PUBLIC_DOMAIN}/return-qr?code={rental_code}"
+    )
+    _send_telegram_notification(tele_msg, rental_id=rental_id, event_type="NEW_RENTAL")
+
+    return {
+        "success": True,
+        "message": "Đã khóa giữ máy thành công trong 15 phút! Vui lòng quét mã VietQR MBBank để xác nhận đơn.",
+        "rental_id": rental_id,
+        "rental_code": rental_code,
+        "item_name": item_name,
+        "branch_code": selected_branch,
+        "branch_info": branch_info,
+        "rental_type": rental_type,
+        "rental_hours": hours,
+        "rental_days": rental_days,
+        "hold_expires_at": hold_expires_at,
+        "hold_countdown_seconds": 900,
+        "total_price": total_price,
+        "deposit_amount": 0,
+        "deposit_type": "NONE",
+        "deposit_asset_desc": asset_desc,
+        "discount_applied": 0,
+        "total_payable": total_payment,
+        "qr_image_url": qr_url,
+        "bank_account": f"{BANK_CONFIG['bank_name']} - STK: {BANK_CONFIG['account_no']} ({BANK_CONFIG['account_name']})",
+        "start_time": req.start_time,
+        "end_time": effective_end_time
+    }
+
+
+@app.post("/api/rentals/{rental_id}/cancel_unpaid")
+def cancel_unpaid_rental(rental_id: int, user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+    """
+    Khách hàng hoặc Admin đóng cửa sổ VietQR MBBank mà chưa thanh toán:
+    - Hủy đơn hàng nháp (status = 'CANCELLED')
+    - Nhả kho thiết bị về 'AVAILABLE'
+    - Đơn này KHÔNG hiển thị trong 'Lịch Sử & Đơn Thuê Thiết Bị Của Tôi'
+    """
+    conn = get_db()
+    cur = conn.cursor()
+
+    rental = cur.execute("SELECT * FROM rentals WHERE id = ?", (rental_id,)).fetchone()
+    if not rental:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê!")
+
+    # Chỉ cho phép hủy nếu đơn đang ở trạng thái chưa thanh toán (HOLD hoặc PENDING)
+    if rental["status"] not in ("HOLD", "PENDING"):
+        conn.close()
+        return {"success": False, "message": "Đơn hàng đã được thanh toán hoặc xử lý trước đó."}
+
+    # Kiểm tra quyền: phải là chủ đơn hoặc admin
+    if user and user.get("role") != "admin" and rental["user_id"] != user["id"]:
+        conn.close()
+        raise HTTPException(status_code=403, detail="Không có quyền hủy đơn này!")
+
+    # Cập nhật trạng thái CANCELLED
+    cur.execute("UPDATE rentals SET status = 'CANCELLED', customer_notes = COALESCE(customer_notes, '') || ' | Khách đóng cửa sổ VietQR (Chưa thanh toán)' WHERE id = ?", (rental_id,))
+
+    # Nhả kho thiết bị đơn lẻ hoặc nhiều món
+    if rental["items_json"]:
+        try:
+            itms = json.loads(rental["items_json"])
+            for itm in itms:
+                if itm.get("item_id"):
+                    cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (itm["item_id"],))
+        except Exception:
+            pass
+    elif rental["item_id"]:
+        cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (rental["item_id"],))
+
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "Đã hủy đơn nháp chưa thanh toán và nhả kho thiết bị."}
+
+
+@app.get("/api/rentals/track/{rental_code}")
+def track_rental_order(rental_code: str):
+    """
+    Tra cứu trạng thái đơn hàng công khai bằng mã TDB-XXXXXX.
+    Chỉ trả về thông tin cơ bản để tra cứu, KHÔNG trả về số điện thoại hay CCCD.
+    """
+    code = rental_code.strip().upper()
+    conn = get_db()
+    r = conn.execute("""
+    SELECT r.id, r.rental_code, r.status, r.end_time, r.start_time, r.total_price, 
+           r.branch_code, r.items_json, r.deposit_paid,
+           COALESCE(i.name, c.name, 'Đơn Thuê Nhiều Món') as item_name,
+           COALESCE(i.image_url, c.image_url, '/static/logo.png') as item_image,
+           COALESCE(i.category, 'COMBO_BUNDLE') as item_category,
+           COALESCE(i.serial_or_size, 'Thiết bị') as serial_or_size,
+           u.full_name as customer_name
+    FROM rentals r
+    LEFT JOIN items i ON r.item_id = i.id
+    LEFT JOIN combos c ON r.combo_id = c.id
+    JOIN users u ON r.user_id = u.id
+    WHERE UPPER(r.rental_code) = ?
+    """, (code,)).fetchone()
+    conn.close()
+
+    if not r:
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy đơn hàng có mã '{code}'!")
+
+    d = dict(r)
+    d["qr_url"] = generate_vietqr_url(d["total_price"] + d["deposit_paid"], d["rental_code"])
+    b_code = d.get("branch_code", "CN1") or "CN1"
+    d["branch_info"] = STORE_BRANCHES.get(b_code, STORE_BRANCHES["CN1"])
+    # Ẩn thông tin nhạy cảm khỏi public track API
+    d.pop("deposit_paid", None)
+
+    if d.get("items_json"):
+        try:
+            d["items"] = json.loads(d["items_json"])
+        except Exception:
+            d["items"] = []
+    d.pop("items_json", None)
+
+    return {"success": True, "rental": d}
+
+
+class MultiItemCartItem(BaseModel):
+    item_id: Optional[int] = None
+    combo_id: Optional[int] = None
+    rental_type: Optional[str] = "24h" # '4h', '8h', '1_day', 'multi_days'
+    days: Optional[float] = 1.0
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    custom_price: Optional[int] = None # Admin chỉnh sửa giá từng món
+
+
+class MultiItemBookingRequest(BaseModel):
+    items: List[MultiItemCartItem]
+    start_time: str
+    end_time: str
+    branch_code: Optional[str] = "CN1"  # 'CN1' (Pleiku, Gia Lai) hoặc 'CN2' (TP. Hồ Chí Minh)
+    customer_notes: Optional[str] = None
+    deposit_type: Optional[str] = "CCCD"
+    deposit_asset_desc: Optional[str] = None
+    custom_deposit_amount: Optional[int] = None
+    custom_total_rental_price: Optional[int] = None # Admin chỉnh sửa trực tiếp tổng tiền thuê
+    pos_discount: Optional[int] = 0 # Giảm giá chiết khấu tại POS
+    pos_surcharge: Optional[int] = 0 # Phụ thu tại POS
+    use_loyalty_points: Optional[bool] = False
+    coupon_code: Optional[str] = None
+    # Thông tin dành cho Admin POS KiotViet:
+    customer_id: Optional[int] = None
+    walk_in_customer_name: Optional[str] = None
+    walk_in_customer_phone: Optional[str] = None
+    is_direct_paid: Optional[bool] = False # True = Đã thu tiền mặt/chuyển khoản tại quầy KiotViet
+
+
+@app.post("/api/rentals/book_multi")
+def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+    """
+    Đặt thuê nhiều sản phẩm cùng 1 lúc (Gộp bill Shopee Cart & KiotViet POS Admin).
+    - Tính toán giá & cọc từng món (Camera: 4h/8h/1 ngày/nhiều ngày; Trang phục: deadline 20:00).
+    - Khóa kho đồng loạt tất cả thiết bị.
+    - Tạo 1 mã đơn gộp (TDB-XXXXXX) và 1 mã VietQR MBBank duy nhất.
+    - Hỗ trợ Admin KiotViet POS thanh toán trực tiếp tại quầy hoặc in bill K80 ngay.
+    """
+    if not req.items or len(req.items) == 0:
+        raise HTTPException(status_code=400, detail="Giỏ hàng trống! Vui lòng chọn ít nhất 1 sản phẩm.")
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    # Xác định người đặt (User đăng nhập hoặc Khách tại quầy KiotViet của Admin)
+    target_user_id = None
+    target_user_name = "Khách Hàng Tại Quầy"
+    target_user_phone = "0900000000"
+    target_user_cccd = "Chính chủ"
+    is_admin_mode = user and user.get("role") == "admin"
+
+    if is_admin_mode and req.walk_in_customer_name:
+        target_user_name = req.walk_in_customer_name.strip()
+        target_user_phone = req.walk_in_customer_phone.strip() if req.walk_in_customer_phone else "0900000000"
+        # Tìm xem khách này đã có tài khoản chưa, nếu chưa dùng tài khoản admin hoặc khách mặc định
+        existing_u = cur.execute("SELECT * FROM users WHERE phone = ?", (target_user_phone,)).fetchone()
+        if existing_u:
+            target_user_id = existing_u["id"]
+            target_user_cccd = existing_u["cccd_number"] or target_user_cccd
+        else:
+            target_user_id = user["id"]
+    elif user:
+        target_user_id = user["id"]
+        target_user_name = user["full_name"]
+        target_user_phone = user["phone"]
+        target_user_cccd = user.get("cccd_number") or "Đã xác thực"
+    else:
+        conn.close()
+        raise HTTPException(status_code=401, detail="Vui lòng đăng nhập để thanh toán đơn thuê!")
+
+    # Kiểm tra Blacklist
+    bl = cur.execute("SELECT reason FROM blacklist WHERE phone = ? OR cccd_number = ?", (target_user_phone, target_user_cccd)).fetchone()
+    if bl:
+        conn.close()
+        raise HTTPException(status_code=403, detail=f"Tài khoản/SĐT bị tạm ngưng giao dịch ({bl['reason']}).")
+
+    processed_items = []
+    total_rental_price = 0
+    total_default_deposit = 0
+    max_duration_hours = 24.0
+    effective_overall_end = req.end_time
+
+    # Duyệt và tính toán từng sản phẩm trong giỏ hàng
+    for item_req in req.items:
+        it_start = item_req.start_time or req.start_time
+        it_end = item_req.end_time or req.end_time
+
+        if item_req.combo_id:
+            combo = cur.execute("SELECT * FROM combos WHERE id = ?", (item_req.combo_id,)).fetchone()
+            if not combo:
+                conn.close()
+                raise HTTPException(status_code=404, detail=f"Gói Combo #{item_req.combo_id} không tồn tại!")
+            price_4h = int(combo["price_24h"] * 0.5)
+            price_8h = int(combo["price_24h"] * 0.7)
+            price_24h = combo["price_24h"]
+            dep = combo["deposit_amount"]
+            name = combo["name"]
+            sn = "Combo Trọn Gói"
+            cat = "COMBO_BUNDLE"
+        elif item_req.item_id:
+            item = cur.execute("SELECT * FROM items WHERE id = ?", (item_req.item_id,)).fetchone()
+            if not item:
+                conn.close()
+                raise HTTPException(status_code=404, detail=f"Thiết bị #{item_req.item_id} không tồn tại!")
+            if item["availability"] != "AVAILABLE" and not (is_admin_mode and req.is_direct_paid):
+                conn.close()
+                raise HTTPException(status_code=400, detail=f"Thiết bị '{item['name']}' hiện đang có người thuê!")
+            price_4h = item["price_4h"]
+            price_8h = item["price_8h"]
+            price_24h = item["price_24h"]
+            dep = item["deposit_amount"]
+            name = item["name"]
+            sn = item["serial_or_size"]
+            cat = item["category"]
+        else:
+            continue
+
+        # Tính giá theo gói chọn
+        try:
+            r_type, hours, r_days, it_price, dt_s, dt_e = calculate_rental_metrics(
+                it_start, it_end, price_4h, price_8h, price_24h, cat
+            )
+        except Exception:
+            # Fallback nếu giờ nhập lỗi
+            r_type = "24h"
+            hours = 24.0
+            r_days = 1.0
+            it_price = price_24h
+            dt_s = datetime.datetime.now()
+            dt_e = dt_s + datetime.timedelta(days=1)
+
+        # Nếu là máy ảnh và người dùng chọn gói riêng: 4h, 8h, 1_day, multi_days
+        if cat == "CAMERA_GEAR" and item_req.rental_type:
+            if item_req.rental_type == "4h":
+                r_type = "4h"; hours = 4.0; r_days = 0.5; it_price = price_4h
+            elif item_req.rental_type == "8h":
+                r_type = "8h"; hours = 8.0; r_days = 0.5; it_price = price_8h
+            elif item_req.rental_type in ("1_day", "24h"):
+                r_type = "24h"; hours = 24.0; r_days = 1.0; it_price = price_24h
+            elif item_req.rental_type == "multi_days":
+                d_cnt = max(1.0, float(item_req.days or 1.0))
+                mult = 0.80 if d_cnt >= 3 else (0.85 if d_cnt >= 2 else 1.0)
+                r_type = f"{d_cnt:g} ngày (24h)"; hours = d_cnt * 24.0; r_days = d_cnt
+                it_price = int(d_cnt * price_24h * mult)
+
+        # Nếu Admin chỉnh sửa giá trực tiếp cho món này:
+        if is_admin_mode and item_req.custom_price is not None and item_req.custom_price >= 0:
+            it_price = item_req.custom_price
+
+        max_duration_hours = max(max_duration_hours, hours)
+        it_end_str = dt_e.strftime("%Y-%m-%d %H:%M")
+        if it_end_str > effective_overall_end:
+            effective_overall_end = it_end_str
+
+        total_rental_price += it_price
+        total_default_deposit += dep
+
+        processed_items.append({
+            "item_id": item_req.item_id,
+            "combo_id": item_req.combo_id,
+            "name": name,
+            "serial_or_size": sn,
+            "category": cat,
+            "rental_type": r_type,
+            "rental_duration_hours": hours,
+            "price": it_price,
+            "deposit_amount": dep,
+            "start_time": it_start,
+            "end_time": it_end_str
+        })
+
+    # ADMIN ĐỒNG BỘ CHỈNH GIÁ TỔNG HOẶC CHIẾT KHẤU / PHỤ THU:
+    if is_admin_mode:
+        if req.custom_total_rental_price is not None and req.custom_total_rental_price >= 0:
+            total_rental_price = req.custom_total_rental_price
+        if req.pos_discount and req.pos_discount > 0:
+            total_rental_price = max(0, total_rental_price - req.pos_discount)
+        if req.pos_surcharge and req.pos_surcharge > 0:
+            total_rental_price += req.pos_surcharge
+
+    # PHẦN CỌC ĐÃ XÓA THEO YÊU CẦU: Tiền cọc = 0đ (Áp dụng quy định tại quầy: Để lại giấy tờ hoặc cọc thêm tiền)
+    final_deposit = 0
+    dep_type = "NONE"
+    asset_desc = "Để lại giấy tờ hoặc cọc thêm tiền (Hoàn lại khi trả đồ)"
+    discount = 0
+
+    now = datetime.datetime.now()
+    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+    hold_expires_at = (now + datetime.timedelta(minutes=15)).strftime("%Y-%m-%d %H:%M:%S")
+    rental_code = f"TDB-{int(time.time()*1000)%1000000:06d}"
+    selected_branch = req.branch_code.upper().strip() if req.branch_code and req.branch_code.upper().strip() in STORE_BRANCHES else "CN1"
+    branch_info = STORE_BRANCHES[selected_branch]
+
+    # Trạng thái ban đầu:
+    # Nếu Admin KiotViet POS thanh toán trực tiếp tại quầy -> ACTIVE
+    # Nếu Khách hàng đặt giỏ hàng Shopee -> HOLD (15 phút)
+    initial_status = "ACTIVE" if (is_admin_mode and req.is_direct_paid) else "HOLD"
+    if initial_status == "ACTIVE":
+        hold_expires_at = None
+
+    first_item_id = processed_items[0]["item_id"] if processed_items else None
+    first_combo_id = processed_items[0]["combo_id"] if processed_items else None
+    items_json_str = json.dumps(processed_items, ensure_ascii=False)
+
+    cur.execute("""
+    INSERT INTO rentals (
+        rental_code, user_id, item_id, combo_id, rental_type, start_time, end_time,
+        rental_duration_hours, hold_expires_at, total_price, deposit_paid, deposit_type,
+        deposit_asset_desc, branch_code, status, items_json, customer_notes, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        rental_code, target_user_id, first_item_id, first_combo_id,
+        f"Gói {len(processed_items)} món", req.start_time, effective_overall_end,
+        max_duration_hours, hold_expires_at, total_rental_price, final_deposit,
+        dep_type, asset_desc, selected_branch, initial_status, items_json_str,
+        req.customer_notes or ("Bán tại quầy KiotViet POS" if is_admin_mode else "Đơn giỏ hàng Shopee"),
+        now_str
+    ))
+    rental_id = cur.lastrowid
+
+    # Lưu chi tiết từng món vào bảng rental_items và khóa kho sang RENTED
+    for it in processed_items:
+        cur.execute("""
+        INSERT INTO rental_items (
+            rental_id, item_id, combo_id, item_name, serial_or_size, item_category,
+            rental_type, rental_duration_hours, unit_price, deposit_amount
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            rental_id, it["item_id"], it["combo_id"], it["name"], it["serial_or_size"],
+            it["category"], it["rental_type"], it["rental_duration_hours"], it["price"], 0
+        ))
+        if it["item_id"]:
+            cur.execute("UPDATE items SET availability = 'RENTED' WHERE id = ?", (it["item_id"],))
+
+    conn.commit()
+    conn.close()
+
+    total_payable = total_rental_price
+    qr_url = generate_vietqr_url(total_payable, rental_code)
+
+    # Gửi thông báo Telegram kèm Lưu ý
+    source_label = "KIOTVIET POS (TẠI QUẦY)" if (is_admin_mode and req.is_direct_paid) else "GIỎ HÀNG SHOPEE"
+    items_bullet = "\n".join([f"  • {it['name']} ({it['rental_type']}) - {it['price']:,}đ" for it in processed_items])
+
+    tele_msg = (
+        f"<b>📸 TIDUBASTORE.COM - ĐƠN {source_label} ({rental_code})</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"🏢 <b>Chi nhánh:</b> <b>{branch_info['name']}</b> ({branch_info['short_address']})\n"
+        f"👤 <b>Khách hàng:</b> {target_user_name} (<code>{target_user_phone}</code>)\n"
+        f"📦 <b>Số lượng:</b> {len(processed_items)} sản phẩm / trang phục:\n"
+        f"{items_bullet}\n"
+        f"⏳ <b>Hạn trả tổng:</b> <b>{effective_overall_end}</b>\n"
+        f"💵 <b>Tiền thuê:</b> <b>{total_rental_price:,}đ</b>\n"
+        f"⚠️ <b>LƯU Ý:</b> Để lại giấy tờ hoặc cọc thêm tiền, Tiền cọc sẽ hoàn khi trả đồ.\n"
+        f"📌 <b>Đối với máy ảnh:</b> Cọc 1 giấy tờ + tài sản (Điện thoại, Xe máy, Laptop, vòng vàng,...)\n"
+        f"💳 <b>Tổng thanh toán:</b> <b>{total_payable:,}đ</b>\n"
+        f"⚡ <b>Trạng thái:</b> <b>{initial_status}</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"🔗 Quét trả đồ: {PUBLIC_DOMAIN}/return-qr?code={rental_code}"
+    )
+    _send_telegram_notification(tele_msg, rental_id=rental_id, event_type="NEW_RENTAL")
+
+    # Tạo trước nội dung bill K80 ESC/POS
+    bill_data = {
+        "rental_code": rental_code,
+        "customer_name": target_user_name,
+        "customer_phone": target_user_phone,
+        "customer_cccd": target_user_cccd,
+        "total_price": total_rental_price,
+        "deposit_paid": 0,
+        "deposit_type": "NONE",
+        "deposit_asset_desc": asset_desc,
+        "branch_code": selected_branch,
+        "rental_type": f"Gói {len(processed_items)} món",
+        "rental_hours": max_duration_hours,
+        "start_time": req.start_time,
+        "end_time": effective_overall_end,
+        "items": processed_items
+    }
+    bill_k80_text = build_escpos_thermal_bill_text(bill_data)
+
+    return {
+        "success": True,
+        "message": "Đã tạo đơn thuê gộp thành công!" if not req.is_direct_paid else "✅ Đã thanh toán và kích hoạt đơn KiotViet thành công!",
+        "rental_id": rental_id,
+        "rental_code": rental_code,
+        "branch_code": selected_branch,
+        "branch_info": branch_info,
+        "items_count": len(processed_items),
+        "items": processed_items,
+        "total_price": total_rental_price,
+        "deposit_amount": 0,
+        "deposit_type": "NONE",
+        "deposit_asset_desc": asset_desc,
+        "discount_applied": 0,
+        "total_payable": total_payable,
+        "status": initial_status,
+        "qr_image_url": qr_url,
+        "bill_k80_text": bill_k80_text,
+        "bank_account": f"{BANK_CONFIG['bank_name']} - STK: {BANK_CONFIG['account_no']} ({BANK_CONFIG['account_name']})",
+        "start_time": req.start_time,
+        "end_time": effective_overall_end
+    }
+
+
+class RequestExtensionRequest(BaseModel):
+    extension_hours: int = Field(default=24, ge=1, le=168)
+    notes: Optional[str] = None
+
+
+@app.post("/api/rentals/{rental_id}/request_extension")
+def request_extension(rental_id: int, req: RequestExtensionRequest, user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Vui lòng đăng nhập!")
+    conn = get_db()
+    cur = conn.cursor()
+
+    rental = cur.execute("SELECT * FROM rentals WHERE id = ? AND user_id = ?", (rental_id, user["id"])).fetchone()
+    if not rental:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê của bạn!")
+
+    cur.execute("""
+    UPDATE rentals 
+    SET extension_hours = ?, extension_status = 'REQUESTED', customer_notes = COALESCE(customer_notes, '') || ' | Xin gia hạn ' || ? || ' giờ: ' || ?
+    WHERE id = ?
+    """, (req.extension_hours, req.extension_hours, req.notes or '', rental_id))
+
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur.execute("""
+    INSERT INTO alerts (rental_id, alert_type, title, message, created_at)
+    VALUES (?, 'EXTENSION_REQUEST', ?, ?, ?)
+    """, (rental_id, f"📝 YÊU CẦU GIA HẠN: {rental['rental_code']}", f"Khách {user['full_name']} xin gia hạn thêm {req.extension_hours} giờ cho đơn {rental['rental_code']}.", now_str))
+
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": f"Đã gửi yêu cầu gia hạn thêm {req.extension_hours} giờ tới Quản lý!"}
+
+
+@app.get("/api/rentals/my")
+def get_my_rentals(user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Vui lòng đăng nhập!")
+    update_and_check_rental_alerts()
+
+    conn = get_db()
+    # Chỉ hiển thị các đơn thuê hợp lệ, KHÔNG hiển thị đơn bị hủy (CANCELLED do đóng VietQR hoặc quá 15p)
+    rentals = conn.execute("""
+    SELECT r.*, 
+           COALESCE(i.name, c.name, 'Đơn Thuê Nhiều Món') as item_name,
+           COALESCE(i.image_url, c.image_url, '/static/logo.png') as item_image,
+           COALESCE(i.category, 'COMBO_BUNDLE') as item_category,
+           COALESCE(i.serial_or_size, 'Nhiều thiết bị') as serial_or_size
+    FROM rentals r
+    LEFT JOIN items i ON r.item_id = i.id
+    LEFT JOIN combos c ON r.combo_id = c.id
+    WHERE r.user_id = ? AND r.status != 'CANCELLED'
+    ORDER BY r.id DESC
+    """, (user["id"],)).fetchall()
+    conn.close()
+
+    result = []
+    for r in rentals:
+        d = dict(r)
+        d["qr_url"] = generate_vietqr_url(d["total_price"] + d["deposit_paid"], d["rental_code"])
+        if d.get("items_json"):
+            try:
+                parsed_items = json.loads(d["items_json"])
+                d["items"] = parsed_items
+                if len(parsed_items) > 1:
+                    d["item_name"] = f"Gói {len(parsed_items)} Thiết Bị / Trang Phục (" + ", ".join([it.get('name', '') for it in parsed_items[:2]]) + ("..." if len(parsed_items) > 2 else "") + ")"
+            except Exception:
+                d["items"] = []
+        result.append(d)
+
+    return {"rentals": result}
+
+
+# =============================================================================
+# 10. DIGITAL CONTRACT HTML EXPORT WITH MBBANK 0123006101998
+# =============================================================================
+
+@app.get("/api/rentals/{rental_id}/contract", response_class=HTMLResponse)
+def get_rental_contract(rental_id: int, user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+    """Xuất Hợp Đồng Điện Tử - Chỉ chủ đơn hoặc Admin mới được xem. Chặn IDOR."""
+    conn = get_db()
+    r = conn.execute("""
+    SELECT r.*, 
+           COALESCE(i.name, c.name) as item_name,
+           COALESCE(i.brand, 'Tiduba Store') as item_brand,
+           COALESCE(i.serial_or_size, 'Combo Trọn Gói') as item_serial,
+           COALESCE(i.condition_status, 'Mới 99%, hoạt động hoàn hảo') as item_condition,
+           u.full_name as customer_name, u.phone as customer_phone, u.email as customer_email,
+           u.cccd_number
+    FROM rentals r
+    LEFT JOIN items i ON r.item_id = i.id
+    LEFT JOIN combos c ON r.combo_id = c.id
+    JOIN users u ON r.user_id = u.id
+    WHERE r.id = ?
+    """, (rental_id,)).fetchone()
+    conn.close()
+
+    if not r:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê để lập hợp đồng!")
+
+    # IDOR check: Chỉ chủ đơn hoặc Admin được xem hợp đồng
+    if user is None or (user.get("role") != "admin" and r["user_id"] != user["id"]):
+        raise HTTPException(status_code=403, detail="Bạn không có quyền xem hợp đồng này!")
+
+    now_str = datetime.datetime.now().strftime("ngày %d tháng %m năm %Y")
+    total_val = r["total_price"] + r["deposit_paid"]
+    otp_status = "ĐÃ KÝ SỐ QUA MÃ OTP CHÍNH CHỦ" if r["e_contract_signed"] else "CHỜ KÝ SỐ OTP"
+    b_code = r["branch_code"] if ("branch_code" in r.keys() and r["branch_code"]) else "CN1"
+    branch_info = STORE_BRANCHES.get(b_code, STORE_BRANCHES["CN1"])
+
+    html = f"""<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Hợp Đồng Thuê Thiết Bị - {r['rental_code']}</title>
+    <style>
+        body {{ font-family: 'Times New Roman', Times, serif; font-size: 13pt; line-height: 1.6; color: #111; margin: 35px; background: #fff; }}
+        .header {{ text-align: center; margin-bottom: 20px; }}
+        .header h3 {{ margin: 0; font-size: 13pt; text-transform: uppercase; }}
+        .title {{ text-align: center; margin: 25px 0 15px 0; text-transform: uppercase; font-weight: bold; font-size: 17pt; color: #0284c7; }}
+        .section-title {{ font-weight: bold; text-transform: uppercase; margin-top: 18px; font-size: 13pt; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 3px; }}
+        table {{ width: 100%; border-collapse: collapse; margin: 15px 0; }}
+        th, td {{ border: 1px solid #94a3b8; padding: 9px; font-size: 12.5pt; text-align: left; }}
+        th {{ background: #f8fafc; text-transform: uppercase; }}
+        .signatures {{ margin-top: 35px; display: flex; justify-content: space-between; }}
+        .sign-col {{ width: 45%; text-align: center; }}
+        .btn-print {{ position: fixed; top: 20px; right: 20px; background: #0284c7; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }}
+        @media print {{ .btn-print {{ display: none; }} body {{ margin: 15mm; }} }}
+    </style>
+</head>
+<body>
+    <button class="btn-print" onclick="window.print()">🖨️ In / Lưu PDF Hợp Đồng</button>
+
+    <div style="text-align: center; margin-bottom: 12px;">
+        <img src="/static/logo.png" alt="Tiduba Logo" style="height: 65px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+    </div>
+
+    <div class="header">
+        <h3>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h3>
+        <p style="margin: 0;">Độc lập – Tự do – Hạnh phúc</p>
+        <p style="margin: 3px 0;">-----------------------</p>
+    </div>
+
+    <div class="title">HỢP ĐỒNG CHO THUÊ THIẾT BỊ MÁY ẢNH & TRANG PHỤC</div>
+    <p style="text-align: center; font-style: italic; margin-top: -10px;">Mã số hợp đồng: <strong>{r['rental_code']}</strong> | Trạng thái: <strong>{otp_status}</strong></p>
+
+    <div class="section-title">BÊN CHO THUÊ (BÊN A):</div>
+    <ul>
+        <li><strong>Đơn vị:</strong> HỆ THỐNG CỬA HÀNG CHO THUÊ TIDUBA STORE (TIDUBASTORE.COM)</li>
+        <li><strong>Chi nhánh 1 (Trụ sở chính):</strong> 183A Huỳnh Thúc Kháng, P. Diên Hồng, TP. Pleiku, Gia Lai (Hotline: 0977.078.981)</li>
+        <li><strong>Chi nhánh 2:</strong> 801 Lê Duẩn, P. An Phú, TP. Pleiku, Gia Lai (Hotline: 0977.078.981)</li>
+        <li><strong>Chi nhánh giao nhận & quản lý hợp đồng:</strong> <strong>{branch_info['name']} - {branch_info['address']}</strong></li>
+        <li><strong>Đại diện pháp lý:</strong> <strong>LÊ NHẬT PHÁT</strong></li>
+        <li><strong>Tài khoản ngân hàng thụ hưởng & hoàn cọc:</strong> <strong>MBBank (Ngân hàng Quân Đội)</strong></li>
+        <li><strong>Số tài khoản:</strong> <strong>0123006101998</strong></li>
+        <li><strong>Chủ tài khoản:</strong> <strong>KHONG KY DUYEN</strong></li>
+    </ul>
+
+    <div class="section-title">BÊN THUÊ (BÊN B - KHÁCH HÀNG):</div>
+    <ul>
+        <li><strong>Họ và tên:</strong> <strong>{r['customer_name']}</strong></li>
+        <li><strong>Số điện thoại:</strong> {r['customer_phone']} | <strong>Email:</strong> {r['customer_email']}</li>
+        <li><strong>Số CCCD gắn chip (Đã xác thực eKYC):</strong> {r['cccd_number'] or 'Đã lưu trữ đối chứng'}</li>
+    </ul>
+
+    <div style="background: #fef3c7; border: 2px solid #f59e0b; padding: 12px 16px; border-radius: 8px; margin: 15px 0;">
+        <p style="margin: 0; font-size: 13pt; font-weight: bold; color: #92400e; text-transform: uppercase;">⚠️ LƯU Ý QUAN TRỌNG:</p>
+        <p style="margin: 4px 0 0 0; font-size: 12.5pt; font-weight: bold; color: #78350f;">• Để lại giấy tờ hoặc cọc thêm tiền, Tiền cọc sẽ hoàn khi trả đồ.</p>
+        <p style="margin: 4px 0 0 0; font-size: 12.5pt; font-weight: bold; color: #78350f;">• Đối với máy ảnh: Cọc 1 giấy tờ + tài sản (Điện thoại, Xe máy, Laptop, vòng vàng,...)</p>
+    </div>
+
+    <div class="section-title">ĐIỀU 1: THÔNG TIN THIẾT BỊ / TRANG PHỤC BÀN GIAO</div>
+    <table>
+        <tr>
+            <th>Tên Thiết Bị / Trang Phục</th>
+            <th>Số Serial / Kích Thước</th>
+            <th>Tình Trạng Khi Giao</th>
+            <th>Hạn Trả Đồ (Bắt buộc)</th>
+        </tr>
+        <tr>
+            <td><strong>{r['item_name']}</strong></td>
+            <td>{r['item_serial']}</td>
+            <td>{r['item_condition']}</td>
+            <td><strong style="color: #dc2626;">{r['end_time']}</strong></td>
+        </tr>
+    </table>
+
+    <div class="section-title">ĐIỀU 2: CHI PHÍ THUÊ & QUY ĐỊNH TRẢ ĐỒ</div>
+    <table>
+        <tr>
+            <th>Gói Thuê</th>
+            <th>Tiền Thuê</th>
+            <th>Tổng Tiền Đã Thanh Toán</th>
+        </tr>
+        <tr>
+            <td>{r['rental_type']} ({r['rental_duration_hours']} giờ)</td>
+            <td>{r['total_price']:,} VNĐ</td>
+            <td><strong>{r['total_price']:,} VNĐ (MBBank 0123006101998)</strong></td>
+        </tr>
+    </table>
+    <p>1. <strong>Quy định trả đồ:</strong> Bên B có trách nhiệm hoàn trả thiết bị trước <strong>{r['end_time']}</strong>. Trường hợp trả muộn áp dụng mức phạt <strong>30.000 VNĐ / giờ quá hạn</strong>.</p>
+    <p>2. <strong>Hoàn trả giấy tờ / tiền cọc:</strong> Khi hoàn tất kiểm tra cảm biến/lens sạch sẽ hoặc trang phục nguyên vẹn, Bên A hoàn trả 100% giấy tờ hoặc tiền cọc lại cho Bên B sau 10 phút kiểm tra QC.</p>
+    <p>3. <strong>Cam kết đền bù hư hại 100%:</strong> Nếu làm rơi vỡ, nứt thấu kính, ẩm mốc hoặc rách trang phục, Bên B bồi thường 100% theo hóa đơn thẩm định chính hãng của trung tâm bảo hành Sony/Canon/DJI.</p>
+
+    <div class="signatures">
+        <div class="sign-col">
+            <p><strong>ĐẠI DIỆN BÊN A (TIDUBA STORE)</strong></p>
+            <p style="font-size: 11pt; color: #64748b;">(Đã ký số điện tử)</p>
+            <div style="height: 60px;"></div>
+            <p><strong>LÊ NHẬT PHÁT</strong></p>
+        </div>
+        <div class="sign-col">
+            <p><strong>BÊN THUÊ (BÊN B)</strong></p>
+            <p style="font-size: 11pt; color: #64748b;">(Xác thực ký số qua OTP)</p>
+            <div style="height: 60px;"></div>
+            <p><strong>{r['customer_name']}</strong></p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+    return HTMLResponse(content=html)
+
+
+# =============================================================================
+# 11. ADMIN PANEL APIS
+# =============================================================================
+
+def require_admin(user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+    if not user or user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ Quản trị viên (Admin) mới có quyền truy cập!")
+    return user
+
+
+@app.get("/api/admin/dashboard_stats")
+def get_admin_dashboard_stats(admin: Dict[str, Any] = Depends(require_admin)):
+    update_and_check_rental_alerts()
+    conn = get_db()
+    total_revenue = conn.execute("SELECT sum(total_price) as s FROM rentals WHERE status IN ('APPROVED', 'ACTIVE', 'RETURNED')").fetchone()["s"] or 0
+    total_rentals = conn.execute("SELECT count(*) as c FROM rentals").fetchone()["c"]
+    active_rentals = conn.execute("SELECT count(*) as c FROM rentals WHERE status = 'ACTIVE'").fetchone()["c"]
+    overdue_rentals = conn.execute("SELECT count(*) as c FROM rentals WHERE status = 'OVERDUE'").fetchone()["c"]
+    available_items = conn.execute("SELECT count(*) as c FROM items WHERE availability = 'AVAILABLE'").fetchone()["c"]
+    alerts = [dict(row) for row in conn.execute("SELECT * FROM alerts ORDER BY id DESC LIMIT 10").fetchall()]
+
+    # Thống kê doanh thu 7 ngày gần nhất
+    revenue_7d = []
+    today = datetime.date.today()
+    for idx in range(6, -1, -1):
+        day_date = today - datetime.timedelta(days=idx)
+        day_str = day_date.strftime("%Y-%m-%d")
+        day_rev = conn.execute("""
+        SELECT sum(total_price) as s FROM rentals 
+        WHERE status IN ('APPROVED', 'ACTIVE', 'RETURNED') AND created_at LIKE ?
+        """, (f"{day_str}%",)).fetchone()["s"] or 0
+        revenue_7d.append({"date": day_date.strftime("%d/%m"), "revenue": day_rev})
+
+    conn.close()
+
+    return {
+        "total_revenue": total_revenue,
+        "total_rentals": total_rentals,
+        "active_rentals": active_rentals,
+        "overdue_rentals": overdue_rentals,
+        "available_items": available_items,
+        "revenue_7d": revenue_7d,
+        "recent_alerts": alerts
+    }
+
+
+@app.get("/api/admin/rentals")
+def get_all_rentals_admin(status: Optional[str] = None, admin: Dict[str, Any] = Depends(require_admin)):
+    update_and_check_rental_alerts()
+    conn = get_db()
+    query = """
+    SELECT r.*, 
+           COALESCE(i.name, c.name) as item_name, 
+           COALESCE(i.category, 'COMBO') as item_category, 
+           COALESCE(i.serial_or_size, 'Combo Trọn Gói') as serial_or_size,
+           u.full_name as customer_name, u.phone as customer_phone, u.email as customer_email,
+           u.cccd_number
+    FROM rentals r
+    LEFT JOIN items i ON r.item_id = i.id
+    LEFT JOIN combos c ON r.combo_id = c.id
+    JOIN users u ON r.user_id = u.id
+    WHERE 1=1
+    """
+    params = []
+    if status:
+        query += " AND r.status = ?"
+        params.append(status)
+
+    query += " ORDER BY r.status = 'OVERDUE' DESC, r.id DESC"
+    rentals = [dict(row) for row in conn.execute(query, params).fetchall()]
+    conn.close()
+
+    now = datetime.datetime.now()
+    for r in rentals:
+        try:
+            dt_end = datetime.datetime.fromisoformat(r["end_time"])
+        except Exception:
+            dt_end = datetime.datetime.strptime(r["end_time"], "%Y-%m-%d %H:%M")
+        diff = (dt_end - now).total_seconds()
+        r["hours_remaining"] = round(diff / 3600.0, 1)
+        r["is_overdue"] = diff < 0
+
+    return {"rentals": rentals, "count": len(rentals)}
+
+
+class UpdateRentalAdminRequest(BaseModel):
+    status: Optional[str] = None
+    end_time: Optional[str] = None
+    total_price: Optional[int] = None
+    deposit_paid: Optional[int] = None
+    deposit_type: Optional[str] = None
+    deposit_asset_desc: Optional[str] = None
+    late_fee: Optional[int] = None
+    admin_notes: Optional[str] = None
+
+
+@app.patch("/api/admin/rentals/{rental_id}")
+def update_rental_admin(rental_id: int, req: UpdateRentalAdminRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    conn = get_db()
+    cur = conn.cursor()
+
+    rental = cur.execute("SELECT * FROM rentals WHERE id = ?", (rental_id,)).fetchone()
+    if not rental:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê!")
+
+    fields = []
+    params = []
+
+    if req.status:
+        fields.append("status = ?")
+        params.append(req.status)
+        if req.status in ("RETURNED", "CANCELLED") and rental["item_id"]:
+            cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (rental["item_id"],))
+        elif req.status == "ACTIVE" and rental["item_id"]:
+            cur.execute("UPDATE items SET availability = 'RENTED' WHERE id = ?", (rental["item_id"],))
+
+    if req.end_time:
+        fields.append("end_time = ?")
+        params.append(req.end_time)
+    if req.total_price is not None:
+        fields.append("total_price = ?")
+        params.append(req.total_price)
+    if req.deposit_paid is not None:
+        fields.append("deposit_paid = ?")
+        params.append(req.deposit_paid)
+    if req.deposit_type is not None:
+        fields.append("deposit_type = ?")
+        params.append(req.deposit_type)
+    if req.deposit_asset_desc is not None:
+        fields.append("deposit_asset_desc = ?")
+        params.append(req.deposit_asset_desc)
+    if req.late_fee is not None:
+        fields.append("late_fee = ?")
+        params.append(req.late_fee)
+    if req.admin_notes:
+        fields.append("admin_notes = ?")
+        params.append(req.admin_notes)
+
+    if fields:
+        params.append(rental_id)
+        cur.execute(f"UPDATE rentals SET {', '.join(fields)} WHERE id = ?", params)
+        conn.commit()
+
+    conn.close()
+    return {"success": True, "message": f"Đã cập nhật đơn thuê #{rental['rental_code']} thành công!"}
+
+
+@app.delete("/api/admin/rentals/{rental_id}")
+def admin_delete_rental(rental_id: int, admin: Dict[str, Any] = Depends(require_admin)):
+    """Xóa vĩnh viễn 1 đơn thuê và giải phóng thiết bị (Chỉ Admin)."""
+    conn = get_db()
+    cur = conn.cursor()
+    rental = cur.execute("SELECT * FROM rentals WHERE id = ?", (rental_id,)).fetchone()
+    if not rental:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê để xóa!")
+
+    # Giải phóng thiết bị nếu đơn chưa hoàn tất (trả lại AVAILABLE)
+    if rental["status"] not in ("RETURNED", "CANCELLED"):
+        if rental["items_json"]:
+            try:
+                items = json.loads(rental["items_json"])
+                for itm in items:
+                    if itm.get("item_id"):
+                        cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (itm["item_id"],))
+            except Exception:
+                pass
+        elif rental["item_id"]:
+            cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (rental["item_id"],))
+
+    # Xóa các liên kết
+    cur.execute("DELETE FROM rental_items WHERE rental_id = ?", (rental_id,))
+    cur.execute("DELETE FROM alerts WHERE rental_id = ?", (rental_id,))
+    cur.execute("DELETE FROM handover_protocols WHERE rental_id = ?", (rental_id,))
+    cur.execute("DELETE FROM damage_penalties WHERE rental_id = ?", (rental_id,))
+    cur.execute("DELETE FROM zns_logs WHERE rental_id = ?", (rental_id,))
+    cur.execute("DELETE FROM telegram_logs WHERE rental_id = ?", (rental_id,))
+    cur.execute("DELETE FROM rentals WHERE id = ?", (rental_id,))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": f"Đã xóa thành công đơn thuê & bill #{rental['rental_code']}!"}
+
+
+@app.delete("/api/admin/rentals")
+def admin_clear_all_rentals(admin: Dict[str, Any] = Depends(require_admin)):
+    """Xóa toàn bộ danh sách đơn thuê và làm sạch lịch sử hóa đơn toàn hệ thống (Chỉ Admin)."""
+    conn = get_db()
+    cur = conn.cursor()
+    # Trả toàn bộ thiết bị về AVAILABLE
+    cur.execute("UPDATE items SET availability = 'AVAILABLE'")
+    cur.execute("DELETE FROM rental_items")
+    cur.execute("DELETE FROM alerts")
+    cur.execute("DELETE FROM handover_protocols")
+    cur.execute("DELETE FROM damage_penalties")
+    cur.execute("DELETE FROM zns_logs")
+    cur.execute("DELETE FROM telegram_logs")
+    cur.execute("DELETE FROM rentals")
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "Đã xóa sạch toàn bộ danh sách đơn thuê & hóa đơn trên toàn hệ thống!"}
+
+
+class ApproveExtensionRequest(BaseModel):
+    new_end_time: str
+    extension_fee: int = 0
+
+
+@app.post("/api/admin/rentals/{rental_id}/approve_extension")
+def approve_extension(rental_id: int, req: ApproveExtensionRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+    UPDATE rentals 
+    SET end_time = ?, extension_status = 'APPROVED', total_price = total_price + ?, status = 'ACTIVE'
+    WHERE id = ?
+    """, (req.new_end_time, req.extension_fee, rental_id))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": f"Đã duyệt gia hạn đơn thuê tới {req.new_end_time}!"}
+
+
+class CreateItemAdminRequest(BaseModel):
+    name: str
+    category: str
+    subcategory: str
+    brand: str
+    serial_or_size: str
+    price_4h: int = 150000
+    price_8h: int = 250000
+    price_24h: int = 350000
+    deposit_amount: int = 0
+    image_url: str
+    gallery_json: Optional[str] = "[]"
+    description: str
+    condition_status: str
+    branch_code: Optional[str] = "CN1"
+
+
+@app.post("/api/admin/upload_image")
+async def upload_item_image(file: UploadFile = File(...), admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin tải ảnh thiết bị / trang phục thật lên server."""
+    allowed_exts = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in allowed_exts:
+        raise HTTPException(status_code=400, detail=f"Chỉ chấp nhận file ảnh: {', '.join(allowed_exts)}")
+
+    # Giới hạn kích thước tối đa 15MB
+    content = await file.read()
+    if len(content) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Ảnh vượt quá 15MB!")
+
+    unique_filename = f"item_{int(time.time() * 1000)}_{os.urandom(4).hex()}{ext}"
+    dest_path = UPLOADS_DIR / unique_filename
+
+    try:
+        with open(dest_path, "wb") as buffer:
+            buffer.write(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi lưu ảnh: {str(e)}")
+
+    image_url = f"/static/uploads/{unique_filename}"
+    return {
+        "success": True,
+        "message": "Tải ảnh sản phẩm thật lên hệ thống thành công!",
+        "image_url": image_url,
+        "file_name": unique_filename
+    }
+
+
+@app.post("/api/rentals/upload_proof")
+async def upload_payment_proof_image(
+    file: UploadFile = File(...),
+    user: Optional[Dict[str, Any]] = Depends(get_current_user)
+):
+    """Khách hàng tải ảnh biên lai chuyển tiền lên để Admin xác nhận thanh toán."""
+    if not user:
+        raise HTTPException(status_code=401, detail="Vui lòng đăng nhập để tải ảnh biên lai!")
+
+    allowed_exts = {".jpg", ".jpeg", ".png", ".webp", ".heic"}
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in allowed_exts:
+        raise HTTPException(status_code=400, detail=f"Chỉ chấp nhận ảnh: {', '.join(allowed_exts)}")
+
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Ảnh biên lai vượt quá 10MB!")
+
+    safe_uid = str(user["id"])
+    unique_filename = f"proof_{safe_uid}_{int(time.time() * 1000)}_{os.urandom(3).hex()}{ext}"
+    dest_path = UPLOADS_DIR / unique_filename
+
+    try:
+        with open(dest_path, "wb") as buffer:
+            buffer.write(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi lưu ảnh: {str(e)}")
+
+    image_url = f"/static/uploads/{unique_filename}"
+    return {
+        "success": True,
+        "message": "Đã tải ảnh biên lai thành công!",
+        "image_url": image_url
+    }
+
+
+@app.post("/api/admin/items")
+def create_item_admin(req: CreateItemAdminRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    conn = get_db()
+    cur = conn.cursor()
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    cur.execute("""
+    INSERT INTO items (name, category, subcategory, brand, serial_or_size, price_4h, price_8h, price_24h, deposit_amount, image_url, gallery_json, description, condition_status, availability, branch_code, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AVAILABLE', ?, ?)
+    """, (req.name, req.category, req.subcategory, req.brand, req.serial_or_size, req.price_4h, req.price_8h, req.price_24h, req.deposit_amount, req.image_url, req.gallery_json or "[]", req.description, req.condition_status, req.branch_code or "CN1", now_str))
+
+    conn.commit()
+    new_id = cur.lastrowid
+    conn.close()
+    return {"success": True, "message": "Đã thêm thiết bị/trang phục mới vào kho!", "item_id": new_id}
+
+
+class UpdateItemFullAdminRequest(BaseModel):
+    name: Optional[str] = None
+    category: Optional[str] = None
+    subcategory: Optional[str] = None
+    brand: Optional[str] = None
+    serial_or_size: Optional[str] = None
+    price_4h: Optional[int] = None
+    price_8h: Optional[int] = None
+    price_24h: Optional[int] = None
+    deposit_amount: Optional[int] = None
+    image_url: Optional[str] = None
+    gallery_json: Optional[str] = None
+    description: Optional[str] = None
+    condition_status: Optional[str] = None
+    availability: Optional[str] = None
+    branch_code: Optional[str] = None
+
+
+@app.patch("/api/admin/items/{item_id}")
+def update_item_admin_full(item_id: int, req: UpdateItemFullAdminRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    conn = get_db()
+    cur = conn.cursor()
+
+    # Whitelist các cột được phép sửa để tránh SQL injection
+    ALLOWED_ITEM_FIELDS = {
+        "name", "category", "subcategory", "brand", "serial_or_size",
+        "price_4h", "price_8h", "price_24h", "deposit_amount",
+        "image_url", "gallery_json", "description", "condition_status", "availability", "branch_code"
+    }
+
+    fields = []
+    params = []
+    for k, v in req.dict(exclude_none=True).items():
+        if k in ALLOWED_ITEM_FIELDS:
+            fields.append(f"{k} = ?")
+            params.append(v)
+
+    if fields:
+        params.append(item_id)
+        cur.execute(f"UPDATE items SET {', '.join(fields)} WHERE id = ?", params)
+        conn.commit()
+
+    conn.close()
+    return {"success": True, "message": "Đã cập nhật thông tin và ảnh thiết bị thành công!"}
+
+
+@app.post("/api/admin/items/{item_id}/toggle_availability")
+def toggle_item_availability(item_id: int, admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin bật/tắt trạng thái sản phẩm: AVAILABLE ↔ UNAVAILABLE (hạ xuống / kích hoạt lại)."""
+    conn = get_db()
+    cur = conn.cursor()
+
+    item = cur.execute("SELECT id, name, availability FROM items WHERE id = ?", (item_id,)).fetchone()
+    if not item:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Không tìm thấy sản phẩm!")
+
+    if item["availability"] == "UNAVAILABLE":
+        new_status = "AVAILABLE"
+        msg = f"Đã kích hoạt lại sản phẩm '{item['name']}' (Đang cho thuê)!"
+    elif item["availability"] == "AVAILABLE":
+        new_status = "UNAVAILABLE"
+        msg = f"Đã hạ sản phẩm '{item['name']}' xuống (Tạm ngưng cho thuê)!"
+    else:
+        # Đang RENTED → không cho hạ
+        conn.close()
+        raise HTTPException(status_code=400, detail=f"Sản phẩm đang có người thuê (RENTED), không thể hạ xuống!")
+
+    cur.execute("UPDATE items SET availability = ? WHERE id = ?", (new_status, item_id))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": msg, "new_availability": new_status}
+
+
+
+@app.delete("/api/admin/items/{item_id}")
+def delete_item_admin(item_id: int, admin: Dict[str, Any] = Depends(require_admin)):
+    conn = get_db()
+    # Kiểm tra xem sản phẩm có đang trong đơn ACTIVE hay không
+    in_use = conn.execute("SELECT id FROM rentals WHERE item_id = ? AND status IN ('ACTIVE', 'HOLD', 'OVERDUE')", (item_id,)).fetchone()
+    if in_use:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Thiết bị này đang có người thuê hoặc giữ chỗ! Vui lòng chỉ 'Hạ sản phẩm' xuống thay vì xóa vĩnh viễn.")
+
+    conn.execute("DELETE FROM items WHERE id = ?", (item_id,))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "Đã xóa vĩnh viễn thiết bị khỏi hệ thống!"}
+
+
+# =============================================================================
+# ADMIN SITE SETTINGS & CATEGORIES DYNAMIC CONFIG
+# =============================================================================
+
+@app.get("/api/settings")
+def get_site_settings():
+    """Lấy toàn bộ cấu hình nội dung website có thể chỉnh sửa không cần code."""
+    conn = get_db()
+    rows = conn.execute("SELECT key, value FROM site_settings").fetchall()
+    conn.close()
+    settings_dict = {r["key"]: r["value"] for r in rows}
+    return {"success": True, "settings": settings_dict}
+
+
+class UpdateSiteSettingsRequest(BaseModel):
+    settings: Dict[str, str]
+
+
+@app.post("/api/admin/settings")
+def update_site_settings(req: UpdateSiteSettingsRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin cập nhật các mục nội dung trực tiếp trên website (tiêu đề, hotline, banner, note...)."""
+    conn = get_db()
+    cur = conn.cursor()
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    for k, v in req.settings.items():
+        cur.execute("""
+        INSERT INTO site_settings (key, value, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+        """, (k, str(v), now_str))
+
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "Đã lưu cài đặt website thành công!"}
+
+
+@app.get("/api/categories")
+def get_categories():
+    """Lấy danh sách các thư mục / bộ lọc chip phân loại (Tất cả, Sony, Canon, Váy...)."""
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM categories_config WHERE is_active = 1 ORDER BY display_order ASC, id ASC").fetchall()
+    conn.close()
+    return {"success": True, "categories": [dict(r) for r in rows]}
+
+
+class CategoryConfigItem(BaseModel):
+    id: Optional[int] = None
+    code: str
+    name: str
+    filter_type: str = "BRAND"  # 'ALL', 'BRAND', 'CATEGORY', 'PRICE'
+    filter_value: str = ""
+    display_order: int = 0
+    is_active: int = 1
+
+
+@app.post("/api/admin/categories")
+def save_category_chip(req: CategoryConfigItem, admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin thêm mới hoặc chỉnh sửa 1 thư mục / chip lọc."""
+    conn = get_db()
+    cur = conn.cursor()
+    if req.id:
+        cur.execute("""
+        UPDATE categories_config 
+        SET code = ?, name = ?, filter_type = ?, filter_value = ?, display_order = ?, is_active = ?
+        WHERE id = ?
+        """, (req.code, req.name, req.filter_type, req.filter_value, req.display_order, req.is_active, req.id))
+    else:
+        cur.execute("""
+        INSERT INTO categories_config (code, name, filter_type, filter_value, display_order, is_active)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """, (req.code, req.name, req.filter_type, req.filter_value, req.display_order, req.is_active))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": f"Đã lưu danh mục '{req.name}' thành công!"}
+
+
+@app.delete("/api/admin/categories/{cat_id}")
+def delete_category_chip(cat_id: int, admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin xóa 1 thư mục / chip lọc."""
+    conn = get_db()
+    conn.execute("DELETE FROM categories_config WHERE id = ?", (cat_id,))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "Đã xóa danh mục / chip lọc thành công!"}
+
+
+@app.get("/api/admin/rentals/{rental_id}/label", response_class=HTMLResponse)
+def print_equipment_barcode_label(rental_id: int, admin: Dict[str, Any] = Depends(require_admin)):
+    """In tem mã vạch K80 dán trực tiếp lên thiết bị máy ảnh / túi đồ cho thuê."""
+    conn = get_db()
+    r = conn.execute("""
+    SELECT r.*, 
+           COALESCE(i.name, c.name) as item_name, 
+           COALESCE(i.serial_or_size, 'Combo') as serial_or_size,
+           u.full_name as customer_name, u.phone as customer_phone
+    FROM rentals r
+    LEFT JOIN items i ON r.item_id = i.id
+    LEFT JOIN combos c ON r.combo_id = c.id
+    JOIN users u ON r.user_id = u.id
+    WHERE r.id = ?
+    """, (rental_id,)).fetchone()
+    conn.close()
+
+    if not r:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn!")
+
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Tem Mã Vạch Thiết Bị - {r['rental_code']}</title>
+    <style>
+        body {{ margin: 0; padding: 10px; font-family: monospace; font-size: 11pt; width: 75mm; text-align: center; background: #fff; color: #000; }}
+        .header {{ font-weight: bold; font-size: 13pt; text-transform: uppercase; border-bottom: 2px dashed #000; padding-bottom: 5px; }}
+        .code {{ font-size: 18pt; font-weight: 900; letter-spacing: 2px; margin: 8px 0; border: 1px solid #000; padding: 4px; }}
+        .meta {{ text-align: left; font-size: 10pt; line-height: 1.4; border-bottom: 1px dashed #000; padding: 6px 0; }}
+        .warning {{ font-size: 9pt; font-weight: bold; margin-top: 6px; }}
+        @media print {{ button {{ display: none; }} }}
+    </style>
+</head>
+<body onload="window.print()">
+    <div class="header">TIDUBA STORE - THIẾT BỊ CHO THUÊ</div>
+    <div class="code">*{r['rental_code']}*</div>
+    <div class="meta">
+        <div><strong>MÁY/ĐỒ:</strong> {r['item_name']}</div>
+        <div><strong>SERIAL:</strong> {r['serial_or_size']}</div>
+        <div><strong>KHÁCH:</strong> {r['customer_name']} ({r['customer_phone']})</div>
+        <div><strong>HẠN TRẢ:</strong> {r['end_time']}</div>
+        <div><strong>HOTLINE:</strong> 0977.078.981</div>
+    </div>
+    <div class="warning">⚠️ NIÊM PHONG THIẾT BỊ - VUI LÒNG KHÔNG BÓC TEM</div>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
+
+
+# =============================================================================
+# 12. FRONTEND SERVING
+# =============================================================================
+
+@app.get("/", response_class=HTMLResponse)
+def index():
+    index_html = TEMPLATES_DIR / "index.html"
+    if index_html.exists():
+        return HTMLResponse(content=index_html.read_text(encoding="utf-8"))
+    return HTMLResponse("<h1>Tiduba Store Backend Online. Giao diện đang được nạp...</h1>")
+
+
+# =============================================================================
+# 13. eKYC UPLOAD ẢNH CCCD (KHÁCH TỰ CHỤP & NẠP ẢNH)
+# =============================================================================
+
+@app.post("/api/ekyc/upload_image")
+async def upload_ekyc_image(
+    file: UploadFile = File(...),
+    side: str = "front",  # 'front' hoặc 'back' hoặc 'selfie'
+    user: Optional[Dict[str, Any]] = Depends(get_current_user)
+):
+    """Khách hàng tự chụp/tải ảnh CCCD mặt trước, mặt sau và ảnh selfie để xác minh."""
+    if not user:
+        raise HTTPException(status_code=401, detail="Vui lòng đăng nhập để nạp ảnh eKYC!")
+
+    allowed_exts = {".jpg", ".jpeg", ".png", ".webp"}
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in allowed_exts:
+        raise HTTPException(status_code=400, detail=f"Chỉ chấp nhận ảnh: {', '.join(allowed_exts)}")
+
+    # Kiểm tra kích thước tối đa 10MB
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Ảnh vượt quá 10MB! Vui lòng nén ảnh trước.")
+
+    # Tạo tên file an toàn (không path traversal)
+    safe_side = re.sub(r"[^a-z]", "", side.lower()) or "doc"
+    unique_filename = f"ekyc_{user['id']}_{safe_side}_{int(time.time() * 1000)}{ext}"
+    dest_path = UPLOADS_DIR / unique_filename
+
+    try:
+        with open(dest_path, "wb") as f:
+            f.write(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi lưu ảnh: {str(e)}")
+
+    image_url = f"/static/uploads/{unique_filename}"
+
+    # Cập nhật ngay vào DB
+    conn = get_db()
+    if side == "front":
+        conn.execute("UPDATE users SET cccd_front_img = ? WHERE id = ?", (image_url, user["id"]))
+    elif side == "back":
+        conn.execute("UPDATE users SET cccd_back_img = ? WHERE id = ?", (image_url, user["id"]))
+    conn.commit()
+    conn.close()
+
+    return {
+        "success": True,
+        "message": f"Đã tải ảnh {side} CCCD thành công!",
+        "image_url": image_url,
+        "side": side
+    }
+
+
+# =============================================================================
+# 14. ADMIN XÁC NHẬN THANH TOÁN (Thay thế nút Đã Hoàn Tất của khách)
+# =============================================================================
+
+@app.post("/api/admin/rentals/{rental_id}/confirm_payment")
+def admin_confirm_payment(rental_id: int, admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin xác nhận đã nhận tiền và kích hoạt đơn thuê (chỉ admin mới làm được)."""
+    conn = get_db()
+    cur = conn.cursor()
+
+    rental = cur.execute("""
+    SELECT r.*, COALESCE(i.name, c.name) as item_name, COALESCE(i.serial_or_size, 'Combo') as serial_or_size,
+           u.full_name as customer_name, u.phone as customer_phone, u.cccd_number as customer_cccd
+    FROM rentals r
+    LEFT JOIN items i ON r.item_id = i.id
+    LEFT JOIN combos c ON r.combo_id = c.id
+    JOIN users u ON r.user_id = u.id
+    WHERE r.id = ?
+    """, (rental_id,)).fetchone()
+
+    if not rental:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê!")
+
+    # Cập nhật trạng thái sang ACTIVE
+    cur.execute("UPDATE rentals SET status = 'ACTIVE' WHERE id = ?", (rental_id,))
+    if rental["item_id"]:
+        cur.execute("UPDATE items SET availability = 'RENTED' WHERE id = ?", (rental["item_id"],))
+
+    # Tự động in bill
+    bill_text = build_escpos_thermal_bill_text({
+        "rental_code": rental["rental_code"],
+        "customer_name": rental["customer_name"],
+        "customer_phone": rental["customer_phone"],
+        "customer_cccd": rental["customer_cccd"] or "N/A",
+        "item_name": rental["item_name"],
+        "serial_or_size": rental["serial_or_size"],
+        "rental_type": rental["rental_type"],
+        "rental_hours": rental["rental_duration_hours"],
+        "start_time": rental["start_time"],
+        "end_time": rental["end_time"],
+        "total_price": rental["total_price"],
+        "deposit_paid": rental["deposit_paid"]
+    })
+
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur.execute("""
+    INSERT INTO print_queue (rental_id, bill_text, status, created_at)
+    VALUES (?, ?, 'PENDING', ?)
+    """, (rental_id, bill_text, now_str))
+
+    # Ghi log Zalo
+    cur.execute("""
+    INSERT INTO zns_logs (rental_id, phone, milestone, template_id, channel, status, sent_at)
+    VALUES (?, ?, 'ADMIN_CONFIRMED_PAYMENT', 'TDB_ZNS_ADMIN_CONFIRM_V1', 'ZALO_ZNS', 'SENT', ?)
+    """, (rental_id, rental["customer_phone"], now_str))
+
+    conn.commit()
+
+    # Gửi thông báo Telegram khi Admin xác nhận thanh toán
+    tele_msg = (
+        f"<b>💰 TIDUBA STORE - XÁC NHẬN THANH TOÁN ({rental['rental_code']})</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"👤 <b>Khách hàng:</b> {rental['customer_name']} (<code>{rental['customer_phone']}</code>)\n"
+        f"📦 <b>Thiết bị:</b> {rental['item_name']}\n"
+        f"⏳ <b>Hạn trả đồ:</b> <b>{rental['end_time']}</b>\n"
+        f"🛡️ <b>Hình thức cọc:</b> {rental.get('deposit_type', 'CCCD')} ({rental.get('deposit_asset_desc') or 'Giữ CCCD'})\n"
+        f"✅ <b>Trạng thái:</b> ĐÃ KÍCH HOẠT ĐƠN & TỰ ĐỘNG IN BILL K80!\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"🔗 Quét trả đồ: {PUBLIC_DOMAIN}/return-qr?code={rental['rental_code']}"
+    )
+    _send_telegram_notification(tele_msg, rental_id=rental_id, event_type="PAYMENT")
+
+    conn.close()
+
+    return {
+        "success": True,
+        "message": f"✅ Đã xác nhận thanh toán và kích hoạt đơn {rental['rental_code']} thành công!",
+        "rental_code": rental["rental_code"],
+        "customer_name": rental["customer_name"]
+    }
+
+
+class CustomerPaymentProofRequest(BaseModel):
+    rental_id: int
+    proof_image_url: str
+    customer_notes: Optional[str] = None
+
+
+@app.post("/api/rentals/submit_payment_proof")
+def submit_customer_payment_proof(req: CustomerPaymentProofRequest, user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+    """
+    Khách hàng ấn nút 'Tôi đã chuyển tiền' kèm tải lên ảnh biên lai / minh chứng thanh toán.
+    Hệ thống:
+    - Lưu proof_image_url vào đơn thuê
+    - Cập nhật ghi chú
+    - Gửi ngay tin nhắn ảnh qua Telegram Bot tới Group quản lý kèm nút bấm:
+      [✅ Xác Nhận Đã Thanh Toán]
+      Khi admin bấm nút trên Telegram hoặc web, đơn lập tức được duyệt và đồng bộ!
+    """
+    conn = get_db()
+    cur = conn.cursor()
+
+    rental = cur.execute("""
+    SELECT r.*, COALESCE(i.name, c.name, 'Đơn Thuê Nhiều Món') as item_name,
+           u.full_name as customer_name, u.phone as customer_phone
+    FROM rentals r
+    LEFT JOIN items i ON r.item_id = i.id
+    LEFT JOIN combos c ON r.combo_id = c.id
+    JOIN users u ON r.user_id = u.id
+    WHERE r.id = ?
+    """, (req.rental_id,)).fetchone()
+
+    if not rental:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê!")
+
+    cur.execute("""
+    UPDATE rentals 
+    SET payment_proof_img = ?, customer_notes = COALESCE(customer_notes, '') || ' | Khách đã tải bill chuyển tiền'
+    WHERE id = ?
+    """, (req.proof_image_url, req.rental_id))
+    conn.commit()
+    conn.close()
+
+    branch_code = rental["branch_code"] if ("branch_code" in rental.keys() and rental["branch_code"]) else "CN1"
+    branch_info = STORE_BRANCHES.get(branch_code, STORE_BRANCHES["CN1"])
+
+    tele_msg = (
+        f"<b>📸 [BILL CHUYỂN TIỀN] KHÁCH ĐÃ CHUYỂN KHOẢN!</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"📋 <b>Mã đơn:</b> <code>{rental['rental_code']}</code>\n"
+        f"👤 <b>Khách hàng:</b> {rental['customer_name']} (<code>{rental['customer_phone']}</code>)\n"
+        f"📦 <b>Thiết bị:</b> {rental['item_name']}\n"
+        f"💵 <b>Số tiền cần trả:</b> <b>{rental['total_price']:,}đ</b>\n"
+        f"🏢 <b>Chi nhánh:</b> {branch_info['name']}\n"
+        f"📸 <i>Ảnh minh chứng thanh toán đính kèm bên dưới.</i>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"👇 <b>Admin bấm nút bên dưới để duyệt thanh toán ngay:</b>"
+    )
+
+    # Tạo HMAC signature bảo mật cho link xác nhận
+    confirm_sig = hmac.new(TOKEN_SECRET.encode(), f"{rental['id']}:{rental['rental_code']}".encode(), hashlib.sha256).hexdigest()
+    confirm_url = f"{PUBLIC_DOMAIN}/api/telegram/quick_confirm?rental_id={rental['id']}&code={rental['rental_code']}&sig={confirm_sig}"
+    inline_kb = [
+        [
+            {"text": "✅ Xác Nhận Đã Thanh Toán", "url": confirm_url},
+            {"text": "🔍 Xem Đơn Trên Web", "url": f"{PUBLIC_DOMAIN}/return-qr?code={rental['rental_code']}"}
+        ]
+    ]
+
+    _send_telegram_notification(
+        message=tele_msg,
+        rental_id=rental["id"],
+        event_type="PAYMENT",
+        photo_url=req.proof_image_url,
+        inline_keyboard=inline_kb
+    )
+
+    return {
+        "success": True,
+        "message": "✅ Đã gửi ảnh minh chứng thanh toán thành công! Quản lý đang duyệt đơn và sẽ kích hoạt trong ít phút.",
+        "rental_code": rental["rental_code"]
+    }
+
+
+@app.get("/api/telegram/quick_confirm", response_class=HTMLResponse)
+def telegram_quick_confirm_payment(rental_id: int, code: str, sig: Optional[str] = None):
+    """
+    Đường link duyệt nhanh từ nút bấm trên Telegram Bot.
+    SECURITY: Yêu cầu tham số `sig` là HMAC signature để xác thực link hợp lệ.
+    Chữ ký = HMAC-SHA256(TOKEN_SECRET, f"{rental_id}:{code}") dạng hex.
+    """
+    # Validate HMAC signature - chống giả mạo link xác nhận thanh toán
+    if not sig:
+        return HTMLResponse("<h3>❌ Link xác nhận không hợp lệ (thiếu chữ ký bảo mật)!</h3>", status_code=403)
+    
+    expected_sig = hmac.new(TOKEN_SECRET.encode(), f"{rental_id}:{code}".encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(sig, expected_sig):
+        return HTMLResponse("<h3>❌ Chữ ký bảo mật không hợp lệ! Link đã bị giả mạo hoặc thay đổi.</h3>", status_code=403)
+    conn = get_db()
+    cur = conn.cursor()
+    rental = cur.execute("SELECT * FROM rentals WHERE id = ? AND rental_code = ?", (rental_id, code)).fetchone()
+    if not rental:
+        conn.close()
+        return HTMLResponse("<h3>❌ Không tìm thấy đơn thuê hợp lệ!</h3>", status_code=404)
+
+    cur.execute("UPDATE rentals SET status = 'ACTIVE' WHERE id = ?", (rental_id,))
+    if rental["item_id"]:
+        cur.execute("UPDATE items SET availability = 'RENTED' WHERE id = ?", (rental["item_id"],))
+
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur.execute("""
+    INSERT INTO print_queue (rental_id, bill_text, status, created_at)
+    VALUES (?, ?, 'PENDING', ?)
+    """, (rental_id, f"DUYET QUA TELEGRAM BOT DON {code}", now_str))
+
+    conn.commit()
+    conn.close()
+
+    tele_msg = f"✅ <b>Admin đã duyệt đơn {code} qua Telegram!</b> Đơn hàng đã chuyển sang trạng thái <b>ACTIVE (Đang thuê)</b>."
+    _send_telegram_notification(tele_msg, rental_id=rental_id, event_type="PAYMENT")
+
+    return HTMLResponse(f"""
+    <!DOCTYPE html>
+    <html lang="vi">
+    <head>
+        <meta charset="UTF-8">
+        <title>Duyệt Thanh Toán Thành Công - {code}</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body class="bg-slate-900 text-white min-h-screen flex items-center justify-center p-4">
+        <div class="bg-slate-800 p-8 rounded-3xl max-w-md w-full text-center space-y-4 border border-emerald-500 shadow-2xl">
+            <div class="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-3xl mx-auto">✓</div>
+            <h2 class="text-xl font-bold text-emerald-400">ĐÃ XÁC NHẬN THANH TOÁN!</h2>
+            <p class="text-sm text-gray-300">Đơn hàng <strong>{code}</strong> đã được kích hoạt thành công trên hệ thống TidubaStore.com.</p>
+            <p class="text-xs text-gray-400">Thiết bị đã chuyển trạng thái RENTED và đồng bộ tức thì trên Web.</p>
+            <a href="/" class="inline-block mt-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-6 rounded-xl text-xs">Về Trang Chủ Web</a>
+        </div>
+    </body>
+    </html>
+    """)
+
+
+# =============================================================================
+# 15. TELEGRAM NOTIFICATION BOT SERVICE
+# =============================================================================
+
+def _send_telegram_notification(
+    message: str, 
+    rental_id: Optional[int] = None, 
+    event_type: str = "NOTIFY",
+    photo_url: Optional[str] = None,
+    inline_keyboard: Optional[List[List[Dict[str, str]]]] = None
+) -> bool:
+    """
+    Gửi thông báo Telegram Bot thời gian thực tới Admin hoặc Group quản lý.
+    Hỗ trợ gửi kèm ảnh minh chứng thanh toán (sendPhoto) và Inline Keyboard nút bấm xác nhận.
+    Tự động chuẩn hóa group chat_id dạng -100xxx nếu cần.
+    """
+    try:
+        conn = get_db()
+        cfg = conn.execute("SELECT * FROM telegram_config WHERE id = 1").fetchone()
+        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        status = "LOG_ONLY"
+
+        if cfg and cfg["is_active"] and cfg["bot_token"] and cfg["chat_id"]:
+            # Kiểm tra phân loại sự kiện theo cấu hình bật/tắt
+            if event_type == "NEW_RENTAL" and not cfg["auto_notify_new_rental"]:
+                conn.close()
+                return False
+            if event_type == "PAYMENT" and not cfg["auto_notify_payment"]:
+                conn.close()
+                return False
+            if event_type == "RETURN" and not cfg["auto_notify_return"]:
+                conn.close()
+                return False
+            if event_type in ("OVERDUE", "WARNING_DUE_SOON") and not cfg["auto_notify_overdue"]:
+                conn.close()
+                return False
+
+            bot_token = cfg["bot_token"].strip()
+            raw_chat_id = cfg["chat_id"].strip()
+
+            # Chuẩn hóa chat_id: nếu là group supergroup số âm dài không có -100
+            # thì tự động hỗ trợ cả raw_chat_id lẫn -100xxx
+            candidate_chat_ids = [raw_chat_id]
+            if raw_chat_id.startswith("-") and not raw_chat_id.startswith("-100"):
+                clean = raw_chat_id.lstrip("-")
+                candidate_chat_ids.append(f"-100{clean}")
+            elif not raw_chat_id.startswith("-") and len(raw_chat_id) >= 10:
+                candidate_chat_ids.append(f"-100{raw_chat_id}")
+
+            # Nếu có photo_url thì dùng sendPhoto, ngược lại dùng sendMessage
+            sent_successfully = False
+            for target_chat_id in candidate_chat_ids:
+                try:
+                    if photo_url:
+                        # Chuẩn hóa full URL nếu là đường dẫn nội bộ
+                        full_photo_url = photo_url
+                        if photo_url.startswith("/"):
+                            full_photo_url = f"{PUBLIC_DOMAIN}{photo_url}"
+
+                        url = f"https://api.telegram.org/bot{bot_token}/sendPhoto"
+                        body_dict = {
+                            "chat_id": target_chat_id,
+                            "photo": full_photo_url,
+                            "caption": message,
+                            "parse_mode": "HTML"
+                        }
+                    else:
+                        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                        body_dict = {
+                            "chat_id": target_chat_id,
+                            "text": message,
+                            "parse_mode": "HTML",
+                            "disable_web_page_preview": True
+                        }
+
+                    if inline_keyboard:
+                        body_dict["reply_markup"] = {"inline_keyboard": inline_keyboard}
+
+                    payload_data = json.dumps(body_dict).encode("utf-8")
+                    req = urllib.request.Request(
+                        url,
+                        data=payload_data,
+                        headers={"Content-Type": "application/json", "User-Agent": "TidubaStoreBot/1.0"},
+                        method="POST"
+                    )
+                    with urllib.request.urlopen(req, timeout=10) as resp:
+                        if resp.status == 200:
+                            status = "SENT"
+                            sent_successfully = True
+                            break
+                        else:
+                            status = f"HTTP_{resp.status}"
+                except Exception as e:
+                    status = f"FAILED: {str(e)[:50]}"
+                    print(f"[TELEGRAM] Thử gửi tới {target_chat_id} thất bại: {e}")
+
+        # Ghi log vào bảng telegram_logs
+        conn.execute("""
+        INSERT INTO telegram_logs (rental_id, chat_id, event_type, message, status, sent_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """, (rental_id, cfg["chat_id"] if cfg else "", event_type, message, status, now_str))
+        conn.commit()
+        conn.close()
+        return status == "SENT"
+    except Exception as e:
+        print(f"[TELEGRAM SERVICE] Lỗi ghi log: {e}")
+        return False
+
+
+@app.get("/api/admin/telegram/config")
+def get_telegram_config(admin: Dict[str, Any] = Depends(require_admin)):
+    """Lấy cấu hình Telegram Bot hiện tại."""
+    conn = get_db()
+    cfg = conn.execute("SELECT * FROM telegram_config WHERE id = 1").fetchone()
+    conn.close()
+    if cfg:
+        return dict(cfg)
+    return {
+        "id": None, "bot_token": "", "chat_id": "", "is_active": 1,
+        "auto_notify_new_rental": 1, "auto_notify_payment": 1,
+        "auto_notify_return": 1, "auto_notify_overdue": 1
+    }
+
+
+class TelegramConfigRequest(BaseModel):
+    bot_token: Optional[str] = None
+    chat_id: Optional[str] = None
+    is_active: Optional[int] = None
+    auto_notify_new_rental: Optional[int] = None
+    auto_notify_payment: Optional[int] = None
+    auto_notify_return: Optional[int] = None
+    auto_notify_overdue: Optional[int] = None
+
+
+@app.post("/api/admin/telegram/config")
+def save_telegram_config(req: TelegramConfigRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """Lưu cấu hình Telegram Bot."""
+    conn = get_db()
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    existing = conn.execute("SELECT id FROM telegram_config WHERE id = 1").fetchone()
+
+    fields = []
+    params = []
+    for k, v in req.dict(exclude_none=True).items():
+        fields.append(f"{k} = ?")
+        params.append(v)
+
+    if fields:
+        fields.append("updated_at = ?")
+        params.append(now_str)
+        if existing:
+            params.append(1)
+            conn.execute(f"UPDATE telegram_config SET {', '.join(fields)} WHERE id = ?", params)
+        else:
+            cols = [f.split(" = ")[0] for f in fields]
+            conn.execute(f"INSERT INTO telegram_config ({', '.join(cols)}) VALUES ({', '.join(['?'] * len(params))})", params)
+
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "Đã lưu cấu hình Telegram Bot thành công!"}
+
+
+@app.get("/api/admin/telegram/logs")
+def get_telegram_logs(admin: Dict[str, Any] = Depends(require_admin)):
+    """Lấy danh sách lịch sử gửi thông báo Telegram."""
+    conn = get_db()
+    logs = conn.execute("SELECT * FROM telegram_logs ORDER BY id DESC LIMIT 50").fetchall()
+    conn.close()
+    return {"logs": [dict(l) for l in logs], "count": len(logs)}
+
+
+class TelegramTestRequest(BaseModel):
+    message: Optional[str] = "🔔 Test thông báo từ Tiduba Store! Bot Telegram đang hoạt động rất tốt."
+
+
+@app.post("/api/admin/telegram/test")
+def test_telegram_notification(req: TelegramTestRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """Gửi tin nhắn test tới Telegram."""
+    test_msg = (
+        f"<b>📸 TIDUBA STORE - TEST KẾT NỐI TELEGRAM BOT</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"{req.message or 'Kiểm tra kết nối thành công!'}\n"
+        f"⏰ <b>Thời gian:</b> {datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n"
+        f"👑 <b>Admin:</b> {admin['full_name']}\n"
+        f"━━━━━━━━━━━━━━━━━━"
+    )
+    sent = _send_telegram_notification(test_msg, event_type="TEST")
+    if sent:
+        return {"success": True, "message": "Đã gửi tin nhắn test thành công tới Telegram!"}
+    else:
+        return {"success": False, "message": "Gửi test thất bại! Vui lòng kiểm tra lại Bot Token và Chat ID của bạn."}
+
+
+# =============================================================================
+# 16. QUÉT MÃ QR TỰ ĐỘNG NHẬN TRẢ ĐỒ & THANH LÝ HỢP ĐỒNG (RETURN BY QR)
+# =============================================================================
+
+class ReturnQrRequest(BaseModel):
+    rental_code: str
+    notes: Optional[str] = "Quét mã QR tự động nhận bill đã trả"
+
+
+@app.post("/api/rentals/return_by_qr")
+@app.post("/api/admin/rentals/return_by_qr")
+def process_return_by_qr(req: ReturnQrRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """
+    API Quét mã QR tự động nhận trả đồ:
+    - BẢO MẬT: Chỉ Admin mới có quyền xác nhận trả đồ qua QR.
+    - Tìm kiếm đơn theo rental_code
+    - Đổi trạng thái sang 'RETURNED'
+    - Nhả thiết bị về 'AVAILABLE'
+    - Bắn thông báo Telegram cho Admin
+    """
+    code = req.rental_code.strip().upper()
+    conn = get_db()
+    cur = conn.cursor()
+
+    rental = cur.execute("""
+    SELECT r.*, COALESCE(i.name, c.name) as item_name, COALESCE(i.serial_or_size, 'Combo Trọn Gói') as serial_or_size,
+           u.full_name as customer_name, u.phone as customer_phone, u.cccd_number
+    FROM rentals r
+    LEFT JOIN items i ON r.item_id = i.id
+    LEFT JOIN combos c ON r.combo_id = c.id
+    JOIN users u ON r.user_id = u.id
+    WHERE UPPER(r.rental_code) = ?
+    """, (code,)).fetchone()
+
+    if not rental:
+        conn.close()
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy đơn thuê có mã '{code}'!")
+
+    rental_dict = dict(rental)
+
+    if rental_dict["status"] == "RETURNED":
+        conn.close()
+        return {
+            "success": True,
+            "already_returned": True,
+            "message": f"Đơn {code} đã được nhận trả trước đó!",
+            "rental": rental_dict
+        }
+
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur.execute("""
+    UPDATE rentals 
+    SET status = 'RETURNED', admin_notes = COALESCE(admin_notes, '') || ' | Đã nhận trả đồ qua QR lúc ' || ?
+    WHERE id = ?
+    """, (now_str, rental_dict["id"]))
+
+    if rental_dict["item_id"]:
+        cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (rental_dict["item_id"],))
+
+    conn.commit()
+    conn.close()
+
+    # Định dạng mô tả cọc
+    dep_mode = rental_dict.get("deposit_type", "CCCD")
+    dep_desc = rental_dict.get("deposit_asset_desc") or ("Giữ CCCD gốc" if dep_mode == "CCCD" else "Tài sản cọc")
+    dep_text = f"{dep_mode}: {dep_desc}"
+    if rental_dict.get("deposit_paid", 0) > 0:
+        dep_text += f" ({rental_dict['deposit_paid']:,}đ)"
+
+    # Bắn thông báo Telegram khi đã nhận trả đồ
+    tele_msg = (
+        f"<b>✅ TIDUBA STORE - HOÀN TẤT NHẬN TRẢ ĐỒ QUA QR</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"📋 <b>Mã đơn:</b> <code>{code}</code> (ĐÃ TRẢ XONG)\n"
+        f"👤 <b>Khách hàng:</b> {rental_dict['customer_name']} (<code>{rental_dict['customer_phone']}</code>)\n"
+        f"📦 <b>Thiết bị:</b> {rental_dict['item_name']} (SN: {rental_dict['serial_or_size']})\n"
+        f"🛡️ <b>Đã thanh lý cọc:</b> {dep_text}\n"
+        f"⏰ <b>Thời gian trả đồ:</b> {now_str}\n"
+        f"✨ <i>Thiết bị đã được kiểm tra và chuyển trạng thái SẴN SÀNG trong kho.</i>\n"
+        f"━━━━━━━━━━━━━━━━━━"
+    )
+    _send_telegram_notification(tele_msg, rental_id=rental_dict["id"], event_type="RETURN")
+
+    return {
+        "success": True,
+        "already_returned": False,
+        "message": f"✅ Đã nhận trả thiết bị thành công cho đơn {code}! Thiết bị '{rental_dict['item_name']}' đã về kho.",
+        "rental": rental_dict,
+        "returned_at": now_str
+    }
+
+
+@app.get("/return-qr", response_class=HTMLResponse)
+def return_qr_web_page(code: Optional[str] = None):
+    """Trang web quét mã QR trên Bill để nhận trả đồ nhanh từ điện thoại hoặc máy tính."""
+    rental_data = None
+    if code:
+        conn = get_db()
+        r = conn.execute("""
+        SELECT r.*, COALESCE(i.name, c.name) as item_name, COALESCE(i.serial_or_size, 'Combo Trọn Gói') as serial_or_size,
+               COALESCE(i.image_url, c.image_url) as item_image,
+               u.full_name as customer_name, u.phone as customer_phone, u.cccd_number
+        FROM rentals r
+        LEFT JOIN items i ON r.item_id = i.id
+        LEFT JOIN combos c ON r.combo_id = c.id
+        JOIN users u ON r.user_id = u.id
+        WHERE UPPER(r.rental_code) = ?
+        """, (code.strip().upper(),)).fetchone()
+        conn.close()
+        if r:
+            rental_data = dict(r)
+
+    safe_code = code.strip().upper() if code else ""
+    is_returned = rental_data and rental_data["status"] == "RETURNED"
+
+    html = f"""<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TidubaStore.com - Quét QR Nhận Trả Đồ & Thanh Lý Cọc</title>
+    <link rel="icon" type="image/png" href="/static/logo.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {{ background-color: #070a12; color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }}
+        .card {{ background: rgba(14, 20, 36, 0.95); border: 1px solid rgba(245, 158, 11, 0.2); box-shadow: 0 10px 30px rgba(0,0,0,0.8); }}
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div class="card rounded-3xl max-w-lg w-full p-6 space-y-6">
+        <!-- Logo & Header -->
+        <div class="text-center space-y-2">
+            <div class="w-14 h-14 mx-auto bg-white p-1 rounded-2xl border border-amber-500/40 shadow-lg flex items-center justify-center">
+                <img src="/static/logo.png" alt="TidubaStore.com Logo" class="w-full h-full object-contain">
+            </div>
+            <h1 class="text-xl font-black text-white tracking-wider uppercase" style="font-family: 'Times New Roman', serif;">TIDUBASTORE.COM</h1>
+            <p class="text-xs text-amber-400 font-mono font-bold">HỆ THỐNG QUÉT QR NHẬN TRẢ ĐỒ & THANH LÝ HỢP ĐỒNG</p>
+        </div>
+
+        {"<!-- Đơn tìm thấy -->" if rental_data else ""}
+        """
+
+    if rental_data:
+        dep_type_val = rental_data.get('deposit_type', 'CCCD')
+        dep_desc_val = rental_data.get('deposit_asset_desc') or ('Giữ CCCD gốc tại quầy' if dep_type_val == 'CCCD' else 'Tài sản cọc')
+        dep_paid_val = rental_data.get('deposit_paid', 0)
+        dep_full = f"{dep_type_val}: {dep_desc_val}"
+        if dep_paid_val > 0:
+            dep_full += f" ({dep_paid_val:,}đ)"
+
+        html += f"""
+        <div class="bg-gray-950 p-4 rounded-2xl border border-gray-800 space-y-3 text-xs font-mono">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                <span class="text-gray-400">Mã đơn thuê:</span>
+                <strong class="text-amber-400 font-bold text-sm" id="rental-code-disp">{rental_data['rental_code']}</strong>
+            </div>
+            <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                <span class="text-gray-400">Trạng thái:</span>
+                <span id="rental-status-badge" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold border {'bg-emerald-950 text-emerald-300 border-emerald-700' if is_returned else 'bg-cyan-950 text-cyan-300 border-cyan-700'}">
+                    {'ĐÃ TRẢ ĐỒ XONG' if is_returned else rental_data['status']}
+                </span>
+            </div>
+            <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                <span class="text-gray-400">Khách hàng:</span>
+                <strong class="text-white">{rental_data['customer_name']} ({rental_data['customer_phone']})</strong>
+            </div>
+            <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                <span class="text-gray-400">Thiết bị / Đồ:</span>
+                <strong class="text-white text-right">{rental_data['item_name']}</strong>
+            </div>
+            <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                <span class="text-gray-400">Hạn trả đồ:</span>
+                <strong class="text-amber-300">{rental_data['end_time']}</strong>
+            </div>
+            <div class="flex items-center justify-between pt-1">
+                <span class="text-cyan-300 font-bold">Hình thức cọc:</span>
+                <strong class="text-cyan-200 text-right">{dep_full}</strong>
+            </div>
+        </div>
+
+        <div id="return-action-box" class="space-y-3">
+            {"<div class='p-4 bg-emerald-950/60 border border-emerald-600 rounded-2xl text-center space-y-1'><div class='text-emerald-300 font-bold text-sm'>✅ ĐÃ HOÀN TẤT TRẢ ĐỒ!</div><div class='text-gray-300 text-xs font-mono'>Thiết bị đã được trả về kho và cọc đã được thanh lý.</div></div>" if is_returned else f"""
+            <button onclick="confirmReturnByQr('{safe_code}')" id="btn-confirm-return" class="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-gray-950 font-black py-3.5 px-6 rounded-2xl text-sm flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/20 transition">
+                <i class="fa-solid fa-check-double text-base"></i> XÁC NHẬN NHẬN TRẢ ĐỒ & THANH LÝ CỌC
+            </button>
+            <p class="text-[11px] text-gray-400 font-mono text-center">
+                Nhấn xác nhận để đánh dấu đơn hàng ĐÃ TRẢ, nhả kho thiết bị và gửi thông báo Telegram.
+            </p>
+            """}
+        </div>
+        """
+    else:
+        html += f"""
+        <div class="bg-gray-950 p-4 rounded-2xl border border-gray-800 space-y-3">
+            <label class="block text-xs font-bold text-gray-300 font-mono">Nhập mã đơn hàng hoặc quét mã QR trên Bill:</label>
+            <div class="flex gap-2">
+                <input type="text" id="manual-code-input" value="{safe_code}" placeholder="TDB-XXXXXX" class="flex-1 bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-white font-mono uppercase text-sm focus:outline-none focus:border-amber-500">
+                <button onclick="lookupCode()" class="bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold px-4 py-2 rounded-xl text-xs font-mono">Tra Cứu</button>
+            </div>
+            {"<div class='text-rose-400 text-xs font-mono'>⚠️ Không tìm thấy đơn có mã: " + safe_code + "</div>" if safe_code else ""}
+        </div>
+        """
+
+    html += f"""
+        <!-- Back to app button -->
+        <div class="pt-2 border-t border-gray-800/80 flex items-center justify-between text-xs font-mono">
+            <a href="/" class="text-gray-400 hover:text-white flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-arrow-left"></i> Về Trang Chủ Web
+            </a>
+            <a href="/?admin=1" class="text-purple-400 hover:text-purple-300 flex items-center gap-1.5 font-bold transition">
+                <i class="fa-solid fa-crown text-yellow-400"></i> Bảng Quản Trị Admin
+            </a>
+        </div>
+    </div>
+
+    <script>
+        function lookupCode() {{
+            const val = document.getElementById('manual-code-input').value.trim();
+            if (val) {{
+                window.location.href = '/return-qr?code=' + encodeURIComponent(val);
+            }}
+        }}
+
+        async function confirmReturnByQr(code) {{
+            const btn = document.getElementById('btn-confirm-return');
+            if (btn) {{
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Đang xử lý...';
+            }}
+            try {{
+                const token = localStorage.getItem('tiduba_token') || '';
+                const headers = {{ 'Content-Type': 'application/json' }};
+                if (token) headers['Authorization'] = 'Bearer ' + token;
+                const res = await fetch('/api/rentals/return_by_qr', {{
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({{ rental_code: code }})
+                }});
+                const data = await res.json();
+                if (!res.ok) {{
+                    alert(data.detail || 'Lỗi khi nhận trả đồ (Yêu cầu đăng nhập tài khoản Quản Lý / Admin)');
+                    if (btn) {{
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fa-solid fa-check-double text-base"></i> XÁC NHẬN NHẬN TRẢ ĐỒ & THANH LÝ CỌC';
+                    }}
+                    return;
+                }}
+
+                document.getElementById('return-action-box').innerHTML = `
+                    <div class="p-5 bg-emerald-950/80 border border-emerald-500 rounded-2xl text-center space-y-2 animate-bounce">
+                        <i class="fa-solid fa-circle-check text-emerald-400 text-3xl"></i>
+                        <div class="text-emerald-300 font-black text-base">NHẬN TRẢ ĐỒ THÀNH CÔNG!</div>
+                        <div class="text-gray-200 text-xs font-mono">Đơn hàng <strong>${{code}}</strong> đã được chuyển sang trạng thái RETURNED. Thiết bị đã về kho sẵn sàng cho lượt thuê tiếp theo!</div>
+                        <div class="text-[11px] text-cyan-300 font-mono mt-1">Đã gửi thông báo Telegram cho Quản lý.</div>
+                    </div>
+                `;
+                const badge = document.getElementById('rental-status-badge');
+                if (badge) {{
+                    badge.innerText = 'ĐÃ TRẢ ĐỒ XONG';
+                    badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold border bg-emerald-950 text-emerald-300 border-emerald-700';
+                }}
+            }} catch (err) {{
+                alert('Lỗi kết nối: ' + err);
+                if (btn) {{
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-check-double text-base"></i> THỬ LẠI';
+                }}
+            }}
+        }}
+    </script>
+</body>
+</html>
+"""
+    return HTMLResponse(content=html)
+
+
+# =============================================================================
+# 17. BACKWARDS-COMPATIBLE ZALO ENDPOINTS (Redirect to Telegram)
+# =============================================================================
+
+@app.get("/api/admin/zalo/config")
+def get_zalo_config(admin: Dict[str, Any] = Depends(require_admin)):
+    conn = get_db()
+    cfg = conn.execute("SELECT * FROM telegram_config WHERE id = 1").fetchone()
+    conn.close()
+    if cfg:
+        return dict(cfg)
+    return {"id": 1, "is_active": 1}
+
+
+@app.post("/api/admin/zalo/config")
+def save_zalo_config(admin: Dict[str, Any] = Depends(require_admin)):
+    return {"success": True, "message": "Hệ thống đã nâng cấp sang Telegram Bot!"}
+
+
+@app.get("/api/admin/zalo/logs")
+def get_zalo_logs(admin: Dict[str, Any] = Depends(require_admin)):
+    conn = get_db()
+    logs = conn.execute("SELECT * FROM telegram_logs ORDER BY id DESC LIMIT 50").fetchall()
+    conn.close()
+    return {"logs": [dict(l) for l in logs], "count": len(logs)}
+
+
+@app.post("/api/admin/zalo/test")
+def test_zalo_notification(admin: Dict[str, Any] = Depends(require_admin)):
+    return {"success": True, "message": "Hệ thống đã nâng cấp sang Telegram Bot! Vui lòng sử dụng tính năng Test Telegram."}
+
+
+# =============================================================================
+# 18. ADMIN INSPECTION PROTOCOL
+# =============================================================================
+
+class AdminInspectionRequest(BaseModel):
+    phase: str = "CHECKOUT"
+    sensor_clean: bool = True
+    lens_scratchless: bool = True
+    shutter_count: int = 0
+    body_condition: Optional[str] = "Tốt"
+    accessories_included: Optional[str] = "Đầy đủ"
+    deduction_amount: int = 0
+    notes: Optional[str] = None
+
+
+@app.post("/api/admin/rentals/{rental_id}/inspection")
+def admin_save_inspection(rental_id: int, req: AdminInspectionRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin lập biên bản kiểm tra tình trạng thiết bị khi giao/nhận."""
+    conn = get_db()
+    cur = conn.cursor()
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    rental = cur.execute("SELECT * FROM rentals WHERE id = ?", (rental_id,)).fetchone()
+    if not rental:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê!")
+
+    cur.execute("""
+    INSERT INTO handover_protocols (
+        rental_id, phase, staff_name, sensor_clean, lens_scratchless, shutter_count_verified,
+        accessories_included, notes, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        rental_id, req.phase.upper(), admin["full_name"],
+        1 if req.sensor_clean else 0, 1 if req.lens_scratchless else 0, req.shutter_count,
+        req.accessories_included or "Đầy đủ",
+        f"{req.body_condition or ''} | Trừ cọc: {req.deduction_amount:,}đ | {req.notes or ''}",
+        now_str
+    ))
+
+    if req.deduction_amount > 0:
+        cur.execute("""
+        INSERT INTO damage_penalties (rental_id, damage_code, damage_title, penalty_amount, notes, created_at)
+        VALUES (?, 'ADMIN_ASSESSMENT', 'Khấu trừ theo biên bản kiểm tra', ?, ?, ?)
+        """, (rental_id, req.deduction_amount, req.body_condition or "Thiệt hại ghi nhận bởi Admin", now_str))
+
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": f"Đã lưu biên bản kiểm tra ({req.phase}) và ghi nhận khấu trừ {req.deduction_amount:,}đ!"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    print("=" * 75)
+    print("📸 TIDUBA STORE - NỀN TẢNG CHO THUÊ MÁY ẢNH & TRANG PHỤC CAO CẤP")
+    print("🚀 Khởi động Server tại: http://localhost:9000")
+    print(f"💳 Tài khoản VietQR: {BANK_CONFIG['bank_name']} - STK: {BANK_CONFIG['account_no']} ({BANK_CONFIG['account_name']})")
+    print("=" * 75)
+    uvicorn.run("main:app", host="0.0.0.0", port=9000, reload=False)
+

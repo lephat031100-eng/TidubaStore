@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="100%" height="100%">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Cedarville+Cursive&amp;family=Cormorant+Garamond:ital,wght@1,600&amp;display=swap');
+      .tiduba-title-dark {
+        font-family: 'Cedarville Cursive', cursive;
+        font-size: 210px;
+        fill: #ffffff;
+        text-anchor: middle;
+      }
+      .tiduba-subtitle-dark {
+        font-family: 'Cormorant Garamond', serif;
+        font-style: italic;
+        font-weight: 600;
+        font-size: 66px;
+        letter-spacing: 2px;
+        fill: #f59e0b;
+        text-anchor: middle;
+      }
+      .tiduba-line-dark {
+        stroke: #f59e0b;
+        stroke-width: 3px;
+        stroke-linecap: round;
+      }
+    </style>
+  </defs>
+  
+  <!-- Main Brand Title -->
+  <text x="512" y="450" class="tiduba-title-dark">TIDUBA</text>
+  
+  <!-- Subtitle -->
+  <text x="512" y="580" class="tiduba-subtitle-dark">Thuê đồ thiết kế</text>
+  
+  <!-- Elegant Underline -->
+  <line x1="330" y1="620" x2="694" y2="620" class="tiduba-line-dark"/>
+</svg>

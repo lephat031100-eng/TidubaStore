@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="100%" height="100%">
+  <defs>
+    <style>
+      .tiduba-times-title {
+        font-family: 'Times New Roman', Times, serif;
+        font-weight: bold;
+        font-size: 160px;
+        letter-spacing: 4px;
+        fill: #141418;
+        text-anchor: middle;
+      }
+      .tiduba-times-sub {
+        font-family: 'Times New Roman', Times, serif;
+        font-style: italic;
+        font-size: 60px;
+        letter-spacing: 1px;
+        fill: #1a1a1e;
+        text-anchor: middle;
+      }
+      .tiduba-times-line {
+        stroke: #1e1e22;
+        stroke-width: 3px;
+        stroke-linecap: round;
+      }
+      .bg-wave {
+        fill: none;
+        stroke: #e2e8f0;
+        stroke-width: 6px;
+        opacity: 0.6;
+      }
+    </style>
+    <radialGradient id="bgGrad" cx="0%" cy="0%" r="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="60%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#f1f5f9"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="32" fill="url(#bgGrad)"/>
+  <path d="M-50,200 Q200,50 450,250 T800,100" class="bg-wave" stroke-width="4"/>
+  <path d="M-100,750 Q300,550 650,850 T1100,700" class="bg-wave" stroke-width="8" opacity="0.4"/>
+  <path d="M-80,850 Q250,700 700,980 T1150,850" class="bg-wave" stroke-width="5" opacity="0.3"/>
+  <text x="512" y="440" class="tiduba-times-title">TIDUBA</text>
+  <text x="512" y="560" class="tiduba-times-sub">Thuê đồ thiết kế</text>
+  <line x1="330" y1="595" x2="694" y2="595" class="tiduba-times-line"/>
+</svg>

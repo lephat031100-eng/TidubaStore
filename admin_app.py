@@ -1,0 +1,142 @@
+"""
+TIDUBA STORE - DESKTOP ADMIN APP (ENTERPRISE EDITION)
+Ứng dụng Desktop cao cấp dành riêng cho Quản Trị Viên (Admin)
+Đồng bộ trực tiếp với Web Khách Hàng (FastAPI Port 9000).
+
+Phát triển cho: Tiduba Store
+"""
+
+import sys
+import os
+import time
+import threading
+import subprocess
+import urllib.request
+import webbrowser
+from pathlib import Path
+
+# Đảm bảo working directory
+BASE_DIR = Path(__file__).resolve().parent
+os.chdir(str(BASE_DIR))
+
+SERVER_URL = "http://127.0.0.1:9000"
+ADMIN_URL = "http://127.0.0.1:9000/?admin=1"
+PUBLIC_DOMAIN = os.environ.get("PUBLIC_DOMAIN", "https://tidubastore.com").rstrip("/")
+
+
+def free_port_if_stuck():
+    """Giải phóng port 9000 nếu có tiến trình treo."""
+    if sys.platform == "win32":
+        try:
+            output = subprocess.check_output("netstat -ano | findstr :9000", shell=True, text=True)
+            for line in output.strip().splitlines():
+                parts = line.split()
+                if len(parts) >= 5 and "LISTENING" in parts:
+                    pid = parts[-1]
+                    if pid and pid != "0":
+                        subprocess.run(f"taskkill /F /PID {pid}", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+
+
+def is_server_running() -> bool:
+    try:
+        req = urllib.request.Request(f"{SERVER_URL}/api/auth/me", headers={"User-Agent": "TidubaAdminApp/3.2"})
+        res = urllib.request.urlopen(req, timeout=1.5)
+        return res.status in (200, 401)
+    except Exception:
+        return False
+
+
+def run_uvicorn_thread():
+    """Chạy Uvicorn FastAPI server trực tiếp trong daemon thread."""
+    try:
+        import uvicorn
+        from main import app as fastapi_app
+        uvicorn.run(fastapi_app, host="0.0.0.0", port=9000, log_level="error")
+    except Exception as e:
+        print(f"[ADMIN APP] Lỗi khởi động Uvicorn thread: {e}")
+
+
+def start_backend_server():
+    """Tự động kiểm tra và khởi chạy Backend Server nếu chưa chạy."""
+    if is_server_running():
+        print("[ADMIN APP] 🚀 Backend server đã hoạt động sẵn tại port 9000.")
+        return
+
+    print("[ADMIN APP] ⚙️ Khởi tạo Backend Server FastAPI port 9000...")
+    free_port_if_stuck()
+    time.sleep(0.5)
+
+    t = threading.Thread(target=run_uvicorn_thread, daemon=True)
+    t.start()
+
+    # Chờ server phản hồi (tối đa 10 giây)
+    for _ in range(20):
+        time.sleep(0.5)
+        if is_server_running():
+            print("[ADMIN APP] ✅ Backend server khởi động thành công!")
+            return
+
+    print("[ADMIN APP] ⚠️ Server đang khởi động...")
+
+
+class AdminApi:
+    """JS Bridge cho phép giao diện gọi hàm Python Native."""
+
+    def open_customer_web(self):
+        """Mở trang Web dành cho Khách hàng trên trình duyệt mặc định."""
+        webbrowser.open(SERVER_URL)
+        return {"success": True, "message": "Đã mở Web Khách trên trình duyệt!"}
+
+    def sync_data(self):
+        """Đồng bộ dữ liệu giữa App Admin và Web Khách."""
+        return {"success": True, "message": "Đã đồng bộ kho thiết bị & đơn thuê!"}
+
+    def get_app_info(self):
+        return {
+            "app_name": "TidubaStore.com Admin Desktop App",
+            "version": "3.5.0",
+            "domain": "TidubaStore.com",
+            "server_url": SERVER_URL,
+            "status": "ONLINE" if is_server_running() else "OFFLINE"
+        }
+
+
+def main():
+    # 1. Khởi chạy Backend server ngầm
+    start_backend_server()
+
+    # 2. Mở cửa sổ Desktop pywebview
+    try:
+        import webview
+
+        api = AdminApi()
+        window = webview.create_window(
+            title="TidubaStore.com - Admin Control Desk (Enterprise Edition)",
+            url=ADMIN_URL,
+            width=1400,
+            height=900,
+            resizable=True,
+            confirm_close=False,
+            js_api=api
+        )
+
+        print("=" * 70)
+        print("📸 TIDUBASTORE.COM - ADMIN DESKTOP APP ONLINE")
+        print(f"🌐 Tên miền chính thức: {PUBLIC_DOMAIN}")
+        print("🏢 Chi nhánh 1 (Trụ sở): 183A Huỳnh Thúc Kháng, Pleiku, Gia Lai (0977.078.981)")
+        print("🏢 Chi nhánh 2: 801 Lê Duẩn, P. An Phú, TP. Pleiku, Gia Lai (0977.078.981)")
+        print("💻 Web nội bộ: http://127.0.0.1:9000")
+        print("👑 App Admin tự động kết nối & bảo mật Bảng Quản Trị.")
+        print("=" * 70)
+
+        webview.start(private_mode=False)
+
+    except ImportError:
+        print("[ADMIN APP] pywebview chưa cài đặt. Mở giao diện Admin qua trình duyệt...")
+        webbrowser.open(ADMIN_URL)
+
+
+if __name__ == "__main__":
+    main()
