@@ -97,6 +97,50 @@
         .pb-safe {
             padding-bottom: env(safe-area-inset-bottom, 16px);
         }
+
+        /* CHUẨN IN HÓA ĐƠN NHIỆT K80 (KIOTVIET STYLE) */
+        @media print {
+            body * {
+                visibility: hidden !important;
+            }
+            #k80-modal, #k80-modal * {
+                visibility: visible !important;
+            }
+            #k80-modal {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                background: white !important;
+                display: block !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            #k80-modal-box {
+                border: none !important;
+                box-shadow: none !important;
+                background: white !important;
+                max-width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            #k80-printable-area {
+                width: 78mm !important;
+                max-width: 78mm !important;
+                margin: 0 auto !important;
+                padding: 2mm !important;
+                border: none !important;
+                box-shadow: none !important;
+                color: #000 !important;
+                background: #fff !important;
+                font-family: 'Courier New', Courier, monospace !important;
+                font-size: 11px !important;
+                line-height: 1.25 !important;
+            }
+            .k80-no-print {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased bg-[#faf7f2] text-[#1c1917]">
@@ -1856,32 +1900,113 @@
     </div>
 
     <!-- K80 THERMAL BILL PREVIEW MODAL (KIOTVIET STYLE) WITH DYNAMIC QR CODE -->
-    <div id="k80-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 items-center justify-center p-4" style="display: none;">
-        <div class="bg-gray-900 border border-gray-700 rounded-3xl max-w-md w-full max-h-[94vh] flex flex-col shadow-2xl overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-800 bg-gray-950 flex items-center justify-between">
-                <div>
-                    <span class="text-[10px] font-mono bg-cyan-950 text-cyan-300 border border-cyan-700 px-2 py-0.5 rounded font-bold uppercase">HÓA ĐƠN & QR TRẢ ĐỒ</span>
-                    <h3 class="text-sm font-bold text-white mt-0.5">Phiếu In Nhiệt K80 (Kèm Mã QR)</h3>
+    <div id="k80-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 items-center justify-center p-2 sm:p-4" style="display: none;">
+        <div id="k80-modal-box" class="bg-gray-900 border border-gray-700 rounded-3xl max-w-md w-full max-h-[96vh] flex flex-col shadow-2xl overflow-hidden font-sans">
+            <!-- Header xem trước trên màn hình -->
+            <div class="px-5 py-3 border-b border-gray-800 bg-gray-950 flex items-center justify-between k80-no-print">
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-mono bg-amber-950 text-amber-300 border border-amber-600 px-2 py-0.5 rounded font-bold uppercase">HÓA ĐƠN K80</span>
+                    <h3 class="text-xs sm:text-sm font-bold text-white">Xem Trước & In Hóa Đơn (Kèm QR)</h3>
                 </div>
                 <button onclick="closeK80Modal()" class="text-gray-400 hover:text-white">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
-            <div class="p-4 flex-1 overflow-auto custom-scroll bg-gray-950 flex justify-center">
-                <div id="k80-printable-area" class="bg-white text-gray-950 font-mono text-[11px] p-4 rounded-xl shadow-2xl leading-tight max-w-xs w-full border border-gray-300">
-                    <pre id="k80-bill-viewer" class="whitespace-pre select-all leading-tight"></pre>
-                    <!-- Graphical QR Code on Bill -->
-                    <div class="border-t border-dashed border-gray-400 pt-3 mt-2 text-center text-gray-900 space-y-1">
-                        <div class="text-[10px] font-black uppercase tracking-wider text-gray-800">QUÉT MÃ ĐỂ TỰ ĐỘNG NHẬN TRẢ ĐỒ</div>
-                        <div class="p-2 bg-white inline-block border border-gray-300 rounded-lg shadow-sm">
-                            <img id="k80-bill-qr-img" src="" alt="QR Code Trả Đồ" class="w-36 h-36 mx-auto object-contain">
+
+            <!-- Khu vực Bill Nhiệt K80 (Chuẩn máy in 80mm KiotViet) -->
+            <div class="p-3 sm:p-4 flex-1 overflow-auto custom-scroll bg-gray-950 flex justify-center">
+                <div id="k80-printable-area" class="bg-white text-gray-950 font-mono text-[11px] p-4 sm:p-5 rounded-xl shadow-2xl leading-normal max-w-[320px] w-full border border-gray-300 space-y-2 select-all">
+                    
+                    <!-- Phần đầu: Thương hiệu & Chi nhánh -->
+                    <div class="text-center space-y-1 pb-2 border-b border-dashed border-gray-400">
+                        <div class="text-2xl font-black tracking-widest text-black" style="font-family: 'Times New Roman', serif;">TIDUBA</div>
+                        <div class="text-[10px] leading-tight text-gray-800 font-sans">
+                            <div>CN1: 183A Huỳnh Thúc Kháng - Pleiku - Gia Lai</div>
+                            <div>CN2: 801 Lê Duẩn - Pleiku - Gia Lai</div>
+                            <div class="font-bold">Điện thoại: 0977 078 981</div>
                         </div>
-                        <div class="text-[9px] text-gray-500 font-mono" id="k80-bill-qr-text">* TDB-XXXXXX *</div>
-                        <div class="text-[8px] text-gray-400">Admin quét bằng điện thoại / máy quét để nhận trả đồ</div>
+                    </div>
+
+                    <!-- Tiêu đề Hóa Đơn & Mã -->
+                    <div class="text-center py-1 space-y-0.5 border-b border-dashed border-gray-400 font-sans">
+                        <div class="text-sm font-black uppercase text-black tracking-wide">HOÁ ĐƠN BÁN HÀNG</div>
+                        <div class="text-xs font-bold text-gray-900 font-mono" id="k80-disp-code">HD001135</div>
+                        <div class="text-[10px] text-gray-600 font-mono" id="k80-disp-time">26/09/2026 19:56</div>
+                    </div>
+
+                    <!-- Thông tin Khách Hàng & Nhân Viên -->
+                    <div class="py-1.5 space-y-1 text-[11px] font-sans border-b border-dashed border-gray-400">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Khách hàng:</span>
+                            <strong class="text-black uppercase" id="k80-disp-customer">OANH</strong>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Điện thoại:</span>
+                            <strong class="text-black font-mono" id="k80-disp-phone">0346512018</strong>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Nhân viên:</span>
+                            <span class="text-gray-800" id="k80-disp-staff">Admin</span>
+                        </div>
+                    </div>
+
+                    <!-- Danh sách sản phẩm (Đơn giá - SL - Thành tiền) -->
+                    <div class="py-1.5 border-b border-dashed border-gray-400 space-y-1">
+                        <div class="flex justify-between text-[10px] font-bold text-gray-700 pb-1 border-b border-gray-200">
+                            <span>Đơn giá</span>
+                            <span class="text-center">SL</span>
+                            <span class="text-right">Thành tiền</span>
+                        </div>
+                        <div id="k80-disp-items" class="space-y-1.5 text-[11px]">
+                            <!-- Javascript render sản phẩm -->
+                        </div>
+                    </div>
+
+                    <!-- Tổng kết thanh toán -->
+                    <div class="py-1.5 border-b border-dashed border-gray-400 space-y-1 text-[11px] font-mono">
+                        <div class="flex justify-between">
+                            <span class="font-sans text-gray-700">Tổng tiền hàng:</span>
+                            <strong id="k80-disp-subtotal">100,000</strong>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-sans text-gray-700">Chiết khấu:</span>
+                            <span id="k80-disp-discount">0</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="font-sans text-gray-700">Tiền cọc:</span>
+                            <span id="k80-disp-deposit">0</span>
+                        </div>
+                        <div class="flex justify-between text-xs font-black text-black pt-1 border-t border-gray-300">
+                            <span class="font-sans uppercase">Tổng cộng:</span>
+                            <strong class="text-sm" id="k80-disp-total">100,000</strong>
+                        </div>
+                    </div>
+
+                    <!-- Quy định ngày trả đồ y hệt ảnh thật -->
+                    <div class="py-1.5 text-[10px] leading-relaxed text-gray-800 font-sans border-b border-dashed border-gray-400">
+                        <div class="font-bold text-black uppercase mb-0.5">QUY ĐỊNH NGÀY TRẢ:</div>
+                        <div class="space-y-0.5">
+                            <div>• Hôm nay lấy mai trả (trước 8h tối).</div>
+                            <div>• Thêm 1 ngày: đồ dưới 1 triệu thêm 10K, đồ trên 1 triệu thêm 30K (cần báo trước).</div>
+                            <div>• Đối với máy ảnh: cọc giấy tờ + 1 tài sản.</div>
+                            <div>• Hoàn trả lại 100% giấy tờ ngay khi trả đồ xong.</div>
+                        </div>
+                    </div>
+
+                    <!-- Mã QR Code Trả Đồ In Ngay Trong Bill -->
+                    <div class="pt-1.5 text-center space-y-1">
+                        <div class="p-1 bg-white inline-block border border-gray-300 rounded shadow-sm">
+                            <img id="k80-bill-qr-img" src="" alt="Mã QR Trả Đồ" class="w-28 h-28 mx-auto object-contain">
+                        </div>
+                        <div class="text-[9px] font-bold text-gray-800 font-mono tracking-wider" id="k80-bill-qr-text">* TDB-XXXXXX *</div>
+                        <div class="text-[9px] text-gray-500 font-sans">Quét mã QR để nhận trả đồ nhanh</div>
+                        <div class="text-[10px] italic text-gray-700 font-sans pt-1">Cảm ơn quý khách & Hẹn gặp lại!</div>
                     </div>
                 </div>
             </div>
-            <div class="px-6 py-3 border-t border-gray-800 bg-gray-950 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+
+            <!-- Các nút thao tác ở Footer (Ẩn khi bấm In) -->
+            <div class="px-5 py-3 border-t border-gray-800 bg-gray-950 flex flex-wrap items-center justify-between gap-2 text-xs font-mono k80-no-print">
                 <div id="k80-admin-action" class="hidden flex items-center gap-2">
                     <button onclick="quickReturnCurrentBill()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-lg shadow-emerald-600/30">
                         <i class="fa-solid fa-check-double"></i> Nhận Trả Đồ Này
@@ -1891,11 +2016,11 @@
                     </button>
                 </div>
                 <div class="flex gap-2 ml-auto">
-                    <button onclick="copyK80Bill()" class="bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 px-3 py-1.5 rounded-lg text-xs font-bold transition">
-                        <i class="fa-regular fa-copy"></i> Copy Text
+                    <button onclick="closeK80Modal()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg font-bold">
+                        Đóng
                     </button>
-                    <button onclick="printK80Bill()" class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-4 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5">
-                        <i class="fa-solid fa-print"></i> In K80
+                    <button onclick="printK80Bill()" class="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold px-4 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5 shadow-lg shadow-cyan-600/30">
+                        <i class="fa-solid fa-print"></i> In Hóa Đơn K80
                     </button>
                 </div>
             </div>
@@ -2895,61 +3020,98 @@
         }
 
         // ==============================================================
-        // K80 THERMAL BILL PREVIEW WITH DYNAMIC QR CODE
+        // K80 THERMAL BILL PREVIEW WITH DYNAMIC QR CODE (CHUẨN KIOTVIET)
         // ==============================================================
         let currentK80Code = '';
 
-        function openK80BillModal(code, item, price, deposit, customer, phone, start, end, depType, depDescEncoded, status) {
+        function openK80BillModal(code, item, price, deposit, customer, phone, start, end, depType, depDescEncoded, status, itemsArray = null) {
             if (!currentUser || currentUser.role !== 'admin') {
                 showToast("Chỉ Quản Lý Tiduba Store mới có quyền xem & in hóa đơn K80!");
                 return;
             }
             currentK80Code = code;
-            const total = Number(price);
+            const subtotal = Number(price) || 0;
+            const depAmt = Number(deposit) || 0;
+            const total = subtotal + depAmt;
 
-            const bill = `================================================
-           TIDUBASTORE.COM - CAMERA & FASHION   
-  CN1: 183A Huynh Thuc Khang, Pleiku, Gia Lai   
-  CN2: 801 Le Duan, P. An Phu, TP. Pleiku       
-  Hotline: 0977.078.981             
-================================================
-           PHIEU XAC NHAN THUE THIET BI         
-          Ma don: ${code} (PAID)         
-       Thoi gian: ${new Date().toLocaleString()}        
-------------------------------------------------
-KHACH HANG: ${customer || 'Khách hàng'}
-SO DIEN THOAI: ${phone || 'Chính chủ'}
-------------------------------------------------
-THIET BI / TRANG PHUC             SL      DON GIA
-------------------------------------------------
-1. ${item.slice(0,28).padEnd(30, ' ')}  1  ${Number(price).toLocaleString().padStart(11, ' ')}
-------------------------------------------------
-NHAN MAY: ${start}
-TRA MAY : ${end} (BAT BUOC)
-------------------------------------------------
-TONG TIEN THANH TOAN:   ${total.toLocaleString().padStart(14, ' ')} VND
-[ TRANG THAI: DA XAC THUC THANH TOAN THANH CONG ]
-================================================
-                    LƯU Ý                       
-  DE LAI GIAY TO HOAC COC THEM TIEN,           
-  TIEN COC SE HOAN KHI TRA DO.                 
-  DOI VOI MAY ANH:                             
-  COC 1 GIAY TO + TAI SAN (Dien thoai,         
-  Xe may, Laptop, vong vang,...)               
-------------------------------------------------
-- Tra tre: 30,000 d/gio (qua 6h tinh 1 ngay)
-- Hoan giay to / hoan coc sau 10 phut kiem tra QC
-------------------------------------------------
-      [ QUET MA QR TRA DO & HOAN COC NHANH ]    
-              * ${code} *               
-================================================
-       TIDUBASTORE.COM - CHUC BUOI CHUP         
-                 THANH CONG RUC RO!             
-`;
+            // 1. Điền mã hóa đơn & ngày giờ
+            const hdCode = code ? (code.startsWith('TDB-') ? 'HD' + code.replace('TDB-', '') : code) : 'HD001135';
+            const codeEl = document.getElementById('k80-disp-code');
+            if (codeEl) codeEl.innerText = hdCode;
 
-            document.getElementById('k80-bill-viewer').innerText = bill;
+            const timeEl = document.getElementById('k80-disp-time');
+            const now = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            const nowStr = `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+            if (timeEl) timeEl.innerText = nowStr;
 
-            // Tạo mã QR Code trên hóa đơn trỏ tới trang nhận trả đồ
+            // 2. Điền thông tin khách hàng & nhân viên
+            const cusEl = document.getElementById('k80-disp-customer');
+            if (cusEl) cusEl.innerText = (customer || 'KHÁCH HÀNG').toUpperCase();
+
+            const phoneEl = document.getElementById('k80-disp-phone');
+            if (phoneEl) phoneEl.innerText = phone || 'Chưa xác định';
+
+            const staffEl = document.getElementById('k80-disp-staff');
+            if (staffEl) staffEl.innerText = (currentUser && currentUser.full_name) ? currentUser.full_name : 'Admin';
+
+            // 3. Render danh sách sản phẩm (chuẩn đơn giá - SL - thành tiền)
+            let parsedItems = itemsArray;
+            if (typeof itemsArray === 'string' && itemsArray.trim() !== '') {
+                try {
+                    parsedItems = JSON.parse(decodeURIComponent(itemsArray));
+                } catch (e) {
+                    try { parsedItems = JSON.parse(itemsArray); } catch (err) {}
+                }
+            }
+
+            const itemsContainer = document.getElementById('k80-disp-items');
+            if (itemsContainer) {
+                if (Array.isArray(parsedItems) && parsedItems.length > 0) {
+                    itemsContainer.innerHTML = parsedItems.map((it, idx) => {
+                        const itPrice = Number(it.price || it.price_24h || subtotal);
+                        const itQty = Number(it.quantity || 1);
+                        const itTotal = itPrice * itQty;
+                        return `
+                            <div class="space-y-0.5 border-b border-gray-100 pb-1">
+                                <div class="font-bold text-black text-[11px] leading-snug">${it.name || `Sản phẩm ${idx+1}`}</div>
+                                <div class="flex justify-between text-gray-900 font-mono text-[10px]">
+                                    <span>${itPrice.toLocaleString()}</span>
+                                    <span class="text-center font-bold">${itQty}</span>
+                                    <span class="text-right font-bold">${itTotal.toLocaleString()}</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    const itemName = item || 'Thiết bị / Trang phục thuê';
+                    itemsContainer.innerHTML = `
+                        <div class="space-y-0.5">
+                            <div class="font-bold text-black text-[11px] leading-snug">${itemName}</div>
+                            <div class="flex justify-between text-gray-900 font-mono text-[10px]">
+                                <span>${subtotal.toLocaleString()}</span>
+                                <span class="text-center font-bold">1</span>
+                                <span class="text-right font-bold">${subtotal.toLocaleString()}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            // 4. Tổng tiền thanh toán
+            const subtotalEl = document.getElementById('k80-disp-subtotal');
+            if (subtotalEl) subtotalEl.innerText = subtotal.toLocaleString();
+
+            const discountEl = document.getElementById('k80-disp-discount');
+            if (discountEl) discountEl.innerText = '0';
+
+            const depositEl = document.getElementById('k80-disp-deposit');
+            if (depositEl) depositEl.innerText = depAmt.toLocaleString();
+
+            const totalEl = document.getElementById('k80-disp-total');
+            if (totalEl) totalEl.innerText = total.toLocaleString();
+
+            // 5. Tạo mã QR Code trên hóa đơn trỏ tới trang nhận trả đồ
             const returnUrl = window.location.origin + '/return-qr?code=' + encodeURIComponent(code);
             const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(returnUrl)}`;
             const qrImg = document.getElementById('k80-bill-qr-img');
@@ -2957,7 +3119,7 @@ TONG TIEN THANH TOAN:   ${total.toLocaleString().padStart(14, ' ')} VND
             const qrText = document.getElementById('k80-bill-qr-text');
             if (qrText) qrText.innerText = `* ${code} *`;
 
-            // Nút nhận trả đồ & xóa bill cho Admin
+            // 6. Nút nhận trả đồ & xóa bill cho Admin
             const adminAct = document.getElementById('k80-admin-action');
             if (adminAct) {
                 if (currentUser && currentUser.role === 'admin') {
@@ -2975,8 +3137,11 @@ TONG TIEN THANH TOAN:   ${total.toLocaleString().padStart(14, ' ')} VND
         }
 
         function copyK80Bill() {
-            navigator.clipboard.writeText(document.getElementById('k80-bill-viewer').innerText);
-            showToast("Đã copy toàn bộ nội dung Bill K80!");
+            const printable = document.getElementById('k80-printable-area');
+            if (printable) {
+                navigator.clipboard.writeText(printable.innerText);
+                showToast("Đã copy toàn bộ nội dung Bill K80!");
+            }
         }
 
         function printK80Bill() {
@@ -4638,7 +4803,8 @@ TONG TIEN THANH TOAN:   ${total.toLocaleString().padStart(14, ' ')} VND
                         data.end_time,
                         data.deposit_type,
                         encodeURIComponent(data.deposit_asset_desc || ''),
-                        'ACTIVE'
+                        'ACTIVE',
+                        activeInv.items
                     );
                 } else {
                     showQrModal(data.qr_image_url, `Hóa đơn KiotViet ${data.rental_code}`, `${data.total_payable.toLocaleString()} VNĐ`, data.rental_code, data.rental_id);
@@ -4959,7 +5125,7 @@ TONG TIEN THANH TOAN:   ${total.toLocaleString().padStart(14, ' ')} VND
                                     <span class="text-xs font-mono text-emerald-400 bg-emerald-950/80 px-2 py-1 rounded border border-emerald-700 flex items-center gap-1"><i class="fa-solid fa-check"></i> Đã Ký OTP</span>
                                 `}
                                 ${isAdminView ? `
-                                    <button onclick="openK80BillModal('${r.rental_code}', '${r.item_name.replace(/'/g, '')}', ${r.total_price}, ${r.deposit_paid}, '${currentUser ? currentUser.full_name : ''}', '${currentUser ? currentUser.phone : ''}', '${r.start_time}', '${r.end_time}', '${r.deposit_type || 'CCCD'}', '${encodeURIComponent(r.deposit_asset_desc || '')}', '${r.status}')" class="bg-gray-900 hover:bg-gray-800 text-yellow-300 border border-gray-700 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition">
+                                    <button onclick="openK80BillModal('${r.rental_code}', '${r.item_name.replace(/'/g, '')}', ${r.total_price}, ${r.deposit_paid || 0}, '${currentUser ? currentUser.full_name : ''}', '${currentUser ? currentUser.phone : ''}', '${r.start_time}', '${r.end_time}', '${r.deposit_type || 'CCCD'}', '${encodeURIComponent(r.deposit_asset_desc || '')}', '${r.status}', '${encodeURIComponent(r.items_json || '')}')" class="bg-gray-900 hover:bg-gray-800 text-yellow-300 border border-gray-700 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition">
                                         <i class="fa-solid fa-qrcode text-yellow-400"></i> Bill & QR Trả Đồ
                                     </button>
                                 ` : ''}
@@ -5480,7 +5646,7 @@ TONG TIEN THANH TOAN:   ${total.toLocaleString().padStart(14, ' ')} VND
                                 <i class="fa-solid fa-check-double text-emerald-400"></i> Nhận Trả
                             </button>
                         ` : ''}
-                        <button onclick="openK80BillModal('${r.rental_code}', '${r.item_name.replace(/'/g, '')}', ${r.total_price}, 0, '${r.customer_name}', '${r.customer_phone}', '${r.start_time}', '${r.end_time}', 'NONE', '', '${r.status}')" class="bg-gray-800 hover:bg-gray-700 text-yellow-300 border border-gray-700 px-2 py-1 rounded-lg text-xs font-bold transition" title="Xem Bill K80 có mã QR">
+                        <button onclick="openK80BillModal('${r.rental_code}', '${r.item_name.replace(/'/g, '')}', ${r.total_price}, ${r.deposit_paid || 0}, '${r.customer_name}', '${r.customer_phone}', '${r.start_time}', '${r.end_time}', '${r.deposit_type || 'NONE'}', '', '${r.status}', '${encodeURIComponent(r.items_json || '')}')" class="bg-gray-800 hover:bg-gray-700 text-yellow-300 border border-gray-700 px-2 py-1 rounded-lg text-xs font-bold transition" title="Xem Bill K80 có mã QR">
                             <i class="fa-solid fa-qrcode text-yellow-400"></i> Bill QR
                         </button>
                         <button onclick="window.open('/api/admin/rentals/${r.id}/label', '_blank')" class="bg-gray-800 hover:bg-gray-700 text-yellow-300 border border-gray-700 px-2 py-1 rounded-lg text-xs font-bold transition" title="In tem mã vạch K80 dán lên máy/áo">
