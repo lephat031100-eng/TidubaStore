@@ -29,6 +29,16 @@ from main import (
 client = TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def ensure_items_available():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("UPDATE items SET availability = 'AVAILABLE'")
+    conn.commit()
+    conn.close()
+    yield
+
+
 def test_vietqr_url_generation():
     """Kiểm tra sinh link VietQR chuẩn MBBank STK 0123006101998."""
     qr_url = generate_vietqr_url(5000000, "TDB-889900")
@@ -184,7 +194,7 @@ def test_contract_otp_signing():
     assert sign_res.json()["success"] is True
 
     # 3. Xem hợp đồng HTML
-    contract_res = client.get(f"/api/rentals/{rental['id']}/contract")
+    contract_res = client.get(f"/api/rentals/{rental['id']}/contract", headers=headers)
     assert contract_res.status_code == 200
     html = contract_res.text
     assert "0123006101998" in html
@@ -212,7 +222,7 @@ def test_payment_webhook_and_auto_print_queue():
     assert data["status"] == "PAYMENT_CONFIRMED_AUTO_PRINT_TRIGGERED"
 
     # Kiểm tra hàng đợi in (Print Queue) đã nhận lệnh in bill K80
-    pq_res = client.get("/api/printer/pending_jobs")
+    pq_res = client.get("/api/printer/pending_jobs", headers={"X-Printer-Secret": "PRINTER_LOCAL_SECRET_TIDUBA_2026"})
     assert pq_res.status_code == 200
     jobs = pq_res.json()["jobs"]
     assert len(jobs) >= 1
@@ -226,7 +236,10 @@ def test_digital_handover_and_damage_assessment():
     admin_headers = {"Authorization": f"Bearer {login_res.json()['token']}"}
 
     conn = get_db()
-    rental = conn.execute("SELECT id FROM rentals LIMIT 1").fetchone()
+    cur = conn.cursor()
+    rental = cur.execute("SELECT id FROM rentals LIMIT 1").fetchone()
+    cur.execute("UPDATE rentals SET status = 'ACTIVE' WHERE id = ?", (rental["id"],))
+    conn.commit()
     conn.close()
 
     # 1. Ký biên bản bàn giao Checkout
@@ -273,7 +286,9 @@ def test_legal_overdue_dossier():
     rental = conn.execute("SELECT id FROM rentals LIMIT 1").fetchone()
     conn.close()
 
-    res = client.get(f"/api/rentals/{rental['id']}/legal_dossier")
+    login_res = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    admin_headers = {"Authorization": f"Bearer {login_res.json()['token']}"}
+    res = client.get(f"/api/rentals/{rental['id']}/legal_dossier", headers=admin_headers)
     assert res.status_code == 200
     html = res.text
     assert "ĐƠN TRÌNH BÁO VI PHẠM CHIẾM ĐOẠT TÀI SẢN THUÊ QUÁ HẠN 24 GIỜ" in html
@@ -358,3 +373,140 @@ def test_custom_deposit_and_admin_confirm_payment_and_zalo():
     zalo_logs_res = client.get("/api/admin/zalo/logs", headers=adm_headers)
     assert zalo_logs_res.status_code == 200
     assert len(zalo_logs_res.json()["logs"]) >= 1
+
+
+def test_anonymous_user_protected_api_deny():
+    """Anonymous user -> protected API = DENY"""
+    res = client.get("/api/rentals/my")
+    assert res.status_code == 401
+
+def test_customer_accessing_admin_api_deny():
+    """Customer -> Admin API = DENY"""
+    login_cus = client.post("/api/auth/login", json={"username": "khachhang", "password": "123456"})
+    cus_headers = {"Authorization": f"Bearer {login_cus.json()['token']}"}
+    res = client.get("/api/admin/dashboard_stats", headers=cus_headers)
+    assert res.status_code == 403
+
+def test_idor_rental_contract_deny():
+    """Customer A -> resource của Customer B = DENY"""
+    # 1. Login Customer A (khachhang)
+    login_a = client.post("/api/auth/login", json={"username": "khachhang", "password": "123456"})
+    token_a = login_a.json()['token']
+    
+    # 2. Tạo User B và Login (không dùng số điện thoại/CCCD trong blacklist)
+    uname_b = f"customer_b_{int(time.time()*1000)}"
+    client.post("/api/auth/register", json={
+        "username": uname_b, "password": "password_b", "email": f"{uname_b}@example.com",
+        "full_name": "Customer B", "phone": "0912345678", "cccd_number": "123456789012"
+    })
+    login_b = client.post("/api/auth/login", json={"username": uname_b, "password": "password_b"})
+    token_b = login_b.json()['token']
+    headers_b = {"Authorization": f"Bearer {token_b}"}
+    
+    # 3. User B tạo 1 rental
+    book_res = client.post("/api/rentals/book", json={
+        "item_id": 1, "start_time": "2026-10-10 10:00", "end_time": "2026-10-11 10:00"
+    }, headers=headers_b)
+    rental_id = book_res.json()["rental_id"]
+    
+    # 4. User A cố gắng truy cập hợp đồng của User B
+    headers_a = {"Authorization": f"Bearer {token_a}"}
+    res = client.get(f"/api/rentals/{rental_id}/contract", headers=headers_a)
+    assert res.status_code == 403
+
+def test_admin_accessing_admin_api_allow():
+    """Admin -> authorized admin API = ALLOW"""
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    adm_headers = {"Authorization": f"Bearer {login_adm.json()['token']}"}
+    res = client.get("/api/admin/dashboard_stats", headers=adm_headers)
+    assert res.status_code == 200
+
+def test_webhook_missing_signature_deny():
+    """Payment webhook không có/không hợp lệ signature = DENY"""
+    res = client.post("/api/webhook/payment", json={"gateway": "SePAY", "amount": 1000}, headers={"X-Webhook-Token": "INVALID_TOKEN"})
+    assert res.status_code == 401
+
+def test_duplicate_refund_prevented():
+    """Duplicate request không được tạo duplicate transaction hoặc double refund"""
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    adm_headers = {"Authorization": f"Bearer {login_adm.json()['token']}"}
+    
+    # Get a rental
+    conn = get_db()
+    cur = conn.cursor()
+    r = cur.execute("SELECT id FROM rentals LIMIT 1").fetchone()
+    cur.execute("UPDATE rentals SET status = 'ACTIVE' WHERE id = ?", (r["id"],))
+    conn.commit()
+    conn.close()
+    
+    # Refund 1st time
+    res1 = client.post(f"/api/qc/complete_refund/{r['id']}", headers=adm_headers)
+    assert res1.status_code == 200
+    assert res1.json()["success"] is True
+    
+    # Refund 2nd time should be stopped
+    res2 = client.post(f"/api/qc/complete_refund/{r['id']}", headers=adm_headers)
+    assert res2.json()["success"] == False
+    assert "nghiệm thu và hoàn tiền trước đó" in res2.json()["message"]
+
+
+def test_track_order_by_phone():
+    """Tra cứu đơn hàng bằng số điện thoại khách hàng (Phone lookup)."""
+    res = client.get("/api/rentals/track/0987654321")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert data["type"] == "PHONE_LOOKUP"
+    assert len(data["rentals"]) >= 1
+
+
+def test_admin_blacklist_crud():
+    """Admin quản lý danh sách đen (thêm/xóa đối tượng bị chặn)."""
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    adm_headers = {"Authorization": f"Bearer {login_adm.json()['token']}"}
+
+    # Thêm vào blacklist
+    add_res = client.post("/api/admin/blacklist", json={
+        "phone": "0988776655", "cccd_number": "079200999888", "reason": "Thử nghiệm blacklist"
+    }, headers=adm_headers)
+    assert add_res.status_code == 200
+    assert add_res.json()["success"] is True
+
+    # Lấy danh sách blacklist
+    get_res = client.get("/api/admin/blacklist", headers=adm_headers)
+    assert get_res.status_code == 200
+    items = [b for b in get_res.json()["blacklist"] if b["phone"] == "0988776655"]
+    assert len(items) == 1
+    bl_id = items[0]["id"]
+
+    # Xóa khỏi blacklist
+    del_res = client.delete(f"/api/admin/blacklist/{bl_id}", headers=adm_headers)
+    assert del_res.status_code == 200
+    assert del_res.json()["success"] is True
+
+
+def test_export_csv_report():
+    """Admin xuất file báo cáo doanh thu & đơn thuê dạng CSV chuẩn."""
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    token = login_adm.json()["token"]
+
+    # Thử qua query parameter ?token=
+    res = client.get(f"/api/admin/reports/export_csv?token={token}")
+    assert res.status_code == 200
+    assert "Mã Đơn" in res.text
+    assert "Tiền Thuê" in res.text
+
+
+def test_rental_refund_qr():
+    """Admin lấy thông tin và mã VietQR hoàn cọc cho khách."""
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    adm_headers = {"Authorization": f"Bearer {login_adm.json()['token']}"}
+
+    conn = get_db()
+    r = conn.execute("SELECT id FROM rentals LIMIT 1").fetchone()
+    conn.close()
+
+    res = client.get(f"/api/admin/rentals/{r['id']}/refund_qr", headers=adm_headers)
+    assert res.status_code == 200
+    assert res.json()["success"] is True
+    assert "refund_amount" in res.json()

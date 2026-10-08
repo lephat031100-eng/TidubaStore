@@ -1,9 +1,9 @@
 # =============================================================================
-# TIDUBASTORE.COM - KHỞI CHẠY HỆ THỐNG & ĐƯỜNG TRUYỀN CÔNG KHAI
+# TIDUBA STORE - KHỞI CHẠY HỆ THỐNG & ĐƯỜNG TRUYỀN CÔNG KHAI CỐ ĐỊNH MIỄN PHÍ
 # =============================================================================
 
 Write-Host "==================================================================" -ForegroundColor Cyan
-Write-Host "   📸 TIDUBASTORE.COM - CHO THUÊ MÁY ẢNH & TRANG PHỤC GIA LAI" -ForegroundColor Yellow
+Write-Host "   📸 TIDUBA STORE - CHO THUÊ MÁY ẢNH & TRANG PHỤC GIA LAI" -ForegroundColor Yellow
 Write-Host "   CN1: 183A Huỳnh Thúc Kháng, Pleiku | CN2: 801 Lê Duẩn, Pleiku" -ForegroundColor White
 Write-Host "   Hotline / Zalo: 0977.078.981" -ForegroundColor Green
 Write-Host "==================================================================" -ForegroundColor Cyan
@@ -20,15 +20,15 @@ if (-not $portListening) {
 }
 
 Write-Host "[+] Web nội bộ máy tính:" -ForegroundColor Green
-Write-Host "    👉 http://tidubastore.com (Cổng 80 - Gõ thẳng trên trình duyệt)" -ForegroundColor Cyan
 Write-Host "    👉 http://127.0.0.1:9000" -ForegroundColor Cyan
+Write-Host "    👉 http://localhost:9000" -ForegroundColor Cyan
 
-# 2. Khởi chạy Cloudflare Tunnel công khai
+# 2. Khởi chạy Tunnel công khai
+Write-Host "`n[*] Đang tạo kết nối công khai Internet..." -ForegroundColor Yellow
 if (Test-Path "$CurrentDir\cloudflared.exe") {
-    Write-Host "`n[*] Đang tạo link công khai Internet qua Cloudflare Tunnel..." -ForegroundColor Yellow
-    Write-Host "------------------------------------------------------------------" -ForegroundColor DarkGray
+    Write-Host "[*] Đang chạy Cloudflare Tunnel công khai..." -ForegroundColor Cyan
     & "$CurrentDir\cloudflared.exe" tunnel --url http://127.0.0.1:9000
 } else {
-    Write-Host "[*] Khởi chạy qua LocalTunnel..." -ForegroundColor Yellow
+    Write-Host "[*] Đang chạy LocalTunnel với tên miền cố định..." -ForegroundColor Cyan
     npx --yes localtunnel --port 9000 --subdomain tidubastore
 }

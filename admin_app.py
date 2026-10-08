@@ -21,7 +21,7 @@ os.chdir(str(BASE_DIR))
 
 SERVER_URL = "http://127.0.0.1:9000"
 ADMIN_URL = "http://127.0.0.1:9000/?admin=1"
-PUBLIC_DOMAIN = os.environ.get("PUBLIC_DOMAIN", "https://tidubastore.com").rstrip("/")
+PUBLIC_DOMAIN = os.environ.get("PUBLIC_DOMAIN", "http://localhost:9000").rstrip("/")
 
 
 def free_port_if_stuck():
@@ -95,9 +95,9 @@ class AdminApi:
 
     def get_app_info(self):
         return {
-            "app_name": "TidubaStore.com Admin Desktop App",
+            "app_name": "Tiduba Store Admin Desktop App",
             "version": "3.5.0",
-            "domain": "TidubaStore.com",
+            "domain": "Tiduba Store",
             "server_url": SERVER_URL,
             "status": "ONLINE" if is_server_running() else "OFFLINE"
         }
@@ -113,7 +113,7 @@ def main():
 
         api = AdminApi()
         window = webview.create_window(
-            title="TidubaStore.com - Admin Control Desk (Enterprise Edition)",
+            title="Tiduba Store - Quản Trị Hệ Thống (Admin Control Desk)",
             url=ADMIN_URL,
             width=1400,
             height=900,
@@ -123,8 +123,8 @@ def main():
         )
 
         print("=" * 70)
-        print("📸 TIDUBASTORE.COM - ADMIN DESKTOP APP ONLINE")
-        print(f"🌐 Tên miền chính thức: {PUBLIC_DOMAIN}")
+        print("📸 TIDUBA STORE - ADMIN DESKTOP APP ONLINE")
+        print(f"🌐 Máy chủ nội bộ / Tunnel: {PUBLIC_DOMAIN}")
         print("🏢 Chi nhánh 1 (Trụ sở): 183A Huỳnh Thúc Kháng, Pleiku, Gia Lai (0977.078.981)")
         print("🏢 Chi nhánh 2: 801 Lê Duẩn, P. An Phú, TP. Pleiku, Gia Lai (0977.078.981)")
         print("💻 Web nội bộ: http://127.0.0.1:9000")

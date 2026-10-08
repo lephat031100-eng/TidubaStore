@@ -22,13 +22,16 @@ import urllib.parse
 import urllib.request
 import urllib.error
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union, Tuple
 from pydantic import BaseModel, Field
 from fastapi import FastAPI, HTTPException, Request, Depends, Header, WebSocket, WebSocketDisconnect, UploadFile, File
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import shutil
+import csv
+import io
+import uuid
 
 # Đảm bảo UTF-8 encoding trên Windows
 if sys.platform.startswith("win"):
@@ -83,32 +86,21 @@ STORE_BRANCHES = {
     }
 }
 
-# CẤU HÌNH TÊN MIỀN CÔNG KHAI CHÍNH THỨC
-PUBLIC_DOMAIN = os.environ.get("PUBLIC_DOMAIN", "https://tidubastore.com").rstrip("/")
+# CẤU HÌNH TÊN MIỀN CÔNG KHAI / MÁY CHỦ NỘI BỘ
+PUBLIC_DOMAIN = os.environ.get("PUBLIC_DOMAIN", "http://localhost:9000").rstrip("/")
 
 app = FastAPI(
-    title="TidubaStore.com - Camera & Costume Rental Platform",
-    description="Nền tảng trực tuyến cho thuê máy ảnh, ống kính và trang phục sự kiện cao cấp - TidubaStore.com",
+    title="Tiduba Store - Camera & Costume Rental Platform",
+    description="Nền tảng trực tuyến cho thuê máy ảnh, ống kính và trang phục sự kiện cao cấp - Tiduba Store",
     version="3.5.0"
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://127.0.0.1:9000",
-        "http://localhost:9000",
-        "http://127.0.0.1:80",
-        "http://localhost:80",
-        "https://tidubastore.com",
-        "http://tidubastore.com",
-        "https://www.tidubastore.com",
-        "http://www.tidubastore.com",
-        "https://tidubastore.loca.lt",
-    ],
-    allow_origin_regex=r"^https?://([a-zA-Z0-9-]+\.)*(tidubastore\.com|loca\.lt|pinggy\.link|ngrok-free\.app|trycloudflare\.com)(:\d+)?$",
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Accept", "Bypass-Tunnel-Reminder"],
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Phục vụ thư mục static & uploads ảnh thật
@@ -445,6 +437,20 @@ def init_db():
     except Exception:
         pass
 
+    # Tự động cập nhật cột refund_bank_info cho rentals nếu chưa có
+    try:
+        cur.execute("ALTER TABLE rentals ADD COLUMN refund_bank_info TEXT;")
+        conn.commit()
+    except Exception:
+        pass
+
+    # Tự động cập nhật cột deposit_asset_photo cho rentals nếu chưa có
+    try:
+        cur.execute("ALTER TABLE rentals ADD COLUMN deposit_asset_photo TEXT;")
+        conn.commit()
+    except Exception:
+        pass
+
     # Pre-seed Telegram Config nếu chưa có
     cur.execute("SELECT count(*) as c FROM telegram_config")
     if cur.fetchone()["c"] == 0:
@@ -667,6 +673,12 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> Optional[Di
     return None
 
 
+def require_admin(user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+    if not user or user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ Quản trị viên (Admin) mới có quyền truy cập!")
+    return user
+
+
 def get_costume_effective_deadline(start_dt: datetime.datetime, rental_days: float) -> datetime.datetime:
     """
     QUY TẮC TRANG PHỤC: Hạn trả là 20:00 ngày cuối của chu kỳ thuê.
@@ -761,10 +773,19 @@ def update_and_check_rental_alerts():
     now_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
     # 1. Nhả kho tự động cho các đơn HOLD quá 15 phút chưa thanh toán
-    holds = cur.execute("SELECT id, item_id FROM rentals WHERE status = 'HOLD' AND hold_expires_at < ?", (now_str,)).fetchall()
+    holds = cur.execute("SELECT id, item_id, items_json FROM rentals WHERE status = 'HOLD' AND hold_expires_at < ?", (now_str,)).fetchall()
     for h in holds:
+        h = dict(h)
         cur.execute("UPDATE rentals SET status = 'CANCELLED' WHERE id = ?", (h["id"],))
-        if h["item_id"]:
+        if h.get("items_json"):
+            try:
+                itms = json.loads(h["items_json"])
+                for itm in itms:
+                    if itm.get("item_id"):
+                        cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (itm["item_id"],))
+            except Exception:
+                pass
+        elif h["item_id"]:
             cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (h["item_id"],))
 
     # 2. Quét đơn đang hoạt động (APPROVED hoặc ACTIVE) để phát hiện quá hạn
@@ -1137,9 +1158,9 @@ TONG TIEN THANH TOAN:              {order_data['total_price']:>12,} VND
 
 class PaymentWebhookPayload(BaseModel):
     gateway: Optional[str] = "SePAY / Casso / VietQR"
-    account_no: str = "0123006101998"
-    amount: float
-    description: str
+    account_no: Optional[str] = "0123006101998"
+    amount: Optional[float] = 0.0
+    description: Optional[str] = ""
     transaction_id: Optional[str] = None
 
 
@@ -1150,11 +1171,13 @@ def payment_webhook_ipn(payload: PaymentWebhookPayload, request: Request):
     Tự động xác thực thanh toán -> chuyển ACTIVE -> tự động bắn lệnh in bill K80 không chạm!
     SECURITY: Verify X-Webhook-Token header để chống giả mạo webhook.
     """
-    # Xác thực webhook secret nếu đã cấu hình
-    if WEBHOOK_SECRET:
-        webhook_token = request.headers.get("X-Webhook-Token", "") or request.headers.get("X-Api-Key", "")
-        if not hmac.compare_digest(webhook_token, WEBHOOK_SECRET):
+    webhook_token = request.headers.get("X-Webhook-Token", "") or request.headers.get("X-Api-Key", "")
+    expected_secret = WEBHOOK_SECRET or "PRINTER_LOCAL_SECRET_TIDUBA_2026"
+    if webhook_token:
+        if not hmac.compare_digest(webhook_token, expected_secret):
             raise HTTPException(status_code=401, detail="Webhook token không hợp lệ!")
+    elif WEBHOOK_SECRET:
+        raise HTTPException(status_code=401, detail="Thiếu Webhook token xác thực!")
     conn = get_db()
     cur = conn.cursor()
 
@@ -1397,6 +1420,11 @@ def complete_qc_and_refund(rental_id: int, admin: Dict[str, Any] = Depends(requi
         conn.close()
         raise HTTPException(status_code=404, detail="Không tìm thấy đơn!")
 
+    rental = dict(rental)
+    if rental["status"] == "RETURNED":
+        conn.close()
+        return {"success": False, "message": "Đơn đã được nghiệm thu và hoàn tiền trước đó!"}
+
     # Tính tổng tiền trừ phạt
     penalties = cur.execute("SELECT sum(penalty_amount) as s FROM damage_penalties WHERE rental_id = ?", (rental_id,)).fetchone()["s"] or 0
     total_deduction = penalties + rental["late_fee"]
@@ -1404,7 +1432,13 @@ def complete_qc_and_refund(rental_id: int, admin: Dict[str, Any] = Depends(requi
 
     # Chuyển trạng thái đơn sang RETURNED
     cur.execute("UPDATE rentals SET status = 'RETURNED' WHERE id = ?", (rental_id,))
-    if rental["item_id"]:
+    if "items_json" in rental.keys() and rental["items_json"]:
+        try:
+            for itm in json.loads(rental["items_json"]):
+                if itm.get("item_id"):
+                    cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (itm["item_id"],))
+        except Exception: pass
+    elif rental["item_id"]:
         cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (rental["item_id"],))
 
     # Ghi nhận log Zalo ZNS Mốc 3: Hoàn cọc thành công
@@ -1683,6 +1717,7 @@ class RentalBookingRequest(BaseModel):
     deposit_asset_desc: Optional[str] = None  # Mô tả tài sản cọc (nếu là ASSET)
     custom_deposit_amount: Optional[int] = None  # Giá trị cọc định giá (nếu là ASSET)
     custom_rental_price: Optional[int] = None  # Admin chỉnh sửa trực tiếp giá thuê
+    refund_bank_info: Optional[str] = None  # STK Ngân Hàng khách nhận hoàn cọc
     use_loyalty_points: Optional[bool] = False
     coupon_code: Optional[str] = None
 
@@ -1738,10 +1773,15 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
         conn.close()
         raise HTTPException(status_code=400, detail="Vui lòng chọn thiết bị hoặc combo!")
 
-    # PHẦN CỌC ĐÃ XÓA THEO YÊU CẦU: Tiền cọc = 0đ (Áp dụng quy định tại quầy: Để lại giấy tờ hoặc cọc thêm tiền)
+    # PHẦN CỌC: Tiền cọc = 0đ (Mặc định) hoặc Cọc tài sản tự chọn
     deposit_amount = 0
-    dep_type = "NONE"
-    asset_desc = "Để lại giấy tờ hoặc cọc thêm tiền (Hoàn lại khi trả đồ)"
+    dep_type = req.deposit_type or "CCCD"
+    asset_desc = req.deposit_asset_desc or "Để lại giấy tờ hoặc cọc thêm tiền (Hoàn lại khi trả đồ)"
+
+    if req.custom_deposit_amount is not None and req.custom_deposit_amount > 0:
+        deposit_amount = req.custom_deposit_amount
+        dep_type = "ASSET"
+        asset_desc = req.deposit_asset_desc or f"Khách tự nhập tiền cọc: {deposit_amount:,}đ"
 
     try:
         rental_type, hours, rental_days, total_price, dt_start, dt_end = calculate_rental_metrics(
@@ -1770,13 +1810,13 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
     INSERT INTO rentals (
         rental_code, user_id, item_id, combo_id, rental_type, start_time, end_time,
         rental_duration_hours, hold_expires_at, total_price, deposit_paid, deposit_type,
-        deposit_asset_desc, branch_code, status, customer_notes, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'HOLD', ?, ?)
+        deposit_asset_desc, branch_code, refund_bank_info, status, customer_notes, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'HOLD', ?, ?)
     """, (
         rental_code, user["id"], req.item_id, req.combo_id, rental_type,
         req.start_time, effective_end_time, hours, hold_expires_at,
         total_price, deposit_amount, dep_type,
-        asset_desc, selected_branch, req.customer_notes, now_str
+        asset_desc, selected_branch, req.refund_bank_info, req.customer_notes, now_str
     ))
 
     # Khóa thiết bị sang RENTED
@@ -1806,7 +1846,7 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
         f"━━━━━━━━━━━━━━━━━━\n"
         f"🔗 Quét trả đồ: {PUBLIC_DOMAIN}/return-qr?code={rental_code}"
     )
-    _send_telegram_notification(tele_msg, rental_id=rental_id, event_type="NEW_RENTAL")
+    # Không gửi Telegram ở trạng thái HOLD (Chỉ gửi khi khách bấm nút 'TÔI ĐÃ CHUYỂN TIỀN kèm ảnh biên lai')
 
     return {
         "success": True,
@@ -1822,8 +1862,8 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
         "hold_expires_at": hold_expires_at,
         "hold_countdown_seconds": 900,
         "total_price": total_price,
-        "deposit_amount": 0,
-        "deposit_type": "NONE",
+        "deposit_amount": deposit_amount,
+        "deposit_type": dep_type,
         "deposit_asset_desc": asset_desc,
         "discount_applied": 0,
         "total_payable": total_payment,
@@ -1856,7 +1896,7 @@ def cancel_unpaid_rental(rental_id: int, user: Optional[Dict[str, Any]] = Depend
         return {"success": False, "message": "Đơn hàng đã được thanh toán hoặc xử lý trước đó."}
 
     # Kiểm tra quyền: phải là chủ đơn hoặc admin
-    if user and user.get("role") != "admin" and rental["user_id"] != user["id"]:
+    if user is None or (user.get("role") != "admin" and rental["user_id"] != user["id"]):
         conn.close()
         raise HTTPException(status_code=403, detail="Không có quyền hủy đơn này!")
 
@@ -1883,12 +1923,55 @@ def cancel_unpaid_rental(rental_id: int, user: Optional[Dict[str, Any]] = Depend
 @app.get("/api/rentals/track/{rental_code}")
 def track_rental_order(rental_code: str):
     """
-    Tra cứu trạng thái đơn hàng công khai bằng mã TDB-XXXXXX.
-    Chỉ trả về thông tin cơ bản để tra cứu, KHÔNG trả về số điện thoại hay CCCD.
+    Tra cứu trạng thái đơn hàng công khai:
+    - Hỗ trợ tra cứu theo Mã đơn: TDB-XXXXXX
+    - Hỗ trợ tra cứu theo Số điện thoại: 0977xxxxxx (trả về danh sách đơn của SĐT đó)
+    - Bảo mật: Che bớt tên và số điện thoại, tuyệt đối không lộ CCCD.
     """
-    code = rental_code.strip().upper()
+    kw = rental_code.strip()
     conn = get_db()
-    r = conn.execute("""
+    cur = conn.cursor()
+
+    # Kiểm tra nếu keyword là số điện thoại (10 hoặc 11 chữ số bắt đầu bằng 0)
+    clean_phone = re.sub(r"[^\d]", "", kw)
+    if len(clean_phone) in (10, 11) and clean_phone.startswith("0"):
+        rows = cur.execute("""
+        SELECT r.id, r.rental_code, r.status, r.end_time, r.start_time, r.total_price, 
+               r.branch_code, r.items_json, r.deposit_paid,
+               COALESCE(i.name, c.name, 'Đơn Thuê Nhiều Món') as item_name,
+               COALESCE(i.image_url, c.image_url, '/static/logo.png') as item_image,
+               u.full_name as customer_name
+        FROM rentals r
+        LEFT JOIN items i ON r.item_id = i.id
+        LEFT JOIN combos c ON r.combo_id = c.id
+        JOIN users u ON r.user_id = u.id
+        WHERE u.phone = ? AND r.status != 'CANCELLED'
+        ORDER BY r.id DESC LIMIT 10
+        """, (clean_phone,)).fetchall()
+        conn.close()
+
+        if not rows:
+            raise HTTPException(status_code=404, detail=f"Không tìm thấy đơn hàng nào gắn với số điện thoại '{clean_phone}'!")
+
+        results = []
+        for r in rows:
+            d = dict(r)
+            d["qr_url"] = generate_vietqr_url(d["total_price"] + d["deposit_paid"], d["rental_code"])
+            b_code = d.get("branch_code", "CN1") or "CN1"
+            d["branch_info"] = STORE_BRANCHES.get(b_code, STORE_BRANCHES["CN1"])
+            d.pop("deposit_paid", None)
+            d.pop("items_json", None)
+            parts = (d["customer_name"] or "Khách Hàng").split()
+            if len(parts) >= 2:
+                d["customer_name"] = f"{parts[0]} {'*' * (len(parts[-1])-1)}{parts[-1][-1]}"
+            results.append(d)
+
+        masked_phone = f"{clean_phone[:3]}***{clean_phone[-3:]}"
+        return {"success": True, "type": "PHONE_LOOKUP", "rentals": results, "phone_masked": masked_phone}
+
+    # Ngược lại: tra cứu theo mã đơn hàng TDB-XXXXXX
+    code = kw.upper()
+    r = cur.execute("""
     SELECT r.id, r.rental_code, r.status, r.end_time, r.start_time, r.total_price, 
            r.branch_code, r.items_json, r.deposit_paid,
            COALESCE(i.name, c.name, 'Đơn Thuê Nhiều Món') as item_name,
@@ -1921,7 +2004,7 @@ def track_rental_order(rental_code: str):
             d["items"] = []
     d.pop("items_json", None)
 
-    return {"success": True, "rental": d}
+    return {"success": True, "type": "CODE_LOOKUP", "rental": d}
 
 
 class MultiItemCartItem(BaseModel):
@@ -1946,6 +2029,7 @@ class MultiItemBookingRequest(BaseModel):
     custom_total_rental_price: Optional[int] = None # Admin chỉnh sửa trực tiếp tổng tiền thuê
     pos_discount: Optional[int] = 0 # Giảm giá chiết khấu tại POS
     pos_surcharge: Optional[int] = 0 # Phụ thu tại POS
+    refund_bank_info: Optional[str] = None # STK Ngân hàng khách nhận hoàn cọc
     use_loyalty_points: Optional[bool] = False
     coupon_code: Optional[str] = None
     # Thông tin dành cho Admin POS KiotViet:
@@ -2110,6 +2194,11 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
     final_deposit = 0
     dep_type = "NONE"
     asset_desc = "Để lại giấy tờ hoặc cọc thêm tiền (Hoàn lại khi trả đồ)"
+    
+    if req.custom_deposit_amount is not None and req.custom_deposit_amount > 0:
+        final_deposit = req.custom_deposit_amount
+        dep_type = "ASSET"
+        asset_desc = f"Khách tự nhập tiền cọc: {final_deposit:,}đ"
     discount = 0
 
     now = datetime.datetime.now()
@@ -2134,13 +2223,13 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
     INSERT INTO rentals (
         rental_code, user_id, item_id, combo_id, rental_type, start_time, end_time,
         rental_duration_hours, hold_expires_at, total_price, deposit_paid, deposit_type,
-        deposit_asset_desc, branch_code, status, items_json, customer_notes, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        deposit_asset_desc, branch_code, refund_bank_info, status, items_json, customer_notes, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         rental_code, target_user_id, first_item_id, first_combo_id,
         f"Gói {len(processed_items)} món", req.start_time, effective_overall_end,
         max_duration_hours, hold_expires_at, total_rental_price, final_deposit,
-        dep_type, asset_desc, selected_branch, initial_status, items_json_str,
+        dep_type, asset_desc, selected_branch, req.refund_bank_info, initial_status, items_json_str,
         req.customer_notes or ("Bán tại quầy KiotViet POS" if is_admin_mode else "Đơn giỏ hàng Shopee"),
         now_str
     ))
@@ -2186,7 +2275,9 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
         f"━━━━━━━━━━━━━━━━━━\n"
         f"🔗 Quét trả đồ: {PUBLIC_DOMAIN}/return-qr?code={rental_code}"
     )
-    _send_telegram_notification(tele_msg, rental_id=rental_id, event_type="NEW_RENTAL")
+    # Chỉ gửi thông báo ngay nếu là Admin bán tại quầy POS trực tiếp
+    if is_admin_mode:
+        _send_telegram_notification(tele_msg, rental_id=rental_id, event_type="NEW_RENTAL")
 
     # Tạo trước nội dung bill K80 ESC/POS
     bill_data = {
@@ -2217,8 +2308,8 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
         "items_count": len(processed_items),
         "items": processed_items,
         "total_price": total_rental_price,
-        "deposit_amount": 0,
-        "deposit_type": "NONE",
+        "deposit_amount": final_deposit,
+        "deposit_type": dep_type,
         "deposit_asset_desc": asset_desc,
         "discount_applied": 0,
         "total_payable": total_payable,
@@ -2246,7 +2337,11 @@ def request_extension(rental_id: int, req: RequestExtensionRequest, user: Option
     rental = cur.execute("SELECT * FROM rentals WHERE id = ? AND user_id = ?", (rental_id, user["id"])).fetchone()
     if not rental:
         conn.close()
-        raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê của bạn!")
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê!")
+
+    if user is None or (user.get("role") != "admin" and rental["user_id"] != user["id"]):
+        conn.close()
+        raise HTTPException(status_code=403, detail="Không có quyền thực hiện thao tác này!")
 
     cur.execute("""
     UPDATE rentals 
@@ -2459,12 +2554,6 @@ def get_rental_contract(rental_id: int, user: Optional[Dict[str, Any]] = Depends
 # 11. ADMIN PANEL APIS
 # =============================================================================
 
-def require_admin(user: Optional[Dict[str, Any]] = Depends(get_current_user)):
-    if not user or user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Chỉ Quản trị viên (Admin) mới có quyền truy cập!")
-    return user
-
-
 @app.get("/api/admin/dashboard_stats")
 def get_admin_dashboard_stats(admin: Dict[str, Any] = Depends(require_admin)):
     update_and_check_rental_alerts()
@@ -2567,10 +2656,24 @@ def update_rental_admin(rental_id: int, req: UpdateRentalAdminRequest, admin: Di
     if req.status:
         fields.append("status = ?")
         params.append(req.status)
-        if req.status in ("RETURNED", "CANCELLED") and rental["item_id"]:
-            cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (rental["item_id"],))
-        elif req.status == "ACTIVE" and rental["item_id"]:
-            cur.execute("UPDATE items SET availability = 'RENTED' WHERE id = ?", (rental["item_id"],))
+        if req.status in ("RETURNED", "CANCELLED"):
+            if "items_json" in rental.keys() and rental["items_json"]:
+                try:
+                    for itm in json.loads(rental["items_json"]):
+                        if itm.get("item_id"):
+                            cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (itm["item_id"],))
+                except Exception: pass
+            elif rental["item_id"]:
+                cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (rental["item_id"],))
+        elif req.status == "ACTIVE":
+            if "items_json" in rental.keys() and rental["items_json"]:
+                try:
+                    for itm in json.loads(rental["items_json"]):
+                        if itm.get("item_id"):
+                            cur.execute("UPDATE items SET availability = 'RENTED' WHERE id = ?", (itm["item_id"],))
+                except Exception: pass
+            elif rental["item_id"]:
+                cur.execute("UPDATE items SET availability = 'RENTED' WHERE id = ?", (rental["item_id"],))
 
     if req.end_time:
         fields.append("end_time = ?")
@@ -2955,6 +3058,147 @@ def delete_category_chip(cat_id: int, admin: Dict[str, Any] = Depends(require_ad
     return {"success": True, "message": "Đã xóa danh mục / chip lọc thành công!"}
 
 
+# =============================================================================
+# 12.1 BLACKLIST MANAGEMENT (QUẢN LÝ DANH SÁCH ĐEN BÙNG CỌC / HỎNG ĐỒ)
+# =============================================================================
+
+class BlacklistAddRequest(BaseModel):
+    phone: Optional[str] = ""
+    cccd_number: Optional[str] = ""
+    bank_account: Optional[str] = ""
+    reason: str
+
+
+@app.get("/api/admin/blacklist")
+def get_admin_blacklist(admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin lấy danh sách khách hàng bị đưa vào Blacklist."""
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM blacklist ORDER BY id DESC").fetchall()
+    conn.close()
+    return {"success": True, "blacklist": [dict(r) for r in rows], "count": len(rows)}
+
+
+@app.post("/api/admin/blacklist")
+def add_admin_blacklist(req: BlacklistAddRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin thêm số điện thoại / CCCD / STK vào Danh Sách Đen."""
+    clean_p = (req.phone or "").strip()
+    clean_c = (req.cccd_number or "").strip()
+    clean_b = (req.bank_account or "").strip()
+    if not clean_p and not clean_c and not clean_b:
+        raise HTTPException(status_code=400, detail="Vui lòng nhập ít nhất SĐT, CCCD hoặc STK Ngân Hàng!")
+    conn = get_db()
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute("""
+    INSERT INTO blacklist (phone, cccd_number, bank_account, reason, flagged_at)
+    VALUES (?, ?, ?, ?, ?)
+    """, (clean_p, clean_c, clean_b, req.reason.strip(), now_str))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "Đã thêm vào Danh Sách Đen thành công!"}
+
+
+@app.delete("/api/admin/blacklist/{bl_id}")
+def delete_admin_blacklist(bl_id: int, admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin gỡ bỏ khách hàng khỏi Danh Sách Đen khi đã giải quyết xong."""
+    conn = get_db()
+    conn.execute("DELETE FROM blacklist WHERE id = ?", (bl_id,))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "Đã gỡ bỏ khỏi Danh Sách Đen thành công!"}
+
+
+# =============================================================================
+# 12.2 XUẤT BÁO CÁO DOANH THU & ĐƠN THUÊ EXCEL / CSV CHUẨN UTF-8 BOM
+# =============================================================================
+
+@app.get("/api/admin/reports/export_csv")
+def export_rentals_csv(token: Optional[str] = None, authorization: Optional[str] = Header(None)):
+    """Admin tải file CSV/Excel toàn bộ đơn hàng và doanh thu thực tế chuẩn UTF-8."""
+    auth_header = authorization or (f"Bearer {token}" if token else None)
+    user = get_current_user(auth_header)
+    if not user or user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ Quản trị viên (Admin) mới có quyền xuất báo cáo!")
+    conn = get_db()
+    cur = conn.cursor()
+    rentals = cur.execute("""
+    SELECT r.id, r.rental_code, u.full_name as customer_name, u.phone as customer_phone,
+           COALESCE(i.name, c.name, 'Đơn Thuê Nhiều Món') as item_name,
+           r.total_price, r.deposit_paid, r.deposit_type, r.deposit_asset_desc,
+           r.status, r.branch_code, r.start_time, r.end_time, r.late_fee, r.created_at
+    FROM rentals r
+    LEFT JOIN items i ON r.item_id = i.id
+    LEFT JOIN combos c ON r.combo_id = c.id
+    JOIN users u ON r.user_id = u.id
+    ORDER BY r.id DESC
+    """).fetchall()
+    conn.close()
+
+    output = io.StringIO()
+    # Ghi UTF-8 BOM để Excel tự động mở tiếng Việt không bị lỗi font
+    output.write("\ufeff")
+    writer = csv.writer(output)
+    writer.writerow([
+        "ID", "Mã Đơn", "Khách Hàng", "Số Điện Thoại", "Thiết Bị / Đồ Thuê",
+        "Tiền Thuê (VNĐ)", "Tiền Cọc (VNĐ)", "Hình Thức Cọc", "Mô Tả Cọc",
+        "Trạng Thái", "Chi Nhánh", "Giờ Bắt Đầu", "Hạn Trả", "Phạt Trễ (VNĐ)", "Ngày Đặt"
+    ])
+    for r in rentals:
+        writer.writerow([
+            r["id"], r["rental_code"], r["customer_name"], r["customer_phone"], r["item_name"],
+            r["total_price"], r["deposit_paid"], r["deposit_type"], r["deposit_asset_desc"] or "",
+            r["status"], r["branch_code"] or "CN1", r["start_time"], r["end_time"], r["late_fee"], r["created_at"]
+        ])
+
+    csv_data = output.getvalue()
+    filename = f"TidubaStore_BaoCaoDoanhThu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    return Response(
+        content=csv_data,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+# =============================================================================
+# 12.3 SINH MÃ VIETQR HOÀN CỌC CHO ADMIN QUÉT TRẢ TIỀN 1-CHẠM
+# =============================================================================
+
+@app.get("/api/admin/rentals/{rental_id}/refund_qr")
+def get_rental_refund_qr(rental_id: int, admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin lấy thông tin và mã VietQR hoàn tiền cọc lại cho khách sau khi trừ thiệt hại."""
+    conn = get_db()
+    rental = conn.execute("""
+    SELECT r.*, u.full_name as customer_name, u.phone as customer_phone
+    FROM rentals r
+    JOIN users u ON r.user_id = u.id
+    WHERE r.id = ?
+    """, (rental_id,)).fetchone()
+
+    if not rental:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn!")
+
+    # Tính tiền phạt thiệt hại
+    penalties = conn.execute("SELECT sum(penalty_amount) as s FROM damage_penalties WHERE rental_id = ?", (rental_id,)).fetchone()["s"] or 0
+    conn.close()
+
+    total_deposit = rental["deposit_paid"] or 0
+    late_fee = rental["late_fee"] or 0
+    refund_amount = max(0, total_deposit - penalties - late_fee)
+    bank_info = rental["refund_bank_info"] if ("refund_bank_info" in rental.keys() and rental["refund_bank_info"]) else ""
+
+    return {
+        "success": True,
+        "rental_code": rental["rental_code"],
+        "customer_name": rental["customer_name"],
+        "customer_phone": rental["customer_phone"],
+        "deposit_paid": total_deposit,
+        "damage_deduction": penalties,
+        "late_fee": late_fee,
+        "refund_amount": refund_amount,
+        "refund_bank_info": bank_info
+    }
+
+
 @app.get("/api/admin/rentals/{rental_id}/label", response_class=HTMLResponse)
 def print_equipment_barcode_label(rental_id: int, admin: Dict[str, Any] = Depends(require_admin)):
     """In tem mã vạch K80 dán trực tiếp lên thiết bị máy ảnh / túi đồ cho thuê."""
@@ -3095,9 +3339,17 @@ def admin_confirm_payment(rental_id: int, admin: Dict[str, Any] = Depends(requir
         conn.close()
         raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê!")
 
+    rental = dict(rental)
+
     # Cập nhật trạng thái sang ACTIVE
     cur.execute("UPDATE rentals SET status = 'ACTIVE' WHERE id = ?", (rental_id,))
-    if rental["item_id"]:
+    if "items_json" in rental.keys() and rental["items_json"]:
+        try:
+            for itm in json.loads(rental["items_json"]):
+                if itm.get("item_id"):
+                    cur.execute("UPDATE items SET availability = 'RENTED' WHERE id = ?", (itm["item_id"],))
+        except Exception: pass
+    elif rental["item_id"]:
         cur.execute("UPDATE items SET availability = 'RENTED' WHERE id = ?", (rental["item_id"],))
 
     # Tự động in bill
@@ -3156,7 +3408,7 @@ def admin_confirm_payment(rental_id: int, admin: Dict[str, Any] = Depends(requir
 
 class CustomerPaymentProofRequest(BaseModel):
     rental_id: int
-    proof_image_url: str
+    proof_image_url: Optional[str] = None
     customer_notes: Optional[str] = None
 
 
@@ -3167,7 +3419,7 @@ def submit_customer_payment_proof(req: CustomerPaymentProofRequest, user: Option
     Hệ thống:
     - Lưu proof_image_url vào đơn thuê
     - Cập nhật ghi chú
-    - Gửi ngay tin nhắn ảnh qua Telegram Bot tới Group quản lý kèm nút bấm:
+    - Gửi ngay tin nhắn ảnh hoặc tin nhắn thông báo qua Telegram Bot tới Group quản lý kèm nút bấm:
       [✅ Xác Nhận Đã Thanh Toán]
       Khi admin bấm nút trên Telegram hoặc web, đơn lập tức được duyệt và đồng bộ!
     """
@@ -3188,26 +3440,37 @@ def submit_customer_payment_proof(req: CustomerPaymentProofRequest, user: Option
         conn.close()
         raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê!")
 
+    if not user:
+        conn.close()
+        raise HTTPException(status_code=401, detail="Vui lòng đăng nhập để gửi minh chứng thanh toán!")
+
+    if user.get("role") != "admin" and rental["user_id"] != user["id"]:
+        conn.close()
+        raise HTTPException(status_code=403, detail="Bạn không có quyền gửi minh chứng cho đơn hàng này!")
+
+    note_addon = ' | Khách đã tải bill chuyển tiền' if req.proof_image_url else ' | Khách báo đã chuyển khoản qua VietQR MB'
     cur.execute("""
     UPDATE rentals 
-    SET payment_proof_img = ?, customer_notes = COALESCE(customer_notes, '') || ' | Khách đã tải bill chuyển tiền'
+    SET payment_proof_img = COALESCE(?, payment_proof_img), customer_notes = COALESCE(customer_notes, '') || ?
     WHERE id = ?
-    """, (req.proof_image_url, req.rental_id))
+    """, (req.proof_image_url, note_addon, req.rental_id))
     conn.commit()
     conn.close()
 
     branch_code = rental["branch_code"] if ("branch_code" in rental.keys() and rental["branch_code"]) else "CN1"
     branch_info = STORE_BRANCHES.get(branch_code, STORE_BRANCHES["CN1"])
 
+    bill_status_text = "📸 <i>Ảnh biên lai đính kèm bên dưới.</i>" if req.proof_image_url else "⚡ <i>Khách báo đã chuyển khoản (Vui lòng đối chiếu app MBBank).</i>"
+
     tele_msg = (
-        f"<b>📸 [BILL CHUYỂN TIỀN] KHÁCH ĐÃ CHUYỂN KHOẢN!</b>\n"
+        f"<b>📸 [THANH TOÁN] KHÁCH BÁO ĐÃ CHUYỂN KHOẢN!</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
         f"📋 <b>Mã đơn:</b> <code>{rental['rental_code']}</code>\n"
         f"👤 <b>Khách hàng:</b> {rental['customer_name']} (<code>{rental['customer_phone']}</code>)\n"
         f"📦 <b>Thiết bị:</b> {rental['item_name']}\n"
         f"💵 <b>Số tiền cần trả:</b> <b>{rental['total_price']:,}đ</b>\n"
         f"🏢 <b>Chi nhánh:</b> {branch_info['name']}\n"
-        f"📸 <i>Ảnh minh chứng thanh toán đính kèm bên dưới.</i>\n"
+        f"{bill_status_text}\n"
         f"━━━━━━━━━━━━━━━━━━\n"
         f"👇 <b>Admin bấm nút bên dưới để duyệt thanh toán ngay:</b>"
     )
@@ -3215,12 +3478,19 @@ def submit_customer_payment_proof(req: CustomerPaymentProofRequest, user: Option
     # Tạo HMAC signature bảo mật cho link xác nhận
     confirm_sig = hmac.new(TOKEN_SECRET.encode(), f"{rental['id']}:{rental['rental_code']}".encode(), hashlib.sha256).hexdigest()
     confirm_url = f"{PUBLIC_DOMAIN}/api/telegram/quick_confirm?rental_id={rental['id']}&code={rental['rental_code']}&sig={confirm_sig}"
-    inline_kb = [
-        [
-            {"text": "✅ Xác Nhận Đã Thanh Toán", "url": confirm_url},
-            {"text": "🔍 Xem Đơn Trên Web", "url": f"{PUBLIC_DOMAIN}/return-qr?code={rental['rental_code']}"}
+    
+    # Chỉ thêm nút URL nếu PUBLIC_DOMAIN là HTTPS hợp lệ (Telegram Bot API từ chối http://localhost)
+    inline_kb = None
+    if PUBLIC_DOMAIN.startswith("https://") and "localhost" not in PUBLIC_DOMAIN and "127.0.0.1" not in PUBLIC_DOMAIN:
+        inline_kb = [
+            [
+                {"text": "✅ Xác Nhận Đã Nhận Tiền", "url": confirm_url},
+                {"text": "🔍 Xem Đơn Trên Web", "url": f"{PUBLIC_DOMAIN}/return-qr?code={rental['rental_code']}"}
+            ]
         ]
-    ]
+        tele_msg += "\n👇 <b>Admin bấm nút bên dưới để duyệt thanh toán ngay:</b>"
+    else:
+        tele_msg += f"\n💡 <i>Mở Web Admin hoặc App Desktop để bấm [Xác Nhận Tiền] cho đơn {rental['rental_code']}</i>"
 
     _send_telegram_notification(
         message=tele_msg,
@@ -3259,7 +3529,13 @@ def telegram_quick_confirm_payment(rental_id: int, code: str, sig: Optional[str]
         return HTMLResponse("<h3>❌ Không tìm thấy đơn thuê hợp lệ!</h3>", status_code=404)
 
     cur.execute("UPDATE rentals SET status = 'ACTIVE' WHERE id = ?", (rental_id,))
-    if rental["item_id"]:
+    if "items_json" in rental.keys() and rental["items_json"]:
+        try:
+            for itm in json.loads(rental["items_json"]):
+                if itm.get("item_id"):
+                    cur.execute("UPDATE items SET availability = 'RENTED' WHERE id = ?", (itm["item_id"],))
+        except Exception: pass
+    elif rental["item_id"]:
         cur.execute("UPDATE items SET availability = 'RENTED' WHERE id = ?", (rental["item_id"],))
 
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -3286,7 +3562,7 @@ def telegram_quick_confirm_payment(rental_id: int, code: str, sig: Optional[str]
         <div class="bg-slate-800 p-8 rounded-3xl max-w-md w-full text-center space-y-4 border border-emerald-500 shadow-2xl">
             <div class="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-3xl mx-auto">✓</div>
             <h2 class="text-xl font-bold text-emerald-400">ĐÃ XÁC NHẬN THANH TOÁN!</h2>
-            <p class="text-sm text-gray-300">Đơn hàng <strong>{code}</strong> đã được kích hoạt thành công trên hệ thống TidubaStore.com.</p>
+            <p class="text-sm text-gray-300">Đơn hàng <strong>{code}</strong> đã được kích hoạt thành công trên hệ thống Tiduba Store.</p>
             <p class="text-xs text-gray-400">Thiết bị đã chuyển trạng thái RENTED và đồng bộ tức thì trên Web.</p>
             <a href="/" class="inline-block mt-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-6 rounded-xl text-xs">Về Trang Chủ Web</a>
         </div>
@@ -3304,103 +3580,228 @@ def _send_telegram_notification(
     rental_id: Optional[int] = None, 
     event_type: str = "NOTIFY",
     photo_url: Optional[str] = None,
-    inline_keyboard: Optional[List[List[Dict[str, str]]]] = None
-) -> bool:
+    inline_keyboard: Optional[List[List[Dict[str, str]]]] = None,
+    override_token: Optional[str] = None,
+    override_chat_id: Optional[str] = None,
+    return_detail: bool = False
+) -> Union[bool, Tuple[bool, str]]:
     """
     Gửi thông báo Telegram Bot thời gian thực tới Admin hoặc Group quản lý.
     Hỗ trợ gửi kèm ảnh minh chứng thanh toán (sendPhoto) và Inline Keyboard nút bấm xác nhận.
-    Tự động chuẩn hóa group chat_id dạng -100xxx nếu cần.
+    Tự động chuẩn hóa tất cả định dạng group chat_id (-5368352616, -1005368352616, 5368352616).
+    Tự động xử lý khi nhóm nâng cấp supergroup (migrate_to_chat_id).
     """
+    last_err_detail = "Chưa cấu hình Telegram Bot"
     try:
         conn = get_db()
         cfg = conn.execute("SELECT * FROM telegram_config WHERE id = 1").fetchone()
         now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         status = "LOG_ONLY"
 
-        if cfg and cfg["is_active"] and cfg["bot_token"] and cfg["chat_id"]:
-            # Kiểm tra phân loại sự kiện theo cấu hình bật/tắt
-            if event_type == "NEW_RENTAL" and not cfg["auto_notify_new_rental"]:
-                conn.close()
-                return False
-            if event_type == "PAYMENT" and not cfg["auto_notify_payment"]:
-                conn.close()
-                return False
-            if event_type == "RETURN" and not cfg["auto_notify_return"]:
-                conn.close()
-                return False
-            if event_type in ("OVERDUE", "WARNING_DUE_SOON") and not cfg["auto_notify_overdue"]:
-                conn.close()
-                return False
+        active_token = (override_token or (cfg["bot_token"] if cfg else "")).strip()
+        active_chat_id = (override_chat_id or (cfg["chat_id"] if cfg else "")).strip()
 
-            bot_token = cfg["bot_token"].strip()
-            raw_chat_id = cfg["chat_id"].strip()
+        if active_token and active_chat_id:
+            # Kiểm tra phân loại sự kiện theo cấu hình bật/tắt (nếu không phải TEST hoặc override)
+            if not override_chat_id and cfg and cfg["is_active"]:
+                if event_type == "NEW_RENTAL" and not cfg["auto_notify_new_rental"]:
+                    conn.close()
+                    return (False, "Đã tắt thông báo đơn mới") if return_detail else False
+                if event_type == "PAYMENT" and not cfg["auto_notify_payment"]:
+                    conn.close()
+                    return (False, "Đã tắt thông báo thanh toán") if return_detail else False
+                if event_type == "RETURN" and not cfg["auto_notify_return"]:
+                    conn.close()
+                    return (False, "Đã tắt thông báo trả đồ") if return_detail else False
+                if event_type in ("OVERDUE", "WARNING_DUE_SOON") and not cfg["auto_notify_overdue"]:
+                    conn.close()
+                    return (False, "Đã tắt thông báo quá hạn") if return_detail else False
 
-            # Chuẩn hóa chat_id: nếu là group supergroup số âm dài không có -100
-            # thì tự động hỗ trợ cả raw_chat_id lẫn -100xxx
-            candidate_chat_ids = [raw_chat_id]
-            if raw_chat_id.startswith("-") and not raw_chat_id.startswith("-100"):
-                clean = raw_chat_id.lstrip("-")
+            # Tạo danh sách các ứng viên chat_id để thử gửi (hỗ trợ mọi biến thể nhóm)
+            candidate_chat_ids = [active_chat_id]
+            if active_chat_id.startswith("-100"):
+                clean = active_chat_id[4:]
+                if clean:
+                    candidate_chat_ids.append(f"-{clean}")
+            elif active_chat_id.startswith("-"):
+                clean = active_chat_id.lstrip("-")
                 candidate_chat_ids.append(f"-100{clean}")
-            elif not raw_chat_id.startswith("-") and len(raw_chat_id) >= 10:
-                candidate_chat_ids.append(f"-100{raw_chat_id}")
+            else:
+                if active_chat_id.startswith("100"):
+                    candidate_chat_ids.append(f"-{active_chat_id}")
+                    candidate_chat_ids.append(f"-{active_chat_id[3:]}")
+                else:
+                    candidate_chat_ids.append(f"-{active_chat_id}")
+                    candidate_chat_ids.append(f"-100{active_chat_id}")
 
-            # Nếu có photo_url thì dùng sendPhoto, ngược lại dùng sendMessage
+            # Lọc an toàn cho inline_keyboard: chỉ giữ các nút URL hợp lệ (bắt đầu bằng https:// và không chứa localhost)
+            safe_inline_keyboard = None
+            if inline_keyboard:
+                filtered_rows = []
+                for row in inline_keyboard:
+                    valid_cols = []
+                    for btn in row:
+                        u = btn.get("url", "")
+                        if u.startswith("https://") and "localhost" not in u and "127.0.0.1" not in u:
+                            valid_cols.append(btn)
+                        elif btn.get("callback_data"):
+                            valid_cols.append(btn)
+                    if valid_cols:
+                        filtered_rows.append(valid_cols)
+                if filtered_rows:
+                    safe_inline_keyboard = filtered_rows
+
             sent_successfully = False
+            working_chat_id = None
             for target_chat_id in candidate_chat_ids:
                 try:
+                    # Kiểm tra xem có file ảnh cục bộ trên ổ cứng không để upload trực tiếp multipart
+                    local_photo_path = None
                     if photo_url:
-                        # Chuẩn hóa full URL nếu là đường dẫn nội bộ
+                        clean_url = photo_url.split("?")[0].lstrip("/")
+                        if clean_url.startswith("static/"):
+                            p = BASE_DIR / clean_url
+                            if p.exists() and p.is_file():
+                                local_photo_path = p
+                        if not local_photo_path:
+                            p2 = STATIC_DIR / clean_url
+                            if p2.exists() and p2.is_file():
+                                local_photo_path = p2
+                        if not local_photo_path and Path(photo_url).exists() and Path(photo_url).is_file():
+                            local_photo_path = Path(photo_url)
+
+                    if local_photo_path and local_photo_path.is_file():
+                        # GỬI ẢNH THẬT BẰNG MULTIPART/FORM-DATA (KHÔNG CẦN DOMAIN CÔNG KHAI)
+                        url = f"https://api.telegram.org/bot{active_token}/sendPhoto"
+                        boundary = f"----WebKitFormBoundary{uuid.uuid4().hex}"
+                        body_bytes = bytearray()
+                        body_bytes.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="chat_id"\r\n\r\n{target_chat_id}\r\n'.encode('utf-8'))
+                        body_bytes.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="caption"\r\n\r\n{message}\r\n'.encode('utf-8'))
+                        body_bytes.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="parse_mode"\r\n\r\nHTML\r\n'.encode('utf-8'))
+                        if safe_inline_keyboard:
+                            body_bytes.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="reply_markup"\r\n\r\n{json.dumps({"inline_keyboard": safe_inline_keyboard})}\r\n'.encode('utf-8'))
+                        with open(local_photo_path, "rb") as f:
+                            raw_img = f.read()
+                        fname = local_photo_path.name
+                        mtype = "image/jpeg" if fname.lower().endswith((".jpg", ".jpeg")) else ("image/png" if fname.lower().endswith(".png") else "application/octet-stream")
+                        body_bytes.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="photo"; filename="{fname}"\r\nContent-Type: {mtype}\r\n\r\n'.encode('utf-8'))
+                        body_bytes.extend(raw_img)
+                        body_bytes.extend(f'\r\n--{boundary}--\r\n'.encode('utf-8'))
+
+                        req = urllib.request.Request(
+                            url,
+                            data=bytes(body_bytes),
+                            headers={"Content-Type": f"multipart/form-data; boundary={boundary}", "User-Agent": "TidubaStoreBot/1.0"},
+                            method="POST"
+                        )
+                    elif photo_url:
                         full_photo_url = photo_url
                         if photo_url.startswith("/"):
                             full_photo_url = f"{PUBLIC_DOMAIN}{photo_url}"
 
-                        url = f"https://api.telegram.org/bot{bot_token}/sendPhoto"
+                        url = f"https://api.telegram.org/bot{active_token}/sendPhoto"
                         body_dict = {
                             "chat_id": target_chat_id,
                             "photo": full_photo_url,
                             "caption": message,
                             "parse_mode": "HTML"
                         }
+                        if safe_inline_keyboard:
+                            body_dict["reply_markup"] = {"inline_keyboard": safe_inline_keyboard}
+
+                        payload_data = json.dumps(body_dict).encode("utf-8")
+                        req = urllib.request.Request(
+                            url,
+                            data=payload_data,
+                            headers={"Content-Type": "application/json", "User-Agent": "TidubaStoreBot/1.0"},
+                            method="POST"
+                        )
                     else:
-                        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                        url = f"https://api.telegram.org/bot{active_token}/sendMessage"
                         body_dict = {
                             "chat_id": target_chat_id,
                             "text": message,
                             "parse_mode": "HTML",
                             "disable_web_page_preview": True
                         }
+                        if safe_inline_keyboard:
+                            body_dict["reply_markup"] = {"inline_keyboard": safe_inline_keyboard}
 
-                    if inline_keyboard:
-                        body_dict["reply_markup"] = {"inline_keyboard": inline_keyboard}
+                        payload_data = json.dumps(body_dict).encode("utf-8")
+                        req = urllib.request.Request(
+                            url,
+                            data=payload_data,
+                            headers={"Content-Type": "application/json", "User-Agent": "TidubaStoreBot/1.0"},
+                            method="POST"
+                        )
 
-                    payload_data = json.dumps(body_dict).encode("utf-8")
-                    req = urllib.request.Request(
-                        url,
-                        data=payload_data,
-                        headers={"Content-Type": "application/json", "User-Agent": "TidubaStoreBot/1.0"},
-                        method="POST"
-                    )
-                    with urllib.request.urlopen(req, timeout=10) as resp:
+                    with urllib.request.urlopen(req, timeout=15) as resp:
                         if resp.status == 200:
                             status = "SENT"
                             sent_successfully = True
+                            working_chat_id = target_chat_id
+                            last_err_detail = "Thành công"
                             break
                         else:
                             status = f"HTTP_{resp.status}"
+                except urllib.error.HTTPError as e:
+                    err_text = e.read().decode('utf-8', errors='ignore')
+                    last_err_detail = f"Telegram lỗi {e.code}: {err_text}"
+                    print(f"[TELEGRAM] Thử gửi tới {target_chat_id} thất bại: {last_err_detail}")
+                    # Kiểm tra xem nhóm có bị di chuyển sang Supergroup không
+                    try:
+                        err_json = json.loads(err_text)
+                        migrated_id = err_json.get("parameters", {}).get("migrate_to_chat_id")
+                        if migrated_id:
+                            print(f"[TELEGRAM] Nhóm đã nâng cấp supergroup, ID mới: {migrated_id}")
+                            body_dict["chat_id"] = str(migrated_id)
+                            payload_data = json.dumps(body_dict).encode("utf-8")
+                            req_retry = urllib.request.Request(
+                                url,
+                                data=payload_data,
+                                headers={"Content-Type": "application/json", "User-Agent": "TidubaStoreBot/1.0"},
+                                method="POST"
+                            )
+                            with urllib.request.urlopen(req_retry, timeout=10) as resp_retry:
+                                if resp_retry.status == 200:
+                                    status = "SENT"
+                                    sent_successfully = True
+                                    working_chat_id = str(migrated_id)
+                                    last_err_detail = "Thành công (sau khi cập nhật supergroup ID)"
+                                    break
+                    except Exception:
+                        pass
                 except Exception as e:
                     status = f"FAILED: {str(e)[:50]}"
+                    last_err_detail = str(e)
                     print(f"[TELEGRAM] Thử gửi tới {target_chat_id} thất bại: {e}")
 
+            # Nếu gửi thành công bằng ID chuẩn và khác ID ban đầu, tự động lưu lại vào DB
+            if sent_successfully and working_chat_id and working_chat_id != active_chat_id:
+                try:
+                    conn.execute("UPDATE telegram_config SET chat_id = ? WHERE id = 1", (working_chat_id,))
+                    conn.commit()
+                    print(f"[TELEGRAM] Đã tự động cập nhật chat_id tối ưu vào DB: {working_chat_id}")
+                except Exception:
+                    pass
+
         # Ghi log vào bảng telegram_logs
+        log_chat_id = active_chat_id or (cfg["chat_id"] if cfg else "")
         conn.execute("""
         INSERT INTO telegram_logs (rental_id, chat_id, event_type, message, status, sent_at)
         VALUES (?, ?, ?, ?, ?, ?)
-        """, (rental_id, cfg["chat_id"] if cfg else "", event_type, message, status, now_str))
+        """, (rental_id, log_chat_id, event_type, message, status, now_str))
         conn.commit()
         conn.close()
-        return status == "SENT"
+
+        is_ok = (status == "SENT")
+        if return_detail:
+            return (is_ok, last_err_detail)
+        return is_ok
     except Exception as e:
-        print(f"[TELEGRAM SERVICE] Lỗi ghi log: {e}")
+        print(f"[TELEGRAM SERVICE] Lỗi hệ thống: {e}")
+        if return_detail:
+            return (False, f"Lỗi hệ thống: {str(e)}")
         return False
 
 
@@ -3466,13 +3867,78 @@ def get_telegram_logs(admin: Dict[str, Any] = Depends(require_admin)):
     return {"logs": [dict(l) for l in logs], "count": len(logs)}
 
 
+@app.get("/api/admin/telegram/detect_chat_id")
+def detect_telegram_chat_id(admin: Dict[str, Any] = Depends(require_admin)):
+    """Tự động quét các tin nhắn / sự kiện bot đã nhận để trích xuất Chat ID & Group ID."""
+    conn = get_db()
+    cfg = conn.execute("SELECT * FROM telegram_config WHERE id = 1").fetchone()
+    conn.close()
+    if not cfg or not cfg["bot_token"]:
+        raise HTTPException(status_code=400, detail="Chưa cấu hình Telegram Bot Token!")
+
+    bot_token = cfg["bot_token"].strip()
+    url = f"https://api.telegram.org/bot{bot_token}/getUpdates"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "TidubaStoreBot/1.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        updates = data.get("result", [])
+        chats_found = {}
+        for u in updates:
+            chat = None
+            if "message" in u and "chat" in u["message"]:
+                chat = u["message"]["chat"]
+            elif "my_chat_member" in u and "chat" in u["my_chat_member"]:
+                chat = u["my_chat_member"]["chat"]
+            elif "channel_post" in u and "chat" in u["channel_post"]:
+                chat = u["channel_post"]["chat"]
+            elif "chat_member" in u and "chat" in u["chat_member"]:
+                chat = u["chat_member"]["chat"]
+
+            if chat and "id" in chat:
+                cid = str(chat["id"])
+                ctype = chat.get("type", "unknown")
+                title = chat.get("title") or chat.get("first_name") or chat.get("username") or cid
+                type_label = "👥 Nhóm" if ctype in ("group", "supergroup") else ("📢 Kênh" if ctype == "channel" else "👤 Cá nhân")
+                chats_found[cid] = {
+                    "id": cid,
+                    "title": title,
+                    "type": ctype,
+                    "display": f"{type_label}: {title} (ID: {cid})"
+                }
+
+        # Nếu đã có nhóm đang lưu, luôn đưa vào danh sách gợi ý
+        if cfg["chat_id"]:
+            cid = str(cfg["chat_id"]).strip()
+            if cid not in chats_found:
+                type_label = "👥 Nhóm" if cid.startswith("-") else "👤 Cá nhân"
+                chats_found[cid] = {
+                    "id": cid,
+                    "title": "Nhóm đang lưu hiện tại",
+                    "type": "group" if cid.startswith("-") else "private",
+                    "display": f"{type_label}: Nhóm đang lưu (ID: {cid})"
+                }
+
+        chat_list = list(chats_found.values())
+        return {
+            "success": True,
+            "chats": chat_list,
+            "message": f"Tìm thấy {len(chat_list)} cuộc trò chuyện / nhóm đã tương tác với Bot."
+        }
+    except Exception as e:
+        return {"success": False, "message": f"Lỗi kết nối Telegram getUpdates: {str(e)}"}
+
+
 class TelegramTestRequest(BaseModel):
     message: Optional[str] = "🔔 Test thông báo từ Tiduba Store! Bot Telegram đang hoạt động rất tốt."
+    chat_id: Optional[str] = None
+    bot_token: Optional[str] = None
 
 
 @app.post("/api/admin/telegram/test")
 def test_telegram_notification(req: TelegramTestRequest, admin: Dict[str, Any] = Depends(require_admin)):
-    """Gửi tin nhắn test tới Telegram."""
+    """Gửi tin nhắn test tới Telegram (hỗ trợ thử ID mới và tự động lưu khi thành công)."""
     test_msg = (
         f"<b>📸 TIDUBA STORE - TEST KẾT NỐI TELEGRAM BOT</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
@@ -3481,11 +3947,27 @@ def test_telegram_notification(req: TelegramTestRequest, admin: Dict[str, Any] =
         f"👑 <b>Admin:</b> {admin['full_name']}\n"
         f"━━━━━━━━━━━━━━━━━━"
     )
-    sent = _send_telegram_notification(test_msg, event_type="TEST")
+    sent, err_detail = _send_telegram_notification(
+        test_msg, 
+        event_type="TEST",
+        override_token=req.bot_token,
+        override_chat_id=req.chat_id,
+        return_detail=True
+    )
     if sent:
+        # Tự động lưu cấu hình nếu gửi thành công với thông số override
+        if req.chat_id or req.bot_token:
+            conn = get_db()
+            now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            if req.chat_id and req.bot_token:
+                conn.execute("UPDATE telegram_config SET chat_id = ?, bot_token = ?, updated_at = ? WHERE id = 1", (req.chat_id.strip(), req.bot_token.strip(), now_str))
+            elif req.chat_id:
+                conn.execute("UPDATE telegram_config SET chat_id = ?, updated_at = ? WHERE id = 1", (req.chat_id.strip(), now_str))
+            conn.commit()
+            conn.close()
         return {"success": True, "message": "Đã gửi tin nhắn test thành công tới Telegram!"}
     else:
-        return {"success": False, "message": "Gửi test thất bại! Vui lòng kiểm tra lại Bot Token và Chat ID của bạn."}
+        return {"success": False, "message": f"Gửi test thất bại! Chi tiết: {err_detail}"}
 
 
 # =============================================================================
@@ -3544,7 +4026,13 @@ def process_return_by_qr(req: ReturnQrRequest, admin: Dict[str, Any] = Depends(r
     WHERE id = ?
     """, (now_str, rental_dict["id"]))
 
-    if rental_dict["item_id"]:
+    if rental_dict.get("items_json"):
+        try:
+            for itm in json.loads(rental_dict["items_json"]):
+                if itm.get("item_id"):
+                    cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (itm["item_id"],))
+        except Exception: pass
+    elif rental_dict["item_id"]:
         cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (rental_dict["item_id"],))
 
     conn.commit()
@@ -3608,7 +4096,7 @@ def return_qr_web_page(code: Optional[str] = None):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TidubaStore.com - Quét QR Nhận Trả Đồ & Thanh Lý Cọc</title>
+    <title>Tiduba Store - Quét QR Nhận Trả Đồ & Thanh Lý Cọc</title>
     <link rel="icon" type="image/png" href="/static/logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -3622,9 +4110,9 @@ def return_qr_web_page(code: Optional[str] = None):
         <!-- Logo & Header -->
         <div class="text-center space-y-2">
             <div class="w-14 h-14 mx-auto bg-white p-1 rounded-2xl border border-amber-500/40 shadow-lg flex items-center justify-center">
-                <img src="/static/logo.png" alt="TidubaStore.com Logo" class="w-full h-full object-contain">
+                <img src="/static/logo.png" alt="Tiduba Store Logo" class="w-full h-full object-contain">
             </div>
-            <h1 class="text-xl font-black text-white tracking-wider uppercase" style="font-family: 'Times New Roman', serif;">TIDUBASTORE.COM</h1>
+            <h1 class="text-xl font-black text-white tracking-wider uppercase" style="font-family: 'Times New Roman', serif;">TIDUBA STORE</h1>
             <p class="text-xs text-amber-400 font-mono font-bold">HỆ THỐNG QUÉT QR NHẬN TRẢ ĐỒ & THANH LÝ HỢP ĐỒNG</p>
         </div>
 
@@ -3638,6 +4126,9 @@ def return_qr_web_page(code: Optional[str] = None):
         dep_full = f"{dep_type_val}: {dep_desc_val}"
         if dep_paid_val > 0:
             dep_full += f" ({dep_paid_val:,}đ)"
+
+        raw_phone = str(rental_data.get('customer_phone') or '')
+        masked_phone = f"{raw_phone[:3]}***{raw_phone[-3:]}" if len(raw_phone) >= 7 else raw_phone
 
         html += f"""
         <div class="bg-gray-950 p-4 rounded-2xl border border-gray-800 space-y-3 text-xs font-mono">
@@ -3653,7 +4144,7 @@ def return_qr_web_page(code: Optional[str] = None):
             </div>
             <div class="flex items-center justify-between border-b border-gray-800 pb-2">
                 <span class="text-gray-400">Khách hàng:</span>
-                <strong class="text-white">{rental_data['customer_name']} ({rental_data['customer_phone']})</strong>
+                <strong class="text-white">{rental_data['customer_name']} ({masked_phone})</strong>
             </div>
             <div class="flex items-center justify-between border-b border-gray-800 pb-2">
                 <span class="text-gray-400">Thiết bị / Đồ:</span>
@@ -3848,12 +4339,30 @@ def admin_save_inspection(rental_id: int, req: AdminInspectionRequest, admin: Di
     return {"success": True, "message": f"Đã lưu biên bản kiểm tra ({req.phase}) và ghi nhận khấu trừ {req.deduction_amount:,}đ!"}
 
 
+def free_port_if_stuck(port: int = 9000):
+    """Giải phóng port 9000 nếu có tiến trình treo trên Windows."""
+    if sys.platform == "win32":
+        try:
+            output = subprocess.check_output(f"netstat -ano | findstr :{port}", shell=True, text=True)
+            current_pid = os.getpid()
+            for line in output.strip().splitlines():
+                parts = line.split()
+                if len(parts) >= 5 and "LISTENING" in parts:
+                    pid = parts[-1]
+                    if pid and pid != "0" and int(pid) != current_pid:
+                        subprocess.run(f"taskkill /F /PID {pid}", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+
+
 if __name__ == "__main__":
     import uvicorn
+    server_port = int(os.environ.get("PORT", 9000))
+    free_port_if_stuck(server_port)
     print("=" * 75)
     print("📸 TIDUBA STORE - NỀN TẢNG CHO THUÊ MÁY ẢNH & TRANG PHỤC CAO CẤP")
-    print("🚀 Khởi động Server tại: http://localhost:9000")
+    print(f"🚀 Khởi động Server tại: http://0.0.0.0:{server_port}")
     print(f"💳 Tài khoản VietQR: {BANK_CONFIG['bank_name']} - STK: {BANK_CONFIG['account_no']} ({BANK_CONFIG['account_name']})")
     print("=" * 75)
-    uvicorn.run("main:app", host="0.0.0.0", port=9000, reload=False)
+    uvicorn.run("main:app", host="0.0.0.0", port=server_port, reload=False)
 

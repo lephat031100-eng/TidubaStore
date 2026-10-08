@@ -28,7 +28,4 @@ USER appuser
 
 EXPOSE 9000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:9000/api/items').read()" || exit 1
-
 CMD ["python", "main.py"]

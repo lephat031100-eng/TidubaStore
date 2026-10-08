@@ -3,13 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TidubaStore.com - Thuê Đồ Thiết Kế & Máy Ảnh Chuyên Nghiệp</title>
+    <title>Tiduba Store - Thuê Đồ Thiết Kế & Máy Ảnh Chuyên Nghiệp</title>
     <!-- SEO & OpenGraph Meta Tags -->
-    <meta name="description" content="TidubaStore.com - Nền tảng trực tuyến cho thuê máy ảnh Sony, Canon, Fujifilm, ống kính, flycam và trang phục thiết kế, cổ phục, dạ hội cao cấp tự động 24/7.">
-    <link rel="canonical" href="https://tidubastore.com">
-    <meta property="og:title" content="TidubaStore.com - Thuê Đồ Thiết Kế & Máy Ảnh Chuyên Nghiệp">
-    <meta property="og:description" content="Tự do chọn ngày giờ nhận/trả đồ, cọc linh hoạt bằng CCCD hoặc tài sản, hoàn cọc tức thì qua MBBank và thông báo Telegram tự động.">
-    <meta property="og:url" content="https://tidubastore.com">
+    <meta name="description" content="Tiduba Store - Nền tảng trực tuyến cho thuê máy ảnh Sony, Canon, Fujifilm, ống kính, flycam và trang phục thiết kế, cổ phục, dạ hội cao cấp tự động 24/7.">
+    <meta property="og:title" content="Tiduba Store - Thuê Đồ Thiết Kế & Máy Ảnh Chuyên Nghiệp">
+    <meta property="og:description" content="Tự do chọn ngày giờ nhận/trả đồ, cọc linh hoạt bằng giấy tờ hoặc tài sản, hoàn trả tức thì và thông báo Telegram tự động.">
     <meta property="og:type" content="website">
     <meta property="og:image" content="/static/logo.png">
     <!-- Favicon & Brand Icons -->
@@ -75,14 +73,29 @@
         .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #d6cbbf; border-radius: 4px; }
         .custom-scroll::-webkit-scrollbar-thumb:hover { background: #c86d51; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         button, a, select, input, textarea { touch-action: manipulation; }
         button { cursor: pointer !important; }
 
-        /* Tối ưu hóa Touch UI cho Điện thoại & iPad */
+        /* Tối ưu hóa Touch UI & Responsive cho Toàn bộ Thiết bị (Điện thoại, iPad, PC) */
+        html, body {
+            overflow-x: hidden;
+            width: 100%;
+            -webkit-tap-highlight-color: transparent;
+        }
+        @media (max-width: 640px) {
+            /* Tránh hiện tượng tự động zoom-in trên iPhone/Safari khi focus input */
+            input, select, textarea { font-size: 16px !important; }
+            .container-mobile-padding { padding-left: 12px; padding-right: 12px; }
+        }
         @media (max-width: 1024px) {
             button, .btn-touch { min-height: 42px; }
-            input, select, textarea { font-size: 15px !important; }
             #sec-kiotviet-pos { padding: 10px !important; }
+        }
+        /* Hỗ trợ thanh điều hướng đáy trên các dòng iPhone có Home Bar */
+        .pb-safe {
+            padding-bottom: env(safe-area-inset-bottom, 16px);
         }
     </style>
 </head>
@@ -118,16 +131,16 @@
             <div class="flex items-center gap-4">
                 <a href="#" onclick="showSection('catalog'); return false;" class="flex items-center gap-3 group">
                     <div class="w-10 h-10 rounded-xl bg-white p-1 border border-[#e5dcd3] shadow-sm group-hover:scale-105 transition duration-300 flex-shrink-0 flex items-center justify-center">
-                        <img src="/static/logo.png" alt="TidubaStore.com Logo" class="w-full h-full object-contain">
+                        <img src="/static/logo.png" alt="Tiduba Store Logo" class="w-full h-full object-contain">
                     </div>
                     <div class="flex flex-col">
                         <span class="text-xl md:text-2xl text-[#1c1917] font-bold tracking-tight uppercase" style="font-family: 'Times New Roman', Georgia, serif; letter-spacing: 0.5px;">
-                            TidubaStore<span class="text-[#c86d51]">.com</span>
+                            Tiduba<span class="text-[#c86d51]"> Store</span>
                         </span>
                     </div>
                 </a>
 
-                <!-- Desktop Nav Links (As seen in screenshot) -->
+                <!-- Desktop Nav Links -->
                 <nav class="hidden lg:flex items-center gap-6 ml-6 text-sm font-medium text-[#4b5563]">
                     <button onclick="filterCategory('CAMERA_GEAR')" class="hover:text-[#c86d51] transition flex items-center gap-1.5 py-1">
                         <i class="fa-solid fa-camera text-xs text-[#6b7280]"></i> Máy Ảnh & Gear
@@ -135,8 +148,8 @@
                     <button onclick="filterCategory('COSTUME_FASHION')" class="hover:text-[#c86d51] transition flex items-center gap-1.5 py-1">
                         <i class="fa-solid fa-shirt text-xs text-[#6b7280]"></i> Trang Phục Concept
                     </button>
-                    <button onclick="openLookbookGalleryModal()" class="hover:text-[#c86d51] transition flex items-center gap-1.5 py-1">
-                        <i class="fa-solid fa-images text-xs text-[#6b7280]"></i> Lookbook
+                    <button onclick="openOrderTrackerModal()" class="hover:text-[#c86d51] transition flex items-center gap-1.5 py-1">
+                        <i class="fa-solid fa-magnifying-glass text-xs text-[#6b7280]"></i> Tra Cứu Đơn
                     </button>
                 </nav>
             </div>
@@ -392,6 +405,9 @@
                     <p class="text-xs text-gray-300 mt-1">Duyệt đơn, chỉnh sửa ngày giờ trả, duyệt gia hạn, lập biên bản kiểm tra thiết bị và cập nhật kho máy ảnh / trang phục.</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="downloadAdminCsvReport()" class="bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-600/70 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md" title="Tải về file Excel / CSV toàn bộ đơn hàng và doanh thu">
+                        <i class="fa-solid fa-file-excel text-emerald-400"></i> Xuất Báo Cáo Excel
+                    </button>
                     <button onclick="switchToKiotvietPos()" class="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-black px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-950/80 transition" title="Mở giao diện POS tính tiền KiotViet bán hàng tại quầy">
                         <i class="fa-solid fa-cash-register text-yellow-300"></i> POS KiotViet
                     </button>
@@ -509,10 +525,26 @@
                             <input type="text" id="telegram-bot-token" placeholder="8175354882:AAGgeNvCsSp2Z2iNJeo5g4XKmkmxLnYynM8" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white">
                         </div>
                         <div>
-                            <label class="block text-gray-200 font-bold mb-1">Telegram Chat ID / Group ID quản lý:</label>
-                            <input type="text" id="telegram-chat-id" placeholder="vd: -1005368352616 hoặc -5368352616 hoặc ID cá nhân" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white font-mono text-xs">
-                            <p class="text-[11px] text-gray-400 mt-1">
-                                💡 <strong>Mẹo Group:</strong> Nhập ID group (vd: <code>-5368352616</code> hoặc <code>-1005368352616</code>). Hãy nhớ thêm bot vào nhóm và cấp quyền gửi tin nhắn!
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-gray-200 font-bold">Telegram Chat ID / Group ID quản lý:</label>
+                                <button type="button" id="btn-detect-tele-id" onclick="detectTelegramChatId()" class="text-[11px] bg-sky-950 hover:bg-sky-900 text-sky-300 border border-sky-600 px-2 py-0.5 rounded transition flex items-center gap-1 font-bold">
+                                    <i class="fa-solid fa-magnifying-glass"></i> Lấy ID Tự Động
+                                </button>
+                            </div>
+                            <input type="text" id="telegram-chat-id" placeholder="vd: -5368352616 hoặc -1005368352616 hoặc ID cá nhân" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white font-mono text-xs">
+                            
+                            <!-- Dropdown danh sách chat phát hiện được -->
+                            <div id="tele-detected-chats-box" class="hidden mt-2 p-2 bg-gray-950 border border-sky-800 rounded-lg space-y-1">
+                                <div class="text-[10px] text-sky-300 font-bold flex items-center gap-1">
+                                    <i class="fa-solid fa-circle-check text-emerald-400"></i> Các nhóm & chat tìm thấy:
+                                </div>
+                                <select id="tele-detected-chats-select" onchange="onSelectDetectedChat(this.value)" class="w-full bg-gray-900 border border-gray-700 rounded p-1 text-[11px] text-white font-mono">
+                                    <!-- Rendered dynamically -->
+                                </select>
+                            </div>
+
+                            <p class="text-[11px] text-gray-400 mt-1.5">
+                                💡 <strong>Nhóm TidubaStore:</strong> ID chuẩn là <code>-5368352616</code>. Hệ thống tự động hỗ trợ cả nhóm thường (<code>-xxx</code>), nhóm supergroup (<code>-100xxx</code>) và cá nhân.
                             </p>
                         </div>
                         <div class="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-gray-300">
@@ -551,6 +583,68 @@
                         </div>
                         <div id="telegram-logs-container" class="space-y-1.5 max-h-52 overflow-y-auto custom-scroll text-[11px] text-gray-400 font-mono">
                             <div class="p-2 bg-gray-900 rounded border border-gray-800">Đang tải lịch sử thông báo Telegram...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================== -->
+            <!-- QUẢN LÝ DANH SÁCH ĐEN (BLACKLIST KHÁCH HÀNG BÙNG CỌC / HỎNG ĐỒ) -->
+            <!-- ============================================================== -->
+            <div class="luxury-card rounded-2xl p-6 space-y-4 border border-rose-900/40">
+                <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                    <h4 class="text-base font-bold text-rose-400 flex items-center gap-2">
+                        <i class="fa-solid fa-user-slash text-rose-500"></i> Quản Lý Danh Sách Đen (Blacklist Chống Bùng Cọc & Hư Đồ)
+                    </h4>
+                    <span class="text-xs font-mono bg-rose-950 text-rose-300 border border-rose-700 px-2 py-0.5 rounded font-bold">SECURITY PROTECTION</span>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs font-mono">
+                    <!-- Form thêm Blacklist -->
+                    <div class="bg-gray-950 p-4 rounded-xl border border-gray-800 space-y-2.5">
+                        <div class="text-xs font-bold text-gray-200">Thêm đối tượng vào Danh Sách Đen:</div>
+                        <div>
+                            <label class="block text-gray-400 text-[10px] mb-0.5">Số điện thoại:</label>
+                            <input type="text" id="bl-input-phone" placeholder="vd: 0977xxxxxx" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-[10px] mb-0.5">Số CCCD / CMND:</label>
+                            <input type="text" id="bl-input-cccd" placeholder="vd: 079200xxxxxx" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-[10px] mb-0.5">Số tài khoản ngân hàng:</label>
+                            <input type="text" id="bl-input-bank" placeholder="vd: 0123456789 (MB)" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-[10px] mb-0.5">Lý do đưa vào danh sách đen (*):</label>
+                            <input type="text" id="bl-input-reason" placeholder="vd: Làm rơi vỡ lens không đền, quá hạn không trả..." class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-rose-300">
+                        </div>
+                        <button onclick="submitAddBlacklist()" class="w-full bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-500 hover:to-red-600 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-rose-950">
+                            <i class="fa-solid fa-plus"></i> Thêm Vào Blacklist
+                        </button>
+                    </div>
+
+                    <!-- Bảng danh sách đen -->
+                    <div class="lg:col-span-2 bg-[#111827] p-4 rounded-xl border border-gray-700 flex flex-col justify-between">
+                        <div class="flex items-center justify-between pb-2 border-b border-gray-800">
+                            <span class="font-bold text-gray-300">Danh sách đối tượng bị chặn thuê tự động:</span>
+                            <button onclick="fetchAdminBlacklist()" class="text-rose-400 hover:underline text-[11px]">Tải lại</button>
+                        </div>
+                        <div class="overflow-x-auto custom-scroll max-h-64 mt-2">
+                            <table class="w-full text-left text-xs font-mono">
+                                <thead class="bg-gray-950 text-gray-400 text-[10px] uppercase">
+                                    <tr>
+                                        <th class="p-2">SĐT</th>
+                                        <th class="p-2">CCCD</th>
+                                        <th class="p-2">STK</th>
+                                        <th class="p-2">Lý Do</th>
+                                        <th class="p-2 text-right">Xóa</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adm-blacklist-tbody" class="divide-y divide-gray-800">
+                                    <!-- Javascript renders blacklist rows -->
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -643,7 +737,7 @@
                         </div>
                         <div>
                             <label class="block text-gray-300 font-bold mb-1">Tên Thương Hiệu Web:</label>
-                            <input type="text" id="setting-site-name" placeholder="TidubaStore.com" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white">
+                            <input type="text" id="setting-site-name" placeholder="Tiduba Store" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white">
                         </div>
                     </div>
                 </div>
@@ -931,14 +1025,15 @@
                         <input type="datetime-local" id="cart-start-time" onchange="onCartTimingChanged()" class="w-full bg-gray-900 border border-gray-700 rounded-xl p-2.5 text-white font-mono focus:border-amber-500">
                     </div>
 
-                    <!-- NOTE TO IN ĐẬM VỀ GIẤY TỜ / CỌC -->
-                    <div class="p-3.5 bg-amber-950/70 border-2 border-amber-500 rounded-2xl text-amber-200 font-sans space-y-1 shadow-lg">
-                        <div class="text-xs font-black text-amber-300 uppercase flex items-center gap-1.5">
-                            <i class="fa-solid fa-triangle-exclamation text-yellow-400"></i> LƯU Ý
+                    <!-- THỦ TỤC NHẬN ĐỒ ĐƠN GIẢN -->
+                    <div class="p-3.5 bg-amber-950/40 border border-amber-600/50 rounded-2xl text-amber-200 font-sans space-y-1.5 shadow-sm">
+                        <div class="text-xs font-bold text-amber-300 uppercase flex items-center gap-1.5">
+                            <i class="fa-solid fa-shield-halved text-amber-400"></i> THỦ TỤC NHẬN ĐỒ ĐƠN GIẢN:
                         </div>
-                        <div class="text-[11px] leading-relaxed font-bold text-white space-y-0.5">
-                            <p class="text-yellow-200">• Để lại giấy tờ hoặc cọc thêm tiền, Tiền cọc sẽ hoàn khi trả đồ</p>
-                            <p class="text-amber-300">• Đối với máy ảnh: Cọc 1 giấy tờ + tài sản (Điện thoại, Xe máy, Laptop, vòng vàng,...)</p>
+                        <div class="text-[11px] leading-relaxed text-gray-200 space-y-1 font-sans">
+                            <p>• <strong>Không cần cọc tiền trước:</strong> Quý khách chỉ cần để lại giấy tờ hoặc cọc thêm tiền tại quầy khi nhận thiết bị / trang phục.</p>
+                            <p class="text-amber-200 pl-3">• Đối với máy ảnh cọc giấy tờ + 1 tài sản (Điện thoại, Laptop, Xe, Vòng vàng, ...)</p>
+                            <p>• Hoàn trả lại 100% giấy tờ ngay khi quý khách trả đồ xong. Thủ tục nhanh gọn trong 2 phút!</p>
                         </div>
                     </div>
 
@@ -971,18 +1066,18 @@
             <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div class="flex items-center gap-3.5">
                     <div class="w-12 h-12 min-w-[48px] rounded-xl bg-white p-1 border border-gray-800 shadow-md flex-shrink-0 flex items-center justify-center">
-                        <img src="/static/logo.png" alt="TidubaStore.com Logo" class="w-full h-full object-contain">
+                        <img src="/static/logo.png" alt="Tiduba Store Logo" class="w-full h-full object-contain">
                     </div>
                     <div>
                         <div class="text-white font-bold text-sm flex items-center gap-2">
-                            <span style="font-family: 'Times New Roman', Times, serif; letter-spacing: 2px;">TIDUBASTORE.COM</span>
+                            <span style="font-family: 'Times New Roman', Times, serif; letter-spacing: 2px;">TIDUBA STORE</span>
                             <span class="text-xs text-amber-400 font-normal italic" style="font-family: 'Times New Roman', Times, serif; font-style: italic;">• Thuê đồ thiết kế & máy ảnh</span>
                         </div>
                         <div class="text-[11px] text-gray-400 mt-0.5">Tài khoản nhận thanh toán VietQR: <strong class="text-white">MBBank 0123006101998 (KHONG KY DUYEN)</strong></div>
                     </div>
                 </div>
                 <div class="text-gray-400 text-left md:text-right">
-                    Bản quyền thương mại thuộc về <strong>TidubaStore.com</strong> &copy; 2026. All rights reserved.
+                    Bản quyền thương mại thuộc về <strong>Tiduba Store</strong> &copy; 2026. All rights reserved.
                 </div>
             </div>
 
@@ -1062,44 +1157,9 @@
     <!-- MODALS & POPUPS                                                -->
     <!-- ============================================================== -->
 
-    <!-- LOOKBOOK / GÓC CỘNG ĐỒNG LIGHTBOX MODAL -->
-    <div id="lookbook-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 items-center justify-center p-4" style="display: none;">
-        <div class="bg-white rounded-3xl max-w-2xl w-full p-5 md:p-6 shadow-2xl border border-[#efe8df] space-y-4 max-h-[92vh] overflow-y-auto custom-scroll">
-            <div class="flex items-center justify-between border-b border-[#efe8df] pb-3">
-                <div class="flex items-center gap-2">
-                    <span class="w-2.5 h-6 rounded-full bg-[#c86d51]"></span>
-                    <h3 class="text-base md:text-lg font-bold text-[#1c1917]" id="lookbook-modal-title">Góc Cộng Đồng & Lookbook</h3>
-                </div>
-                <button onclick="closeLookbookModal()" class="w-8 h-8 rounded-full bg-[#f6efe6] text-[#78716c] hover:text-[#1c1917] flex items-center justify-center">
-                    <i class="fa-solid fa-xmark text-base"></i>
-                </button>
-            </div>
-            
-            <div class="aspect-[4/3] rounded-2xl overflow-hidden bg-[#faf7f2] border border-[#efe8df]">
-                <img id="lookbook-modal-img" src="" alt="Lookbook" class="w-full h-full object-cover">
-            </div>
-
-            <div class="space-y-2 text-xs text-[#57534e]">
-                <h4 class="font-bold text-[#1c1917] text-sm" id="lookbook-modal-item-name">Concept Chụp Ảnh Chuyên Nghiệp</h4>
-                <p id="lookbook-modal-desc">Khách hàng chụp bằng máy Sony A7 IV kết hợp Set Cổ Phục Nhật Bình tại Pleiku, Gia Lai.</p>
-                <div class="flex flex-wrap items-center gap-2 pt-1 font-mono text-[11px]">
-                    <span class="bg-[#f0f9ff] text-[#0369a1] border border-[#bae6fd] px-2.5 py-1 rounded-lg" id="lookbook-modal-gear">📷 Sony A7 IV + Lens 24-70mm GM</span>
-                    <span class="bg-[#fdf2f8] text-[#be185d] border border-[#fbcfe8] px-2.5 py-1 rounded-lg" id="lookbook-modal-costume">👗 Cổ Phục Nhật Bình</span>
-                </div>
-            </div>
-
-            <div class="pt-3 border-t border-[#efe8df] flex justify-end gap-2">
-                <button onclick="closeLookbookModal()" class="px-4 py-2 rounded-xl bg-[#f6efe6] text-[#78716c] font-bold text-xs">Đóng</button>
-                <button onclick="lookbookQuickRent()" class="px-5 py-2 rounded-xl bg-[#c86d51] hover:bg-[#b55d42] text-white font-bold text-xs shadow-sm flex items-center gap-1.5">
-                    <i class="fa-solid fa-bolt"></i> Thuê Trọn Gói Món Này
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- MODAL TRA CỨU ĐƠN HÀNG NHANH CÔNG KHAI (THEO DÕI TIẾN ĐỘ & CHI NHÁNH) -->
-    <div id="order-tracker-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 items-center justify-center p-4" style="display: none;">
-        <div class="bg-gray-900 border border-cyan-500/50 rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl overflow-hidden font-sans">
+    <div id="order-tracker-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto" style="display: none;">
+        <div class="bg-gray-900 border border-cyan-500/50 rounded-3xl max-w-lg w-full p-5 sm:p-6 space-y-4 shadow-2xl my-auto max-h-[92vh] overflow-y-auto custom-scroll font-sans">
             <div class="flex items-center justify-between border-b border-gray-800 pb-3">
                 <div class="flex items-center gap-2">
                     <span class="text-xs font-mono bg-cyan-950 text-cyan-300 border border-cyan-600 px-2.5 py-0.5 rounded font-bold uppercase">TRA CỨU 24/7</span>
@@ -1111,11 +1171,11 @@
             </div>
 
             <p class="text-xs text-gray-400">
-                Nhập mã đơn hàng <strong>TDB-XXXXXX</strong> để xem ngay tình trạng bàn giao, hạn trả, chi nhánh nhận đồ và hóa đơn.
+                Nhập <strong>Mã đơn (TDB-XXXXXX)</strong> HOẶC <strong>Số điện thoại</strong> để xem ngay tình trạng bàn giao, hạn trả, chi nhánh nhận đồ và hóa đơn.
             </p>
 
             <div class="flex gap-2">
-                <input type="text" id="tracker-code-input" placeholder="Nhập mã đơn (vd: TDB-123456)" class="flex-1 bg-gray-950 border border-gray-700 focus:border-cyan-500 rounded-xl px-3.5 py-2.5 text-white font-mono uppercase text-sm focus:outline-none">
+                <input type="text" id="tracker-code-input" placeholder="Nhập mã đơn (TDB-...) hoặc Số điện thoại" class="flex-1 bg-gray-950 border border-gray-700 focus:border-cyan-500 rounded-xl px-3.5 py-2.5 text-white font-mono uppercase text-sm focus:outline-none">
                 <button onclick="submitTrackOrder()" id="btn-track-order" class="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs font-mono flex items-center gap-1.5 shadow-lg shadow-cyan-600/20">
                     <i class="fa-solid fa-magnifying-glass"></i> Tra Cứu
                 </button>
@@ -1126,155 +1186,183 @@
             </div>
 
             <div class="pt-2 border-t border-gray-800 flex justify-between items-center text-xs font-mono text-gray-400">
-                <span>Hệ thống 2 chi nhánh Pleiku & TP. HCM</span>
+                <span>Hệ thống 2 chi nhánh tại TP. Pleiku, Gia Lai</span>
                 <button onclick="closeOrderTrackerModal()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-xl font-bold">Đóng</button>
             </div>
         </div>
     </div>
 
     <!-- BOOKING MODAL (ĐẶT THUÊ, CHỌN NGÀY GIỜ & DÙNG ĐIỂM VIP) -->
-    <div id="booking-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 items-center justify-center p-4" style="display: none;">
-        <div class="bg-gray-900 border border-amber-500/40 rounded-3xl max-w-xl w-full p-6 space-y-4 shadow-2xl overflow-hidden">
-            <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+    <div id="booking-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto" style="display: none;">
+        <div class="bg-gray-900 border border-amber-500/50 rounded-3xl max-w-xl w-full p-4 sm:p-6 my-auto shadow-2xl max-h-[92vh] flex flex-col overflow-hidden font-sans">
+            <!-- Header Modal Cố Định -->
+            <div class="flex items-center justify-between border-b border-gray-800 pb-3 flex-shrink-0">
                 <div class="flex items-center gap-2">
                     <span class="text-xs font-mono bg-amber-950 text-amber-300 border border-amber-600 px-2.5 py-0.5 rounded font-bold uppercase">RENTAL BOOKING</span>
-                    <h3 class="text-base font-bold text-white">Xác Nhận Đặt Thuê Thiết Bị</h3>
+                    <h3 class="text-base sm:text-lg font-bold text-white">Xác Nhận Đặt Thuê Thiết Bị</h3>
                 </div>
-                <button onclick="closeBookingModal()" class="text-gray-400 hover:text-white">
+                <button onclick="closeBookingModal()" class="w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white flex items-center justify-center transition">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
 
-            <!-- Item Quick Info -->
-            <div class="flex items-center gap-4 bg-gray-950 p-3.5 rounded-2xl border border-gray-800">
-                <img id="modal-item-img" src="" class="w-16 h-16 rounded-xl object-cover border border-gray-800">
-                <div class="space-y-0.5 text-xs">
-                    <h4 class="text-sm font-bold text-white" id="modal-item-name">Tên sản phẩm</h4>
-                    <div class="text-gray-400" id="modal-item-serial">Serial / Size</div>
-                    <div class="text-amber-400 font-bold font-mono" id="modal-item-price">0đ / ngày</div>
-                </div>
-            </div>
-
-            <!-- Cảnh Báo Quy Tắc Thuê Trang Phục (20:00 Hàng Ngày) -->
-            <div id="costume-rule-alert" class="hidden bg-purple-950/60 border border-purple-600/80 rounded-2xl p-3 text-xs text-purple-200 font-mono space-y-1">
-                <div class="font-bold flex items-center gap-1.5 text-amber-300">
-                    <i class="fa-solid fa-shirt"></i> QUY ĐỊNH THUÊ TRANG PHỤC:
-                </div>
-                <div class="text-[11px] leading-relaxed">
-                    • Thuê trang phục tính theo ngày: Trả <strong>trước 20:00 ngày tiếp theo</strong> mới là 1 ngày.<br>
-                    • Sau <strong>20:00</strong> (từ 20:01) bắt đầu áp dụng phí phạt trễ hạn 30.000đ/giờ.<br>
-                    <span class="text-emerald-300">✓ Ví dụ: Nhận 10:00 ngày 29/9 ➔ Hạn trả là 20:00 ngày 30/9 (vẫn là 1 ngày).</span>
-                </div>
-            </div>
-
-            <!-- GÓI THỜI GIAN THUÊ MÁY ẢNH (4H, 8H, 1 NGÀY, NHIỀU NGÀY TỰ CHỌN) -->
-            <div id="camera-package-picker" class="space-y-2">
-                <label class="block text-xs font-bold text-cyan-300 font-mono flex items-center justify-between">
-                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-clock"></i> Chọn gói thời gian thuê máy ảnh:</span>
-                    <span class="text-[10px] text-gray-400">4h / 8h / 1 ngày / nhiều ngày</span>
-                </label>
-                <div class="grid grid-cols-4 gap-2 text-xs font-mono font-bold">
-                    <button type="button" onclick="selectCameraDurationPackage('4h')" id="cam-pkg-4h" class="py-2.5 px-1.5 rounded-xl border border-gray-700 bg-gray-950 text-gray-300 hover:border-cyan-500 transition text-center flex flex-col items-center justify-center">
-                        <div>4 Giờ</div>
-                        <div class="text-[10px] font-normal text-cyan-400 font-sans" id="cam-pkg-price-4h">0đ</div>
-                    </button>
-                    <button type="button" onclick="selectCameraDurationPackage('8h')" id="cam-pkg-8h" class="py-2.5 px-1.5 rounded-xl border border-gray-700 bg-gray-950 text-gray-300 hover:border-cyan-500 transition text-center flex flex-col items-center justify-center">
-                        <div>8 Giờ</div>
-                        <div class="text-[10px] font-normal text-cyan-400 font-sans" id="cam-pkg-price-8h">0đ</div>
-                    </button>
-                    <button type="button" onclick="selectCameraDurationPackage('1_day')" id="cam-pkg-1_day" class="py-2.5 px-1.5 rounded-xl border-2 border-cyan-500 bg-cyan-950/70 text-cyan-300 transition text-center flex flex-col items-center justify-center shadow-lg shadow-cyan-950">
-                        <div>1 Ngày (24h)</div>
-                        <div class="text-[10px] font-normal text-amber-400 font-sans" id="cam-pkg-price-1_day">0đ</div>
-                    </button>
-                    <button type="button" onclick="selectCameraDurationPackage('multi_days')" id="cam-pkg-multi_days" class="py-2.5 px-1.5 rounded-xl border border-gray-700 bg-gray-950 text-gray-300 hover:border-cyan-500 transition text-center flex flex-col items-center justify-center">
-                        <div>Nhiều Ngày</div>
-                        <div class="text-[10px] font-normal text-yellow-300 font-sans">Tự chọn</div>
-                    </button>
-                </div>
-                <!-- Box tự chọn số ngày khi chọn Nhiều Ngày -->
-                <div id="multi-days-input-box" class="hidden bg-gray-950 p-2.5 rounded-xl border border-cyan-700/60 flex items-center justify-between gap-3 text-xs font-mono">
-                    <span class="text-cyan-200">Nhập số ngày bạn muốn thuê:</span>
-                    <div class="flex items-center gap-2">
-                        <button type="button" onclick="stepMultiDays(-1)" class="w-7 h-7 rounded-lg bg-gray-800 hover:bg-gray-700 text-white font-bold flex items-center justify-center">-</button>
-                        <input type="number" id="cam-multi-days-val" value="2" min="2" max="60" oninput="onMultiDaysInput()" class="w-14 bg-gray-900 border border-cyan-500 rounded-lg p-1 text-center font-bold text-amber-300 font-mono">
-                        <button type="button" onclick="stepMultiDays(1)" class="w-7 h-7 rounded-lg bg-gray-800 hover:bg-gray-700 text-white font-bold flex items-center justify-center">+</button>
-                        <span class="text-gray-400">ngày</span>
+            <!-- Thân Modal Cuộn Mượt Mà -->
+            <div class="flex-1 overflow-y-auto custom-scroll space-y-3.5 pr-1.5 -mr-1 py-1">
+                <!-- Item Quick Info -->
+                <div class="flex items-center gap-4 bg-gray-950 p-3.5 rounded-2xl border border-gray-800">
+                    <img id="modal-item-img" src="" class="w-16 h-16 rounded-xl object-cover border border-gray-800 flex-shrink-0">
+                    <div class="space-y-0.5 text-xs flex-1 min-w-0">
+                        <h4 class="text-sm font-bold text-white truncate" id="modal-item-name">Tên sản phẩm</h4>
+                        <div class="text-gray-400 truncate" id="modal-item-serial">Serial / Size</div>
+                        <div class="text-amber-400 font-bold font-mono" id="modal-item-price">0đ / ngày</div>
                     </div>
                 </div>
-            </div>
 
-            <!-- CHỌN CHI NHÁNH NHẬN / TRẢ ĐỒ -->
-            <div>
-                <label class="block text-xs font-bold text-amber-400 mb-1 font-mono flex items-center gap-1.5">
-                    <i class="fa-solid fa-store"></i> Chọn Chi Nhánh Nhận & Trả Đồ:
-                </label>
-                <select id="book-branch-code" class="w-full bg-gray-950 border border-amber-500/60 rounded-xl p-2.5 text-xs text-white font-sans focus:outline-none focus:border-amber-400">
-                    <option value="CN1">📍 CN1 (Trụ Sở Chính): 183A Huỳnh Thúc Kháng, Pleiku, Gia Lai (0977.078.981)</option>
-                    <option value="CN2">📍 CN2: 801 Lê Duẩn, P. An Phú, TP. Pleiku, Gia Lai (0977.078.981)</option>
-                </select>
-            </div>
+                <!-- Cảnh Báo Quy Tắc Thuê Trang Phục (20:00 Hàng Ngày) -->
+                <div id="costume-rule-alert" class="hidden bg-purple-950/60 border border-purple-600/80 rounded-2xl p-3 text-xs text-purple-200 font-mono space-y-1">
+                    <div class="font-bold flex items-center gap-1.5 text-amber-300">
+                        <i class="fa-solid fa-shirt"></i> QUY ĐỊNH THUÊ TRANG PHỤC:
+                    </div>
+                    <div class="text-[11px] leading-relaxed">
+                        • Thuê trang phục tính theo ngày: Trả <strong>trước 20:00 ngày tiếp theo</strong> mới là 1 ngày.<br>
+                        • Sau <strong>20:00</strong> (từ 20:01) bắt đầu áp dụng phí phạt trễ hạn 30.000đ/giờ.<br>
+                        <span class="text-emerald-300">✓ Ví dụ: Nhận 10:00 ngày 29/9 ➔ Hạn trả là 20:00 ngày 30/9 (vẫn là 1 ngày).</span>
+                    </div>
+                </div>
 
-            <!-- Datetime Pickers -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <!-- GÓI THỜI GIAN THUÊ MÁY ẢNH (4H, 8H, 1 NGÀY, NHIỀU NGÀY TỰ CHỌN) -->
+                <div id="camera-package-picker" class="space-y-2">
+                    <label class="block text-xs font-bold text-cyan-300 font-mono flex items-center justify-between">
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-clock"></i> Chọn gói thời gian thuê máy ảnh:</span>
+                        <span class="text-[10px] text-gray-400">4h / 8h / 1 ngày / nhiều ngày</span>
+                    </label>
+                    <div class="grid grid-cols-4 gap-2 text-xs font-mono font-bold">
+                        <button type="button" onclick="selectCameraDurationPackage('4h')" id="cam-pkg-4h" class="py-2 px-1 rounded-xl border border-gray-700 bg-gray-950 text-gray-300 hover:border-cyan-500 transition text-center flex flex-col items-center justify-center">
+                            <div>4 Giờ</div>
+                            <div class="text-[10px] font-normal text-cyan-400 font-sans" id="cam-pkg-price-4h">0đ</div>
+                        </button>
+                        <button type="button" onclick="selectCameraDurationPackage('8h')" id="cam-pkg-8h" class="py-2 px-1 rounded-xl border border-gray-700 bg-gray-950 text-gray-300 hover:border-cyan-500 transition text-center flex flex-col items-center justify-center">
+                            <div>8 Giờ</div>
+                            <div class="text-[10px] font-normal text-cyan-400 font-sans" id="cam-pkg-price-8h">0đ</div>
+                        </button>
+                        <button type="button" onclick="selectCameraDurationPackage('1_day')" id="cam-pkg-1_day" class="py-2 px-1 rounded-xl border-2 border-cyan-500 bg-cyan-950/70 text-cyan-300 transition text-center flex flex-col items-center justify-center shadow-lg shadow-cyan-950">
+                            <div>1 Ngày (24h)</div>
+                            <div class="text-[10px] font-normal text-amber-400 font-sans" id="cam-pkg-price-1_day">0đ</div>
+                        </button>
+                        <button type="button" onclick="selectCameraDurationPackage('multi_days')" id="cam-pkg-multi_days" class="py-2 px-1 rounded-xl border border-gray-700 bg-gray-950 text-gray-300 hover:border-cyan-500 transition text-center flex flex-col items-center justify-center">
+                            <div>Nhiều Ngày</div>
+                            <div class="text-[10px] font-normal text-yellow-300 font-sans">Tự chọn</div>
+                        </button>
+                    </div>
+                    <!-- Box tự chọn số ngày khi chọn Nhiều Ngày -->
+                    <div id="multi-days-input-box" class="hidden bg-gray-950 p-2.5 rounded-xl border border-cyan-700/60 flex items-center justify-between gap-3 text-xs font-mono">
+                        <span class="text-cyan-200">Nhập số ngày bạn muốn thuê:</span>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="stepMultiDays(-1)" class="w-7 h-7 rounded-lg bg-gray-800 hover:bg-gray-700 text-white font-bold flex items-center justify-center">-</button>
+                            <input type="number" id="cam-multi-days-val" value="2" min="2" max="60" oninput="onMultiDaysInput()" class="w-14 bg-gray-900 border border-cyan-500 rounded-lg p-1 text-center font-bold text-amber-300 font-mono">
+                            <button type="button" onclick="stepMultiDays(1)" class="w-7 h-7 rounded-lg bg-gray-800 hover:bg-gray-700 text-white font-bold flex items-center justify-center">+</button>
+                            <span class="text-gray-400">ngày</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CHỌN CHI NHÁNH NHẬN / TRẢ ĐỒ -->
                 <div>
-                    <label class="block text-gray-300 font-bold mb-1 font-mono">📅 Ngày Giờ Nhận Đồ:</label>
-                    <input type="datetime-local" id="book-start-time" onchange="calculateRentalPrice()" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2.5 text-white font-mono focus:outline-none focus:border-amber-500">
+                    <label class="block text-xs font-bold text-amber-400 mb-1 font-mono flex items-center gap-1.5">
+                        <i class="fa-solid fa-store"></i> Chọn Chi Nhánh Nhận & Trả Đồ:
+                    </label>
+                    <select id="book-branch-code" class="w-full bg-gray-950 border border-amber-500/60 rounded-xl p-2.5 text-xs text-white font-sans focus:outline-none focus:border-amber-400">
+                        <option value="CN1">📍 CN1 (Trụ Sở Chính): 183A Huỳnh Thúc Kháng, Pleiku, Gia Lai (0977.078.981)</option>
+                        <option value="CN2">📍 CN2: 801 Lê Duẩn, P. An Phú, TP. Pleiku, Gia Lai (0977.078.981)</option>
+                    </select>
                 </div>
+
+                <!-- GỢI Ý THỜI GIAN NHANH 1-CHẠM (DÙNG FLEX-WRAP KHÔNG BỊ THANH CUỘN XẤU) -->
+                <div class="flex flex-wrap items-center gap-1.5 text-[11px] font-mono">
+                    <span class="text-gray-400 text-[10px] whitespace-nowrap">Nhanh:</span>
+                    <button type="button" onclick="applyQuickDuration(4)" class="bg-gray-950 hover:bg-gray-800 text-cyan-300 border border-gray-700 px-2.5 py-1 rounded-lg">⚡ 4 Tiếng</button>
+                    <button type="button" onclick="applyQuickDuration(8)" class="bg-gray-950 hover:bg-gray-800 text-cyan-300 border border-gray-700 px-2.5 py-1 rounded-lg">📸 8 Tiếng</button>
+                    <button type="button" onclick="applyQuickDuration(24)" class="bg-gray-950 hover:bg-gray-800 text-amber-300 border border-gray-700 px-2.5 py-1 rounded-lg">🌙 1 Ngày</button>
+                    <button type="button" onclick="applyQuickDuration(48)" class="bg-gray-950 hover:bg-gray-800 text-emerald-300 border border-gray-700 px-2.5 py-1 rounded-lg">🏖️ 2 Ngày (-15%)</button>
+                    <button type="button" onclick="applyQuickDuration(72)" class="bg-gray-950 hover:bg-gray-800 text-emerald-300 border border-gray-700 px-2.5 py-1 rounded-lg">✈️ 3 Ngày (-25%)</button>
+                    <button type="button" onclick="applyQuickDuration(168)" class="bg-gray-950 hover:bg-gray-800 text-purple-300 border border-gray-700 px-2.5 py-1 rounded-lg">⭐ 7 Ngày (-35%)</button>
+                </div>
+
+                <!-- Datetime Pickers -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                        <label class="block text-gray-300 font-bold mb-1 font-mono">📅 Ngày Giờ Nhận Đồ:</label>
+                        <input type="datetime-local" id="book-start-time" onchange="calculateRentalPrice()" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2.5 text-white font-mono focus:outline-none focus:border-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-gray-300 font-bold mb-1 font-mono">📅 Ngày Giờ Trả Đồ:</label>
+                        <input type="datetime-local" id="book-end-time" onchange="calculateRentalPrice()" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2.5 text-white font-mono focus:outline-none focus:border-amber-500">
+                    </div>
+                </div>
+
+                <!-- THỦ TỤC NHẬN ĐỒ ĐƠN GIẢN - CẬP NHẬT CHUẨN XÁC -->
+                <div class="bg-amber-950/40 border border-amber-600/50 rounded-2xl p-3.5 text-xs font-sans space-y-1.5 shadow-sm">
+                    <div class="font-bold text-amber-300 flex items-center gap-1.5 text-xs">
+                        <i class="fa-solid fa-shield-halved text-amber-400"></i> THỦ TỤC NHẬN ĐỒ ĐƠN GIẢN:
+                    </div>
+                    <div class="text-[11px] text-gray-200 leading-relaxed space-y-1 font-sans">
+                        <p>• <strong>Không cần cọc tiền trước:</strong> Quý khách chỉ cần để lại giấy tờ hoặc cọc thêm tiền tại quầy khi nhận thiết bị / trang phục.</p>
+                        <p class="text-amber-200 pl-3">• Đối với máy ảnh cọc giấy tờ + 1 tài sản (Điện thoại, Laptop, Xe, Vòng vàng, ...)</p>
+                        <p>• Hoàn trả lại 100% giấy tờ ngay khi quý khách trả đồ xong. Thủ tục nhanh gọn trong 2 phút!</p>
+                    </div>
+                    <input type="hidden" id="book-deposit-mode" value="CCCD">
+                    <input type="hidden" id="book-custom-deposit-amount" value="0">
+                    <input type="hidden" id="book-deposit-asset-desc" value="Giữ giấy tờ / tài sản tại quầy">
+                </div>
+
+                <!-- TÙY CHỌN: STK NHẬN HOÀN TIỀN NẾU CÓ PHÁT SINH -->
+                <div class="bg-gray-950 p-2.5 rounded-xl border border-gray-800 space-y-1 text-xs">
+                    <label class="block text-gray-400 text-[10px] font-mono flex items-center justify-between">
+                        <span>💳 STK nhận hoàn tiền của bạn (Nếu hủy ca / phát sinh thừa):</span>
+                        <span class="text-cyan-400">Tùy chọn</span>
+                    </label>
+                    <input type="text" id="book-refund-bank-info" placeholder="Ví dụ: MBBank - 0987654321 - NGUYEN VAN A" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white font-mono text-xs placeholder-gray-600 focus:outline-none focus:border-cyan-500">
+                </div>
+
+                <!-- Price Breakdown Calculation -->
+                <div class="bg-gray-950 p-3.5 rounded-2xl border border-gray-800 space-y-2.5 text-xs font-mono">
+                    <div class="flex justify-between text-gray-400">
+                        <span>Thời lượng thuê:</span>
+                        <strong class="text-white" id="calc-days">1 ngày</strong>
+                    </div>
+                    <div class="flex justify-between text-gray-400">
+                        <span>Tiền thuê thiết bị:</span>
+                        <strong class="text-white" id="calc-rental-price">0đ</strong>
+                    </div>
+
+                    <!-- ADMIN CHỈNH GIÁ THUÊ TRỰC TIẾP (ĐỒNG BỘ VIETQR & HÓA ĐƠN) -->
+                    <div id="admin-custom-price-box" class="hidden bg-purple-950/60 border border-purple-500/80 rounded-xl p-2.5 text-xs font-mono space-y-1.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-purple-300 font-bold flex items-center gap-1.5">
+                                <i class="fa-solid fa-crown text-yellow-400"></i> Admin Chỉnh Giá Thuê Trực Tiếp:
+                            </span>
+                            <span class="text-[10px] text-gray-400">Đồng bộ VietQR & Hóa đơn</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="admin-override-rental-price" oninput="calculateRentalPrice()" placeholder="Nhập giá thuê tùy chỉnh (VNĐ)" class="flex-1 bg-gray-900 border border-purple-500 rounded-lg p-2 text-amber-300 font-bold font-mono focus:border-amber-400">
+                            <button type="button" onclick="adminResetPriceToAuto()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-2 rounded-lg text-[10px] whitespace-nowrap font-bold">Tự động</button>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between text-amber-300 text-sm font-bold border-t border-gray-800 pt-2">
+                        <span>TỔNG TIỀN THANH TOÁN:</span>
+                        <strong class="text-base" id="calc-total">0đ</strong>
+                    </div>
+                </div>
+
                 <div>
-                    <label class="block text-gray-300 font-bold mb-1 font-mono">📅 Ngày Giờ Trả Đồ:</label>
-                    <input type="datetime-local" id="book-end-time" onchange="calculateRentalPrice()" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2.5 text-white font-mono focus:outline-none focus:border-amber-500">
+                    <label class="block text-xs font-bold text-gray-300 mb-1 font-mono">Ghi chú cho cửa hàng (nếu có):</label>
+                    <input type="text" id="book-notes" placeholder="Ví dụ: Nhận máy tại studio vào sáng sớm..." class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500 font-sans">
                 </div>
             </div>
 
-            <!-- Price Breakdown Calculation -->
-            <div class="bg-gray-950 p-4 rounded-2xl border border-gray-800 space-y-3 text-xs font-mono">
-                <div class="flex justify-between text-gray-400">
-                    <span>Thời lượng thuê:</span>
-                    <strong class="text-white" id="calc-days">1 ngày</strong>
-                </div>
-                <div class="flex justify-between text-gray-400">
-                    <span>Tiền thuê thiết bị:</span>
-                    <strong class="text-white" id="calc-rental-price">0đ</strong>
-                </div>
-
-                <!-- NOTE TO IN ĐẬM VỀ GIẤY TỜ / CỌC -->
-                <div class="p-3.5 bg-amber-950/70 border-2 border-amber-500 rounded-2xl text-amber-200 font-sans space-y-1 shadow-lg">
-                    <div class="text-xs font-black text-amber-300 uppercase flex items-center gap-1.5">
-                        <i class="fa-solid fa-triangle-exclamation text-yellow-400"></i> LƯU Ý
-                    </div>
-                    <div class="text-[11px] leading-relaxed font-bold text-white space-y-0.5">
-                        <p class="text-yellow-200">• Để lại giấy tờ hoặc cọc thêm tiền, Tiền cọc sẽ hoàn khi trả đồ</p>
-                        <p class="text-amber-300">• Đối với máy ảnh: Cọc 1 giấy tờ + tài sản (Điện thoại, Xe máy, Laptop, vòng vàng,...)</p>
-                    </div>
-                </div>
-
-                <!-- ADMIN CHỈNH GIÁ THUÊ TRỰC TIẾP (ĐỒNG BỘ VIETQR & HÓA ĐƠN) -->
-                <div id="admin-custom-price-box" class="hidden bg-purple-950/60 border border-purple-500/80 rounded-xl p-2.5 text-xs font-mono space-y-1.5">
-                    <div class="flex items-center justify-between">
-                        <span class="text-purple-300 font-bold flex items-center gap-1.5">
-                            <i class="fa-solid fa-crown text-yellow-400"></i> Admin Chỉnh Giá Thuê Trực Tiếp:
-                        </span>
-                        <span class="text-[10px] text-gray-400">Đồng bộ VietQR & Hóa đơn</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <input type="number" id="admin-override-rental-price" oninput="calculateRentalPrice()" placeholder="Nhập giá thuê tùy chỉnh (VNĐ)" class="flex-1 bg-gray-900 border border-purple-500 rounded-lg p-2 text-amber-300 font-bold font-mono focus:border-amber-400">
-                        <button type="button" onclick="adminResetPriceToAuto()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-2 rounded-lg text-[10px] whitespace-nowrap font-bold">Tự động</button>
-                    </div>
-                </div>
-
-                <div class="flex justify-between text-amber-300 text-sm font-bold border-t border-gray-800 pt-2">
-                    <span>TỔNG TIỀN THANH TOÁN:</span>
-                    <strong class="text-base" id="calc-total">0đ</strong>
-                </div>
-            </div>
-            </div>
-
-            <div>
-                <label class="block text-xs font-bold text-gray-300 mb-1 font-mono">Ghi chú cho cửa hàng (nếu có):</label>
-                <input type="text" id="book-notes" placeholder="Ví dụ: Nhận máy tại studio vào sáng sớm..." class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500 font-sans">
-            </div>
-
-            <div class="flex items-center justify-end gap-3 pt-2">
+            <!-- Footer Cố Định Ở Đáy Modal (Luôn Hiển Thị Rõ Ràng) -->
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-gray-800 flex-shrink-0">
                 <button onclick="closeBookingModal()" class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2.5 px-5 rounded-xl text-xs transition">
                     Hủy Bỏ
                 </button>
@@ -1428,60 +1516,140 @@
         </div>
     </div>
 
-    <!-- VIETQR PAYMENT SUCCESS POPUP -->
-    <div id="qr-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 items-center justify-center p-4" style="display: none;">
-        <div class="bg-gray-900 border border-amber-500/40 rounded-3xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl">
-            <div class="w-12 h-12 bg-amber-500/20 text-amber-400 rounded-2xl flex items-center justify-center mx-auto text-2xl border border-amber-500/40">
-                <i class="fa-solid fa-qrcode"></i>
-            </div>
-            <h3 class="text-lg font-black text-white flex items-center justify-center gap-2">
-                <span>Quét Mã VietQR MBBank</span>
-                <span class="text-[10px] font-mono bg-cyan-950 text-cyan-300 border border-cyan-700 px-2 py-0.5 rounded font-bold">MB 24/7</span>
-            </h3>
-            <p class="text-xs text-gray-400" id="qr-modal-desc">Thanh toán cọc & giữ máy thành công</p>
-            <div class="flex justify-center p-3 bg-white rounded-2xl shadow-inner">
-                <img id="qr-modal-img" src="" class="w-64 h-64 object-contain">
-            </div>
-            <div class="text-xs font-mono text-gray-300 bg-gray-950 p-4 rounded-2xl border border-gray-800 text-left space-y-1.5">
-                <div>Ngân hàng: <strong class="text-cyan-400">Ngân hàng Quân Đội (MBBank - MB)</strong></div>
-                <div>Số tài khoản: <strong class="text-yellow-400 text-sm font-bold">0123006101998</strong></div>
-                <div>Chủ tài khoản: <strong class="text-white">KHONG KY DUYEN</strong></div>
-                <div>Số tiền thanh toán: <strong class="text-emerald-400 font-bold" id="qr-modal-amount">0đ</strong></div>
-                <div>Nội dung CK: <strong class="text-amber-300" id="qr-modal-code">TDB-XXXXXX</strong></div>
-            </div>
-            <!-- KHÁCH TẢI ẢNH MINH CHỨNG & BẤM NÚT 'TÔI ĐÃ CHUYỂN TIỀN' -->
-            <div id="customer-proof-upload-box" class="bg-gray-950 p-3.5 rounded-2xl border border-emerald-500/40 text-left space-y-2.5">
-                <div class="flex items-center justify-between text-xs">
-                    <span class="text-emerald-400 font-bold flex items-center gap-1">
-                        <i class="fa-solid fa-receipt"></i> Gửi Ảnh Biên Lai Chuyển Tiền (Để Admin Duyệt):
-                    </span>
-                    <span id="proof-upload-status" class="text-[10px] text-gray-400 font-mono">Chưa chọn ảnh</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <input type="file" id="customer-proof-file" accept="image/*" onchange="uploadCustomerPaymentProof(event)" class="text-xs text-gray-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer w-full">
-                </div>
-                <input type="hidden" id="customer-proof-img-url" value="">
-                <div id="customer-proof-preview" class="hidden flex items-center gap-2.5 pt-1">
-                    <img id="customer-proof-preview-img" src="" class="w-14 h-14 object-cover rounded-xl border border-emerald-500 shadow-sm">
-                    <div class="text-[11px] text-emerald-300 font-mono">
-                        <div class="font-bold">✓ Đã nạp ảnh biên lai</div>
-                        <div class="text-[10px] text-gray-400">Bấm nút bên dưới để gửi sang Bot Telegram Admin duyệt đơn</div>
+    <!-- VIETQR PAYMENT SUCCESS POPUP (LUXURY RESPONSIVE INTERFACE) -->
+    <div id="qr-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto" style="display: none;">
+        <div class="bg-gray-900 border border-amber-500/50 rounded-3xl max-w-2xl w-full p-4 sm:p-6 my-auto shadow-2xl text-left space-y-4 max-h-[94vh] overflow-y-auto custom-scroll font-sans">
+            <!-- Header Modal -->
+            <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center text-lg flex-shrink-0">
+                        <i class="fa-solid fa-qrcode"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                            <span>Thanh Toán VietQR MBBank</span>
+                            <span class="text-[10px] font-mono bg-cyan-950 text-cyan-300 border border-cyan-600 px-2 py-0.5 rounded-full font-bold">MB 24/7</span>
+                        </h3>
+                        <p class="text-[11px] text-gray-400 font-mono" id="qr-modal-desc">Đơn thuê đang được khóa giữ trong 15 phút</p>
                     </div>
                 </div>
-                <button type="button" onclick="submitCustomerPaidWithProof()" id="btn-customer-confirm-paid" class="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-gray-950 font-black py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20">
-                    <i class="fa-solid fa-paper-plane"></i> TÔI ĐÃ CHUYỂN TIỀN (GỬI BIÊN LAI CHO ADMIN DUYỆT)
+                <button onclick="keepRentalAndCloseQrModal()" class="w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white flex items-center justify-center transition" title="Đóng cửa sổ">
+                    <i class="fa-solid fa-xmark text-base"></i>
                 </button>
             </div>
 
-            <!-- NÚT ADMIN XÁC NHẬN ĐÃ THANH TOÁN THẲNG VÀO TRONG QUÉT MÃ VIETQR MBBANK -->
-            <button id="qr-admin-confirm-btn" onclick="adminConfirmPaymentFromQrModal()" class="hidden w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-gray-950 font-black py-3 rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20">
-                <i class="fa-solid fa-circle-check text-sm"></i> Admin Xác Nhận Đã Nhận Đủ Tiền (Kích Hoạt Ngay)
+            <!-- Two-Column Layout on iPad/PC, Stacked on Mobile -->
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                <!-- Cột Trái: Ảnh Mã QR VietQR + Nút Tải Ảnh -->
+                <div class="md:col-span-5 flex flex-col items-center justify-center bg-white p-3 rounded-2xl shadow-lg border border-gray-200">
+                    <img id="qr-modal-img" src="" alt="Mã VietQR Thanh Toán" class="w-48 h-48 sm:w-56 sm:h-56 object-contain mx-auto">
+                    <div class="w-full pt-2 mt-1 border-t border-gray-200 flex flex-col gap-1.5 text-center">
+                        <span class="text-[10px] text-gray-600 font-mono font-bold" id="qr-modal-code-raw">TDB-XXXXXX</span>
+                        <button type="button" onclick="downloadQrImage()" class="w-full bg-[#1c1917] hover:bg-[#292524] text-white py-1.5 px-3 rounded-xl text-xs font-bold font-sans transition flex items-center justify-center gap-1.5 shadow-sm">
+                            <i class="fa-solid fa-download text-amber-400 text-xs"></i> Tải Mã QR Về Máy
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Cột Phải: Thông tin Chuyển Khoản & Nút Copy 1-Chạm -->
+                <div class="md:col-span-7 space-y-2 text-xs font-mono">
+                    <div class="bg-gray-950 p-3.5 rounded-2xl border border-gray-800 space-y-2">
+                        <!-- Ngân hàng -->
+                        <div class="flex items-center justify-between text-[11px]">
+                            <span class="text-gray-400">Ngân hàng:</span>
+                            <span class="text-cyan-400 font-bold font-sans">MBBank (Quân Đội)</span>
+                        </div>
+                        <!-- STK -->
+                        <div class="flex items-center justify-between pt-1 border-t border-gray-800/80">
+                            <span class="text-gray-400">Số tài khoản:</span>
+                            <div class="flex items-center gap-1.5">
+                                <strong class="text-amber-400 font-bold text-sm tracking-wider" id="copy-bank-stk">0123006101998</strong>
+                                <button type="button" onclick="copyToClipboard('0123006101998', 'Số tài khoản MBBank')" class="bg-gray-800 hover:bg-gray-700 text-cyan-300 px-2 py-0.5 rounded text-[10px] font-bold" title="Sao chép STK">
+                                    <i class="fa-regular fa-copy"></i> Copy
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Chủ tài khoản -->
+                        <div class="flex items-center justify-between pt-1 border-t border-gray-800/80">
+                            <span class="text-gray-400">Chủ tài khoản:</span>
+                            <strong class="text-white">KHONG KY DUYEN</strong>
+                        </div>
+                        <!-- Số tiền -->
+                        <div class="flex items-center justify-between pt-1 border-t border-gray-800/80">
+                            <span class="text-gray-400">Số tiền:</span>
+                            <div class="flex items-center gap-1.5">
+                                <strong class="text-emerald-400 font-bold text-sm" id="qr-modal-amount">0đ</strong>
+                                <button type="button" onclick="copyAmountToClipboard()" class="bg-gray-800 hover:bg-gray-700 text-cyan-300 px-2 py-0.5 rounded text-[10px] font-bold" title="Sao chép số tiền">
+                                    <i class="fa-regular fa-copy"></i> Copy
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Nội dung chuyển khoản -->
+                        <div class="pt-1 border-t border-gray-800/80 space-y-1">
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-400">Nội dung CK:</span>
+                                <button type="button" onclick="copyContentToClipboard()" class="bg-amber-950 hover:bg-amber-900 text-amber-300 border border-amber-600 px-2 py-0.5 rounded text-[10px] font-bold" title="Sao chép nội dung">
+                                    <i class="fa-regular fa-copy"></i> Copy Nội Dung
+                                </button>
+                            </div>
+                            <div class="p-2 bg-gray-900 rounded-xl border border-gray-800 text-amber-300 font-bold text-xs break-all" id="qr-modal-code">
+                                Thanh toan thue do TDB-XXXXXX
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-[11px] text-gray-400 font-sans leading-relaxed px-1">
+                        💡 <strong>Cách thanh toán nhanh:</strong> Mở app ngân hàng quét mã QR, nội dung và số tiền sẽ tự động điền chính xác 100%.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Khung Gửi Ảnh Biên Lai / Báo Chuyển Tiền -->
+            <div id="customer-proof-upload-box" class="bg-gray-950 p-4 rounded-2xl border border-emerald-500/40 space-y-3 text-xs">
+                <div class="flex items-center justify-between">
+                    <span class="text-emerald-300 font-bold flex items-center gap-1.5 text-xs">
+                        <i class="fa-solid fa-receipt text-emerald-400"></i> Xác Nhận Thanh Toán (Gửi Biên Lai Cho Admin):
+                    </span>
+                    <span id="proof-upload-status" class="text-[10px] text-gray-400 font-mono">Chưa tải ảnh</span>
+                </div>
+
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <label class="cursor-pointer bg-gray-900 hover:bg-gray-800 text-gray-200 border border-gray-700 py-2 px-3 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition flex-1">
+                        <i class="fa-solid fa-camera text-cyan-400"></i> Chụp / Chọn Ảnh Biên Lai
+                        <input type="file" id="customer-proof-file" accept="image/*" onchange="uploadCustomerPaymentProof(event)" class="hidden">
+                    </label>
+                    <input type="hidden" id="customer-proof-img-url" value="">
+                </div>
+
+                <!-- Preview ảnh biên lai -->
+                <div id="customer-proof-preview" class="hidden flex items-center gap-3 p-2 bg-gray-900/80 rounded-xl border border-emerald-500/50">
+                    <img id="customer-proof-preview-img" src="" class="w-14 h-14 object-cover rounded-xl border border-emerald-500 shadow-md">
+                    <div class="text-[11px] text-emerald-300 font-mono flex-1">
+                        <div class="font-bold">✓ Đã nạp ảnh biên lai thành công</div>
+                        <div class="text-[10px] text-gray-400 font-sans">Bấm nút bên dưới để gửi ảnh sang Telegram Admin duyệt đơn ngay!</div>
+                    </div>
+                </div>
+
+                <!-- Nút Tôi Đã Chuyển Tiền -->
+                <button type="button" onclick="submitCustomerPaidWithProof()" id="btn-customer-confirm-paid" class="w-full bg-gradient-to-r from-emerald-500 via-green-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-gray-950 font-black py-3 rounded-2xl text-xs sm:text-sm transition flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/20">
+                    <i class="fa-solid fa-paper-plane text-sm"></i> TÔI ĐÃ CHUYỂN TIỀN (GỬI BIÊN LAI DUYỆT ĐƠN)
+                </button>
+            </div>
+
+            <!-- Nút Admin Xác Nhận Trực Tiếp (Hiện khi Admin mở modal này) -->
+            <button id="qr-admin-confirm-btn" onclick="adminConfirmPaymentFromQrModal()" class="hidden w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black py-3 rounded-2xl text-xs sm:text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-purple-950">
+                <i class="fa-solid fa-crown text-yellow-300"></i> Admin Xác Nhận Đã Nhận Đủ Tiền (Kích Hoạt Ngay)
             </button>
 
-            <!-- NÚT ĐÓNG CỬA SỔ VIETQR (HỦY ĐƠN NHÁP, KHÔNG THÊM VÀO LỊCH SỬ ĐƠN THUÊ CỦA TÔI) -->
-            <button onclick="closeQrModal()" class="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-1.5">
-                <i class="fa-solid fa-xmark"></i> Đóng Cửa Sổ VietQR (Hủy Đơn Nháp Chưa Trả)
-            </button>
+            <!-- Hàng nút thao tác đóng / giữ đơn / hủy đơn -->
+            <div class="flex items-center justify-between gap-2 pt-1 border-t border-gray-800 text-xs">
+                <button type="button" onclick="cancelRentalFromQrModal()" class="text-rose-400 hover:text-rose-300 hover:underline font-mono text-[11px] flex items-center gap-1">
+                    <i class="fa-solid fa-trash-can"></i> Hủy đơn này
+                </button>
+                <button type="button" onclick="keepRentalAndCloseQrModal()" class="bg-gray-800 hover:bg-gray-700 text-gray-200 px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 font-sans">
+                    <i class="fa-solid fa-clock"></i> Tôi sẽ chuyển sau (Lưu đơn 15 phút)
+                </button>
+            </div>
         </div>
     </div>
 
@@ -1731,6 +1899,45 @@
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- REFUND QR MODAL (ADMIN QUÉT TRẢ CỌC NHANH CHO KHÁCH) -->
+    <div id="refund-qr-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 items-center justify-center p-4" style="display: none;">
+        <div class="bg-gray-900 border border-emerald-500/50 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl overflow-hidden font-sans text-center">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-qrcode text-emerald-400"></i> Quét VietQR Hoàn Cọc
+                </h3>
+                <button onclick="closeRefundQrModal()" class="text-gray-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-1">
+                <div class="text-xs text-gray-400 font-mono">Đơn hàng: <strong class="text-amber-400 font-bold" id="refund-modal-code">TDB-XXXXXX</strong></div>
+                <div class="text-xs text-white">Khách hàng: <strong id="refund-modal-customer">Nguyen Van Khach</strong></div>
+            </div>
+
+            <div class="bg-white p-3 rounded-2xl shadow-lg max-w-[260px] mx-auto border-4 border-emerald-500">
+                <img id="refund-modal-qr-img" src="" alt="Mã VietQR Hoàn Cọc" class="w-full h-auto object-contain">
+            </div>
+
+            <div class="bg-gray-950 p-3.5 rounded-2xl border border-gray-800 text-xs font-mono space-y-1.5 text-left">
+                <div class="flex justify-between text-gray-400"><span>Tiền cọc ban đầu:</span><strong class="text-white" id="refund-modal-deposit">0đ</strong></div>
+                <div class="flex justify-between text-rose-400"><span>Khấu trừ thiệt hại:</span><strong id="refund-modal-penalties">-0đ</strong></div>
+                <div class="flex justify-between text-rose-400"><span>Phí trễ hạn:</span><strong id="refund-modal-latefee">-0đ</strong></div>
+                <div class="flex justify-between text-emerald-400 font-bold border-t border-gray-800 pt-1 text-sm">
+                    <span>Số tiền hoàn cọc:</span><strong id="refund-modal-amount">0đ</strong>
+                </div>
+                <div class="text-[11px] text-cyan-300 pt-1 border-t border-gray-800/80">
+                    STK khách: <span id="refund-modal-bank" class="text-white font-bold font-sans">Chưa cung cấp</span>
+                </div>
+            </div>
+
+            <button onclick="closeRefundQrModal()" class="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-2.5 rounded-xl text-xs">
+                Đóng
+            </button>
         </div>
     </div>
 
@@ -2280,73 +2487,6 @@
                 if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         }
-
-        const lookbookData = [
-            {
-                title: "Bộ Ảnh Cổ Phục Nhật Bình Hoàng Cung",
-                img: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=900&auto=format&fit=crop&q=80",
-                desc: "Chụp concept cổ trang hoài niệm kết hợp máy ảnh Sony A7 IV và lens GM cho độ chi tiết trang phục sắc nét nhất.",
-                gear: "📷 Sony A7 IV + 24-70mm GM",
-                costume: "👗 Cổ Phục Nhật Bình Triều Nguyễn",
-                targetItemId: 7
-            },
-            {
-                title: "Lookbook Nàng Thơ Váy Tiệc Vintage",
-                img: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=900&auto=format&fit=crop&q=80",
-                desc: "Concept tone màu ấm chụp tại quán cafe phong cách Châu Âu. Váy ren tơ cao cấp chuẩn form.",
-                gear: "📷 Fujifilm X-T5 + Lens 35mm f/1.4",
-                costume: "👠 Váy Tiệc Thiết Kế Vintage",
-                targetItemId: 11
-            },
-            {
-                title: "Phóng Sự Cưới Ngoại Cảnh Pleiku",
-                img: "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=900&auto=format&fit=crop&q=80",
-                desc: "Góc ảnh phóng sự tự nhiên bắt trọn cảm xúc ngày trọng đại. Thiết bị hoạt động bền bỉ trong mọi điều kiện ánh sáng.",
-                gear: "📷 Canon EOS R6 Mark II + 50mm f/1.2L",
-                costume: "👔 Set Vest Chú Rể Hàn Quốc",
-                targetItemId: 2
-            },
-            {
-                title: "Street Style & Thời Trang Đương Đại",
-                img: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=900&auto=format&fit=crop&q=80",
-                desc: "Bộ ảnh phong cách đường phố năng động kết hợp gimbal chống rung DJI RS3 Pro cho những thước phim mượt mà.",
-                gear: "🎬 Gimbal DJI RS3 Pro + Sony A7S3",
-                costume: "🧥 Trang Phục Streetwear Concept",
-                targetItemId: 5
-            },
-            {
-                title: "Chân Dung Studio Ánh Sáng Tự Nhiên",
-                img: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=900&auto=format&fit=crop&q=80",
-                desc: "Tận dụng ánh sáng cửa sổ studio để tôn lên vẻ đẹp tự nhiên của mẫu và chất liệu vải.",
-                gear: "📷 Sony A7 IV + Lens 85mm f/1.4 GM",
-                costume: "👗 Váy Lụa Satin Cao Cấp",
-                targetItemId: 1
-            },
-            {
-                title: "Concept Cặp Đôi Thanh Xuân",
-                img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=900&auto=format&fit=crop&q=80",
-                desc: "Khoảnh khắc giản dị, ấm áp của đôi bạn trẻ tại Biển Hồ Pleiku dưới hoàng hôn.",
-                gear: "📷 Fujifilm X-T5 Film Simulation",
-                costume: "👫 Set Đồ Đôi Thanh Xuân",
-                targetItemId: 3
-            },
-            {
-                title: "Nhiếp Ảnh Nghệ Thuật & High Fashion",
-                img: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=900&auto=format&fit=crop&q=80",
-                desc: "Màu sắc nổi bật, phong cách hiện đại thích hợp làm portfolio thời trang chuyên nghiệp.",
-                gear: "📷 Canon EOS R5 + Đèn Flash Godox",
-                costume: "👗 Váy Dạ Hội Đính Đá",
-                targetItemId: 12
-            },
-            {
-                title: "Thước Phim Điện Ảnh Cinematic",
-                img: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=900&auto=format&fit=crop&q=80",
-                desc: "Quay TVC và Music Video với chất lượng 4K 120fps chuẩn màu S-Cinetone.",
-                gear: "🎥 Combo Sony FX3 + Lens Cine",
-                costume: "🕶️ Set Stylist Chuyên Nghiệp",
-                targetItemId: 4
-            }
-        ];
 
         // ==============================================================
         // PRODUCT GALLERY LIGHTBOX CONTROLLER (XEM NHIỀU ẢNH PHÓNG TO)
@@ -3248,31 +3388,22 @@ TONG TIEN THANH TOAN:   ${total.toLocaleString().padStart(14, ' ')} VND
             }
         }
 
-        function selectDepositMode(mode) {
-            document.getElementById('book-deposit-mode').value = mode;
+        function applyQuickDuration(hours) {
+            const now = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            const startStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:00`;
+            const endDt = new Date(now.getTime() + hours * 3600000);
 
-            // Reset tất cả nút về mặc định
-            ['CCCD', 'ASSET', 'ZERO'].forEach(m => {
-                const btn = document.getElementById(`deposit-btn-${m}`);
-                const desc = document.getElementById(`deposit-desc-${m}`);
-                if (m === mode) {
-                    btn.className = 'deposit-type-btn cursor-pointer flex flex-col items-center gap-1 p-2 rounded-xl border-2 text-[10px] font-bold font-mono text-center transition ' +
-                        (m === 'CCCD' ? 'border-cyan-500 bg-cyan-950/60 text-cyan-300' :
-                         m === 'ASSET' ? 'border-amber-500 bg-amber-950/60 text-amber-300' :
-                         'border-yellow-500 bg-yellow-950/60 text-yellow-300');
-                    desc.classList.remove('hidden');
-                } else {
-                    btn.className = 'deposit-type-btn cursor-pointer flex flex-col items-center gap-1 p-2 rounded-xl border-2 border-gray-700 bg-gray-900 text-gray-400 text-[10px] font-bold font-mono text-center transition';
-                    desc.classList.add('hidden');
-                }
-            });
+            const target = selectedComboForBooking || selectedItemForBooking;
+            if (target && target.category === 'COSTUME_FASHION' && hours >= 24) {
+                endDt.setHours(20, 0, 0, 0);
+            }
+            const endStr = `${endDt.getFullYear()}-${pad(endDt.getMonth()+1)}-${pad(endDt.getDate())}T${pad(endDt.getHours())}:${pad(endDt.getMinutes())}`;
 
+            document.getElementById('book-start-time').value = startStr;
+            document.getElementById('book-end-time').value = endStr;
             calculateRentalPrice();
-        }
-
-        // Giữ lại hàm cũ cho backward compat
-        function toggleCustomDepositMode() {
-            selectDepositMode(document.getElementById('book-deposit-mode').value);
+            showToast(`Đã chọn gói: ${hours >= 24 ? (hours/24) + ' ngày' : hours + ' tiếng'}`);
         }
 
         function calculateRentalPrice() {
@@ -3362,15 +3493,17 @@ TONG TIEN THANH TOAN:   ${total.toLocaleString().padStart(14, ' ')} VND
 
             // Lấy chi nhánh được chọn
             const branchCode = document.getElementById('book-branch-code') ? document.getElementById('book-branch-code').value : 'CN1';
+            const refundBank = document.getElementById('book-refund-bank-info') ? document.getElementById('book-refund-bank-info').value.trim() : '';
 
             const payload = {
                 start_time: startVal,
                 end_time: endVal,
                 branch_code: branchCode,
                 customer_notes: notes,
-                deposit_type: 'NONE',
-                deposit_asset_desc: 'Để lại giấy tờ hoặc cọc thêm tiền',
+                deposit_type: 'CCCD',
+                deposit_asset_desc: 'Giữ CCCD gốc tại quầy',
                 custom_deposit_amount: 0,
+                refund_bank_info: refundBank,
                 custom_rental_price: adminCustomPrice
             };
 
@@ -3409,13 +3542,20 @@ TONG TIEN THANH TOAN:   ${total.toLocaleString().padStart(14, ' ')} VND
         }
 
         let currentActiveRentalId = null;
+        let currentActiveAmountRaw = "0";
+        let currentActiveCodeRaw = "";
 
         function showQrModal(imgUrl, desc, amount, code, rentalId = null) {
             currentActiveRentalId = rentalId;
+            currentActiveCodeRaw = code || '';
+            currentActiveAmountRaw = String(amount || '').replace(/[^\d]/g, '');
+
             document.getElementById('qr-modal-img').src = imgUrl;
             document.getElementById('qr-modal-desc').innerText = desc;
             document.getElementById('qr-modal-amount').innerText = amount;
             document.getElementById('qr-modal-code').innerText = `Thanh toan thue do ${code}`;
+            const rawCodeEl = document.getElementById('qr-modal-code-raw');
+            if (rawCodeEl) rawCodeEl.innerText = code ? `Mã Đơn: ${code}` : 'TDB-XXXXXX';
 
             // Reset phần tải minh chứng thanh toán của khách
             const proofUrlInp = document.getElementById('customer-proof-img-url');
@@ -3438,6 +3578,82 @@ TONG TIEN THANH TOAN:   ${total.toLocaleString().padStart(14, ' ')} VND
             }
 
             document.getElementById('qr-modal').style.display = 'flex';
+        }
+
+        function copyToClipboard(text, label) {
+            if (!text) return;
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showToast(`✅ Đã sao chép ${label}!`);
+                }).catch(() => fallbackCopy(text, label));
+            } else {
+                fallbackCopy(text, label);
+            }
+        }
+
+        function fallbackCopy(text, label) {
+            const temp = document.createElement("input");
+            temp.value = text;
+            document.body.appendChild(temp);
+            temp.select();
+            try {
+                document.execCommand("copy");
+                showToast(`✅ Đã sao chép ${label}!`);
+            } catch (e) {
+                prompt(`Sao chép ${label}:`, text);
+            }
+            document.body.removeChild(temp);
+        }
+
+        function copyAmountToClipboard() {
+            copyToClipboard(currentActiveAmountRaw, "Số tiền thanh toán");
+        }
+
+        function copyContentToClipboard() {
+            const content = `Thanh toan thue do ${currentActiveCodeRaw}`;
+            copyToClipboard(content, "Nội dung chuyển khoản");
+        }
+
+        function downloadQrImage() {
+            const img = document.getElementById('qr-modal-img');
+            if (!img || !img.src) return;
+            const a = document.createElement('a');
+            a.href = img.src;
+            a.download = `VietQR_${currentActiveCodeRaw || 'TidubaStore'}.png`;
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showToast("Đang tải ảnh mã QR xuống...");
+        }
+
+        function keepRentalAndCloseQrModal() {
+            document.getElementById('qr-modal').style.display = 'none';
+            currentActiveRentalId = null;
+            showSection('my-rentals');
+            fetchMyRentals();
+            showToast("Đơn thuê đã được lưu trong mục 'Đơn Thuê'. Bạn có 15 phút để chuyển khoản.");
+        }
+
+        async function cancelRentalFromQrModal() {
+            if (!currentActiveRentalId) {
+                document.getElementById('qr-modal').style.display = 'none';
+                return;
+            }
+            if (!confirm("Bạn có chắc chắn muốn hủy đơn hàng này không? Thiết bị sẽ được nhả lại vào kho.")) return;
+            const token = localStorage.getItem('tiduba_token');
+            try {
+                await fetch(`/api/rentals/${currentActiveRentalId}/cancel_unpaid`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                showToast("Đã hủy đơn hàng và nhả thiết bị về kho.");
+                fetchCatalog();
+            } catch (e) {
+                console.error("Lỗi hủy đơn:", e);
+            }
+            currentActiveRentalId = null;
+            document.getElementById('qr-modal').style.display = 'none';
         }
 
         async function uploadCustomerPaymentProof(event) {
@@ -3482,16 +3698,18 @@ TONG TIEN THANH TOAN:   ${total.toLocaleString().padStart(14, ' ')} VND
                 alert("Không tìm thấy mã đơn hàng cần xác nhận!");
                 return;
             }
-            const proofUrl = document.getElementById('customer-proof-img-url').value;
+            const proofUrl = document.getElementById('customer-proof-img-url').value.trim();
             if (!proofUrl) {
-                alert("Vui lòng tải lên ảnh chụp màn hình biên lai chuyển khoản ngân hàng!");
+                alert("📸 Vui lòng chụp hoặc tải ảnh biên lai chuyển khoản trước khi bấm gửi!");
+                const fileInput = document.getElementById('customer-proof-file');
+                if (fileInput) fileInput.click();
                 return;
             }
 
             const btn = document.getElementById('btn-customer-confirm-paid');
             if (btn) {
                 btn.disabled = true;
-                btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Đang gửi minh chứng sang Telegram...';
+                btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Đang gửi biên lai sang Telegram...';
             }
 
             try {
@@ -3510,21 +3728,22 @@ TONG TIEN THANH TOAN:   ${total.toLocaleString().padStart(14, ' ')} VND
                 });
                 const data = await res.json();
                 if (!res.ok) {
-                    alert(data.detail || "Lỗi gửi minh chứng!");
+                    alert(data.detail || "Lỗi gửi biên lai!");
                     return;
                 }
 
-                showToast("✅ Đã gửi thông báo và ảnh biên lai sang Bot Telegram cho Quản lý!");
+                showToast("✅ Đã gửi ảnh biên lai sang Telegram cho Quản lý!");
                 alert("✅ Đã gửi biên lai thành công!\nQuản lý đã nhận được ảnh minh chứng qua Telegram và sẽ duyệt đơn của bạn trong ít phút.");
                 currentActiveRentalId = null; // Tránh cancel_unpaid khi đóng modal
                 document.getElementById('qr-modal').style.display = 'none';
                 showSection('my-rentals');
+                fetchMyRentals();
             } catch (err) {
                 alert("Lỗi kết nối: " + err);
             } finally {
                 if (btn) {
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> TÔI ĐÃ CHUYỂN TIỀN (GỬI ẢNH BIÊN LAI)';
+                    btn.innerHTML = '<i class="fa-solid fa-paper-plane text-sm"></i> TÔI ĐÃ CHUYỂN TIỀN (GỬI BIÊN LAI DUYỆT ĐƠN)';
                 }
             }
         }
@@ -3839,14 +4058,6 @@ TONG TIEN THANH TOAN:   ${total.toLocaleString().padStart(14, ' ')} VND
                 return;
             }
 
-            const depMode = document.getElementById('cart-deposit-mode').value;
-            let customDep = null;
-            let assetDesc = null;
-            if (depMode === 'ASSET') {
-                customDep = parseInt(document.getElementById('cart-asset-val').value) || 0;
-                assetDesc = document.getElementById('cart-asset-desc').value.trim() || 'Tài sản cọc khách để lại';
-            }
-
             const dtStart = new Date(startTime);
             const pad = (n) => String(n).padStart(2, '0');
             let maxDays = 1.0;
@@ -3872,10 +4083,10 @@ TONG TIEN THANH TOAN:   ${total.toLocaleString().padStart(14, ' ')} VND
                 start_time: startTime,
                 end_time: endTime,
                 branch_code: branchCode,
-                deposit_type: 'NONE',
-                deposit_asset_desc: 'Để lại giấy tờ hoặc cọc thêm tiền',
+                deposit_type: 'CCCD',
+                deposit_asset_desc: 'Giữ CCCD gốc tại quầy',
                 custom_deposit_amount: 0,
-                customer_notes: `Đơn giỏ hàng Shopee (${customerCart.length} món) - Chi nhánh ${branchCode}`
+                customer_notes: `Đơn giỏ hàng (${customerCart.length} món) - Chi nhánh ${branchCode}`
             };
 
             const submitBtn = document.getElementById('cart-submit-btn');
@@ -4571,11 +4782,9 @@ TONG TIEN THANH TOAN:   ${total.toLocaleString().padStart(14, ' ')} VND
         async function submitTrackOrder() {
             const raw = document.getElementById('tracker-code-input').value.trim();
             if (!raw) {
-                alert("Vui lòng nhập mã đơn hàng (vd: TDB-123456)!");
+                alert("Vui lòng nhập mã đơn hàng (vd: TDB-123456) hoặc Số điện thoại!");
                 return;
             }
-            const match = raw.match(/TDB-[A-Za-z0-9_-]+/i);
-            const code = match ? match[0].toUpperCase() : raw.toUpperCase();
 
             const btn = document.getElementById('btn-track-order');
             if (btn) {
@@ -4584,20 +4793,59 @@ TONG TIEN THANH TOAN:   ${total.toLocaleString().padStart(14, ' ')} VND
             }
 
             try {
-                const res = await fetch(`/api/rentals/track/${encodeURIComponent(code)}`);
+                const res = await fetch(`/api/rentals/track/${encodeURIComponent(raw)}`);
                 const data = await res.json();
                 const box = document.getElementById('tracker-result-box');
                 box.classList.remove('hidden');
 
                 if (!res.ok) {
                     box.innerHTML = `
-                        <div class="p-3 bg-rose-950/80 border border-rose-600 rounded-xl text-xs font-mono text-rose-300">
+                        <div class="p-3.5 bg-rose-950/80 border border-rose-600 rounded-2xl text-xs font-mono text-rose-300">
                             ❌ ${data.detail || 'Không tìm thấy đơn hàng!'}
                         </div>
                     `;
                     return;
                 }
 
+                if (data.type === 'PHONE_LOOKUP') {
+                    const list = data.rentals || [];
+                    if (list.length === 0) {
+                        box.innerHTML = `<div class="p-4 bg-gray-950 rounded-2xl border border-gray-800 text-xs font-mono text-gray-400">Không có đơn hàng nào gắn với số điện thoại này.</div>`;
+                        return;
+                    }
+                    box.innerHTML = `
+                        <div class="space-y-2.5 max-h-80 overflow-y-auto custom-scroll">
+                            <div class="text-[11px] text-cyan-300 font-mono font-bold flex items-center justify-between pb-1 border-b border-gray-800">
+                                <span>📱 Tìm thấy ${list.length} đơn cho SĐT ${data.phone_masked}:</span>
+                            </div>
+                            ${list.map(r => {
+                                const isRet = r.status === 'RETURNED';
+                                const b = r.branch_info || { name: 'CN1 (Pleiku)', short_address: '183A Huỳnh Thúc Kháng', phone: '0977.078.981' };
+                                return `
+                                    <div class="bg-gray-950 p-3 rounded-xl border border-gray-800 space-y-1.5 text-xs font-mono">
+                                        <div class="flex items-center justify-between">
+                                            <strong class="text-amber-400 font-bold">${r.rental_code}</strong>
+                                            <span class="px-2 py-0.2 rounded-full text-[10px] font-bold border ${isRet ? 'bg-emerald-950 text-emerald-300 border-emerald-700' : 'bg-cyan-950 text-cyan-300 border-cyan-700'}">
+                                                ${isRet ? 'ĐÃ TRẢ' : r.status}
+                                            </span>
+                                        </div>
+                                        <div class="text-white font-sans text-xs font-semibold truncate">${r.item_name}</div>
+                                        <div class="flex items-center justify-between text-[11px] text-gray-400">
+                                            <span>Hạn trả: <strong class="text-amber-300">${r.end_time}</strong></span>
+                                            <span>Tổng: <strong class="text-emerald-400">${r.total_price.toLocaleString()}đ</strong></span>
+                                        </div>
+                                        <div class="text-[10px] text-gray-500 font-sans">
+                                            📍 ${b.name} (${b.phone})
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    `;
+                    return;
+                }
+
+                // CODE_LOOKUP: Đơn lẻ
                 const r = data.rental;
                 const b = r.branch_info || { name: 'Chi nhánh 1 (Pleiku, Gia Lai)', short_address: '183A Huỳnh Thúc Kháng, Pleiku, Gia Lai', phone: '0977.078.981' };
                 const isReturned = r.status === 'RETURNED';
@@ -4789,6 +5037,7 @@ TONG TIEN THANH TOAN:   ${total.toLocaleString().padStart(14, ' ')} VND
                 renderAdminInventoryTable(itemsData.items || []);
                 fetchAdminCategoriesList();
                 fetchSiteSettingsForm();
+                fetchAdminBlacklist();
             } catch (err) {
                 console.error("Lỗi lấy dữ liệu Admin:", err);
             }
@@ -5236,6 +5485,9 @@ TONG TIEN THANH TOAN:   ${total.toLocaleString().padStart(14, ' ')} VND
                         </button>
                         <button onclick="window.open('/api/admin/rentals/${r.id}/label', '_blank')" class="bg-gray-800 hover:bg-gray-700 text-yellow-300 border border-gray-700 px-2 py-1 rounded-lg text-xs font-bold transition" title="In tem mã vạch K80 dán lên máy/áo">
                             <i class="fa-solid fa-barcode"></i> Tem
+                        </button>
+                        <button onclick="openRefundQrModal(${r.id})" class="bg-teal-950 hover:bg-teal-900 text-teal-300 border border-teal-600 px-2 py-1 rounded-lg text-xs font-bold transition" title="Mã VietQR hoàn trả tiền cọc cho khách">
+                            <i class="fa-solid fa-hand-holding-dollar text-emerald-400"></i> Hoàn Cọc
                         </button>
                         <button onclick="openInspectionModal(${r.id})" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700 px-2 py-1 rounded-lg text-xs font-bold transition" title="Lập biên bản kiểm tra cảm biến/lens">
                             <i class="fa-solid fa-clipboard-check"></i> Kiểm Tra
@@ -5780,12 +6032,23 @@ TONG TIEN THANH TOAN:   ${total.toLocaleString().padStart(14, ' ')} VND
         async function autoLoginAdminIfNeeded() {
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('admin') === '1') {
-                if (!currentUser || currentUser.role !== 'admin') {
-                    // Tự động đăng nhập Admin khi mở bằng App Desktop TidubaStoreAdmin.exe
-                    await quickLogin('admin', 'admin123');
+                if (window.pywebview) {
+                    // Đang chạy trong App Desktop TidubaStoreAdmin.exe
+                    if (!currentUser || currentUser.role !== 'admin') {
+                        await quickLogin('admin', 'admin123');
+                    } else {
+                        showSection('admin');
+                        fetchAdminDashboard();
+                    }
                 } else {
-                    showSection('admin');
-                    fetchAdminDashboard();
+                    // Trên trình duyệt web công khai: chỉ chuyển sang admin nếu đã login admin hợp lệ
+                    if (currentUser && currentUser.role === 'admin') {
+                        showSection('admin');
+                        fetchAdminDashboard();
+                    } else {
+                        openAuthModal();
+                        showToast("Vui lòng đăng nhập tài khoản Quản Trị Viên!");
+                    }
                 }
             }
         }
@@ -6015,20 +6278,217 @@ TONG TIEN THANH TOAN:   ${total.toLocaleString().padStart(14, ' ')} VND
 
         async function testTelegramNotify() {
             const token = localStorage.getItem('tiduba_token');
+            const chatId = document.getElementById('telegram-chat-id').value.trim();
+            const botToken = document.getElementById('telegram-bot-token').value.trim();
+            if (!chatId) {
+                alert("Vui lòng nhập Telegram Chat ID / Group ID!");
+                return;
+            }
+            showToast("Đang gửi tin test tới Telegram...");
             try {
                 const res = await fetch('/api/admin/telegram/test', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ message: "Test kết nối Telegram Bot từ Tiduba Store!" })
+                    body: JSON.stringify({ 
+                        message: "Test kết nối Telegram Bot từ Tiduba Store! Nhóm quản lý nhận tin hoàn hảo.",
+                        chat_id: chatId,
+                        bot_token: botToken
+                    })
                 });
                 const data = await res.json();
                 if (data.success) {
-                    showToast(data.message || "Đã gửi thông báo test thành công!");
+                    showToast("✅ " + (data.message || "Đã gửi thông báo test thành công!"));
                 } else {
-                    alert(data.message || "Gửi test thất bại!");
+                    alert("❌ " + (data.message || "Gửi test thất bại!"));
                 }
                 fetchTelegramLogs();
             } catch (err) { alert("Lỗi gửi test Telegram: " + err); }
+        }
+
+        async function detectTelegramChatId() {
+            const token = localStorage.getItem('tiduba_token');
+            const btn = document.getElementById('btn-detect-tele-id');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Đang quét...';
+            }
+            try {
+                const res = await fetch('/api/admin/telegram/detect_chat_id', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success && data.chats && data.chats.length > 0) {
+                    const list = data.chats;
+                    const selectEl = document.getElementById('tele-detected-chats-select');
+                    const boxEl = document.getElementById('tele-detected-chats-box');
+                    if (selectEl && boxEl) {
+                        selectEl.innerHTML = `<option value="">-- Chọn nhóm / cuộc trò chuyện tìm thấy (${list.length}) --</option>` +
+                            list.map(c => `<option value="${c.id}">${c.display}</option>`).join('');
+                        boxEl.classList.remove('hidden');
+                    }
+                    const firstGroup = list.find(c => c.type === 'group' || c.type === 'supergroup') || list[0];
+                    if (firstGroup) {
+                        document.getElementById('telegram-chat-id').value = firstGroup.id;
+                        showToast(`✅ Đã nhận diện: ${firstGroup.title} (${firstGroup.id})`);
+                    }
+                } else {
+                    alert(data.message || "Chưa tìm thấy tin nhắn nào từ Bot. Hãy thêm Bot vào nhóm và gửi 1 tin nhắn bất kỳ (vd: /test hoặc @TidubaStorebot), sau đó bấm lại nút này!");
+                }
+            } catch (err) {
+                alert("Lỗi quét Chat ID: " + err);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i> Lấy ID Tự Động';
+                }
+            }
+        }
+
+        function onSelectDetectedChat(cid) {
+            if (cid) {
+                document.getElementById('telegram-chat-id').value = cid;
+                showToast("Đã chọn ID: " + cid);
+            }
+        }
+
+        // ==============================================================
+        // BLACKLIST & EXCEL & REFUND QR CONTROLLER
+        // ==============================================================
+        function downloadAdminCsvReport() {
+            const token = localStorage.getItem('tiduba_token');
+            if (!token) return;
+            showToast("Đang kết xuất báo cáo Excel...");
+            window.open(`/api/admin/reports/export_csv?token=${encodeURIComponent(token)}`, '_blank');
+        }
+
+        async function fetchAdminBlacklist() {
+            const token = localStorage.getItem('tiduba_token');
+            if (!token) return;
+            try {
+                const res = await fetch('/api/admin/blacklist', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                const tbody = document.getElementById('adm-blacklist-tbody');
+                if (!tbody) return;
+                const list = data.blacklist || [];
+                if (list.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="p-3 text-center text-gray-500 text-[10px]">Danh sách đen trống. Chưa có đối tượng nào bị chặn.</td></tr>`;
+                    return;
+                }
+                tbody.innerHTML = list.map(b => `
+                    <tr class="hover:bg-gray-800/80 transition">
+                        <td class="p-2 text-cyan-300 font-bold">${b.phone || '--'}</td>
+                        <td class="p-2 text-white">${b.cccd_number || '--'}</td>
+                        <td class="p-2 text-gray-400 text-[10px]">${b.bank_account || '--'}</td>
+                        <td class="p-2 text-rose-400 font-sans text-[11px]">${b.reason}</td>
+                        <td class="p-2 text-right">
+                            <button onclick="deleteBlacklistEntry(${b.id})" class="text-rose-400 hover:text-rose-300 px-1 py-0.5 rounded text-[11px]" title="Gỡ khỏi danh sách đen">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error("Lỗi lấy blacklist:", e);
+            }
+        }
+
+        async function submitAddBlacklist() {
+            const token = localStorage.getItem('tiduba_token');
+            const phone = document.getElementById('bl-input-phone').value.trim();
+            const cccd = document.getElementById('bl-input-cccd').value.trim();
+            const bank = document.getElementById('bl-input-bank').value.trim();
+            const reason = document.getElementById('bl-input-reason').value.trim();
+            if (!reason) {
+                alert("Vui lòng nhập lý do đưa vào Danh Sách Đen!");
+                return;
+            }
+            if (!phone && !cccd && !bank) {
+                alert("Vui lòng nhập ít nhất SĐT, CCCD hoặc STK Ngân Hàng!");
+                return;
+            }
+            try {
+                const res = await fetch('/api/admin/blacklist', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ phone, cccd_number: cccd, bank_account: bank, reason })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast("✅ " + data.message);
+                    document.getElementById('bl-input-phone').value = '';
+                    document.getElementById('bl-input-cccd').value = '';
+                    document.getElementById('bl-input-bank').value = '';
+                    document.getElementById('bl-input-reason').value = '';
+                    fetchAdminBlacklist();
+                } else {
+                    alert(data.detail || "Lỗi thêm blacklist");
+                }
+            } catch (e) {
+                alert("Lỗi kết nối: " + e);
+            }
+        }
+
+        async function deleteBlacklistEntry(id) {
+            if (!confirm("Bạn có chắc chắn muốn gỡ đối tượng này khỏi Danh Sách Đen?")) return;
+            const token = localStorage.getItem('tiduba_token');
+            try {
+                const res = await fetch(`/api/admin/blacklist/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast("✅ " + data.message);
+                    fetchAdminBlacklist();
+                } else {
+                    alert(data.detail || "Lỗi xóa blacklist");
+                }
+            } catch (e) {
+                alert("Lỗi kết nối: " + e);
+            }
+        }
+
+        async function openRefundQrModal(rentalId) {
+            const token = localStorage.getItem('tiduba_token');
+            try {
+                const res = await fetch(`/api/admin/rentals/${rentalId}/refund_qr`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    alert(data.detail || "Không lấy được thông tin hoàn cọc!");
+                    return;
+                }
+
+                document.getElementById('refund-modal-code').innerText = data.rental_code;
+                document.getElementById('refund-modal-customer').innerText = `${data.customer_name} (${data.customer_phone})`;
+                document.getElementById('refund-modal-deposit').innerText = `${data.deposit_paid.toLocaleString()}đ`;
+                document.getElementById('refund-modal-penalties').innerText = `-${data.damage_deduction.toLocaleString()}đ`;
+                document.getElementById('refund-modal-latefee').innerText = `-${data.late_fee.toLocaleString()}đ`;
+                document.getElementById('refund-modal-amount').innerText = `${data.refund_amount.toLocaleString()}đ`;
+                document.getElementById('refund-modal-bank').innerText = data.refund_bank_info || 'Khách chưa nhập STK (Liên hệ trực tiếp)';
+
+                // Sinh mã VietQR hoàn trả tiền nếu số tiền > 0
+                if (data.refund_amount > 0) {
+                    const desc = `Hoan coc don ${data.rental_code} Tiduba`;
+                    document.getElementById('refund-modal-qr-img').src = `https://img.vietqr.io/image/MB-0123006101998-compact2.png?amount=${data.refund_amount}&addInfo=${encodeURIComponent(desc)}`;
+                } else {
+                    document.getElementById('refund-modal-qr-img').src = '/static/logo.png';
+                }
+
+                document.getElementById('refund-qr-modal').style.display = 'flex';
+            } catch (e) {
+                alert("Lỗi lấy thông tin hoàn cọc: " + e);
+            }
+        }
+
+        function closeRefundQrModal() {
+            document.getElementById('refund-qr-modal').style.display = 'none';
         }
 
         fetchCatalog();
