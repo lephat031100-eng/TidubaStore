@@ -19,9 +19,21 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 os.chdir(str(BASE_DIR))
 
-SERVER_URL = "http://127.0.0.1:9000"
-ADMIN_URL = "http://127.0.0.1:9000/?admin=1"
-PUBLIC_DOMAIN = os.environ.get("PUBLIC_DOMAIN", "http://localhost:9000").rstrip("/")
+SERVER_URL = "https://tidubastore.onrender.com"
+ADMIN_URL = "https://tidubastore.onrender.com/?admin=1"
+LOCAL_SERVER_URL = "http://127.0.0.1:9000"
+LOCAL_ADMIN_URL = "http://127.0.0.1:9000/?admin=1"
+PUBLIC_DOMAIN = os.environ.get("PUBLIC_DOMAIN", "https://tidubastore.onrender.com").rstrip("/")
+
+
+def is_cloud_accessible() -> bool:
+    """Kiểm tra máy chủ Cloud chính thức có đang online không."""
+    try:
+        req = urllib.request.Request(f"{SERVER_URL}/api/items", headers={"User-Agent": "TidubaAdminApp/3.5"})
+        res = urllib.request.urlopen(req, timeout=3.5)
+        return res.status == 200
+    except Exception:
+        return False
 
 
 def free_port_if_stuck():
@@ -104,8 +116,17 @@ class AdminApi:
 
 
 def main():
-    # 1. Khởi chạy Backend server ngầm
-    start_backend_server()
+    # 1. Kiểm tra máy chủ Cloud chính thức
+    cloud_online = is_cloud_accessible()
+    if cloud_online:
+        target_url = ADMIN_URL
+        window_title = "Tiduba Store - Quản Trị Hệ Thống (Cloud Online: tidubastore.onrender.com)"
+        print("[ADMIN APP] 🌐 Đã kết nối trực tiếp Máy Chủ Cloud: https://tidubastore.onrender.com")
+    else:
+        print("[ADMIN APP] 💻 Máy chủ Cloud chưa sẵn sàng hoặc không có internet. Khởi chạy máy chủ nội bộ port 9000...")
+        start_backend_server()
+        target_url = LOCAL_ADMIN_URL
+        window_title = "Tiduba Store - Quản Trị Hệ Thống (Offline Localhost)"
 
     # 2. Mở cửa sổ Desktop pywebview
     try:
@@ -113,8 +134,8 @@ def main():
 
         api = AdminApi()
         window = webview.create_window(
-            title="Tiduba Store - Quản Trị Hệ Thống (Admin Control Desk)",
-            url=ADMIN_URL,
+            title=window_title,
+            url=target_url,
             width=1400,
             height=900,
             resizable=True,
@@ -124,18 +145,17 @@ def main():
 
         print("=" * 70)
         print("📸 TIDUBA STORE - ADMIN DESKTOP APP ONLINE")
-        print(f"🌐 Máy chủ nội bộ / Tunnel: {PUBLIC_DOMAIN}")
+        print(f"🌐 Máy chủ chính: {target_url}")
         print("🏢 Chi nhánh 1 (Trụ sở): 183A Huỳnh Thúc Kháng, Pleiku, Gia Lai (0977.078.981)")
         print("🏢 Chi nhánh 2: 801 Lê Duẩn, P. An Phú, TP. Pleiku, Gia Lai (0977.078.981)")
-        print("💻 Web nội bộ: http://127.0.0.1:9000")
-        print("👑 App Admin tự động kết nối & bảo mật Bảng Quản Trị.")
+        print("👑 App Admin tự động kết nối & đồng bộ dữ liệu thời gian thực.")
         print("=" * 70)
 
         webview.start(private_mode=False)
 
     except ImportError:
         print("[ADMIN APP] pywebview chưa cài đặt. Mở giao diện Admin qua trình duyệt...")
-        webbrowser.open(ADMIN_URL)
+        webbrowser.open(target_url)
 
 
 if __name__ == "__main__":

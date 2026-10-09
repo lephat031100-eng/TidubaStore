@@ -2732,6 +2732,17 @@ def get_admin_dashboard_stats(admin: Dict[str, Any] = Depends(require_admin)):
         """, (f"{day_str}%",)).fetchone()["s"] or 0
         revenue_7d.append({"date": day_date.strftime("%d/%m"), "revenue": day_rev})
 
+    latest_rental = conn.execute("""
+        SELECT r.id, r.rental_code, r.status, r.total_price, u.full_name as customer_name 
+        FROM rentals r
+        JOIN users u ON r.user_id = u.id
+        ORDER BY r.id DESC LIMIT 1
+    """).fetchone()
+
+    latest_id = latest_rental["id"] if latest_rental else 0
+    latest_code = latest_rental["rental_code"] if latest_rental else ""
+    latest_name = latest_rental["customer_name"] if latest_rental else ""
+
     conn.close()
 
     return {
@@ -2741,7 +2752,10 @@ def get_admin_dashboard_stats(admin: Dict[str, Any] = Depends(require_admin)):
         "overdue_rentals": overdue_rentals,
         "available_items": available_items,
         "revenue_7d": revenue_7d,
-        "recent_alerts": alerts
+        "recent_alerts": alerts,
+        "latest_rental_id": latest_id,
+        "latest_rental_code": latest_code,
+        "latest_customer_name": latest_name
     }
 
 
@@ -2893,6 +2907,7 @@ def admin_delete_rental(rental_id: int, admin: Dict[str, Any] = Depends(require_
     cur.execute("DELETE FROM telegram_logs WHERE rental_id = ?", (rental_id,))
     cur.execute("DELETE FROM rentals WHERE id = ?", (rental_id,))
     conn.commit()
+    sync_items_availability(conn)
     conn.close()
     return {"success": True, "message": f"Đã xóa thành công đơn thuê & bill #{rental['rental_code']}!"}
 
@@ -3843,20 +3858,18 @@ def submit_customer_payment_proof(req: CustomerPaymentProofRequest, user: Option
 
     # Tạo HMAC signature bảo mật cho link xác nhận
     confirm_sig = hmac.new(TOKEN_SECRET.encode(), f"{rental['id']}:{rental['rental_code']}".encode(), hashlib.sha256).hexdigest()
-    confirm_url = f"{PUBLIC_DOMAIN}/api/telegram/quick_confirm?rental_id={rental['id']}&code={rental['rental_code']}&sig={confirm_sig}"
+    confirm_url = f"https://tidubastore.onrender.com/api/telegram/quick_confirm?rental_id={rental['id']}&code={rental['rental_code']}&sig={confirm_sig}"
     
-    # Chỉ thêm nút URL nếu PUBLIC_DOMAIN là HTTPS hợp lệ (Telegram Bot API từ chối http://localhost)
-    inline_kb = None
-    if PUBLIC_DOMAIN.startswith("https://") and "localhost" not in PUBLIC_DOMAIN and "127.0.0.1" not in PUBLIC_DOMAIN:
-        inline_kb = [
-            [
-                {"text": "✅ Xác Nhận Đã Nhận Tiền", "url": confirm_url},
-                {"text": "🔍 Xem Đơn Trên Web", "url": f"{PUBLIC_DOMAIN}/return-qr?code={rental['rental_code']}"}
-            ]
+    # Nút bấm Inline: Hỗ trợ cả Callback bấm duyệt thẳng trong Telegram lẫn xem trên web
+    inline_kb = [
+        [
+            {"text": "✅ Xác Nhận Đã Nhận Tiền (Duyệt Ngay)", "callback_data": f"confirm_pay:{rental['id']}:{rental['rental_code']}"}
+        ],
+        [
+            {"text": "🔍 Xem Chi Tiết Trên Web", "url": f"https://tidubastore.onrender.com/return-qr?code={rental['rental_code']}"}
         ]
-        tele_msg += "\n👇 <b>Admin bấm nút bên dưới để duyệt thanh toán ngay:</b>"
-    else:
-        tele_msg += f"\n💡 <i>Mở Web Admin hoặc App Desktop để bấm [Xác Nhận Tiền] cho đơn {rental['rental_code']}</i>"
+    ]
+    tele_msg += "\n👇 <b>Bấm [Xác Nhận Đã Nhận Tiền] bên dưới để duyệt đơn tức thì (Không cần mở web):</b>"
 
     _send_telegram_notification(
         message=tele_msg,
@@ -4925,8 +4938,130 @@ def background_reminder_worker():
             pass
 
 
-# Khởi chạy luồng ngầm tự động nhắc hẹn & quá hạn 24/7
+def telegram_bot_updates_worker():
+    """
+    Lắng nghe liên tục các sự kiện từ Telegram Bot (Long-polling getUpdates):
+    - Khi Admin bấm nút [✅ Xác Nhận Đã Nhận Tiền] ngay trong Telegram:
+      -> Tự động duyệt đơn sang ACTIVE
+      -> Chuyển thiết bị sang RENTED
+      -> Trả lời alert popup trong Telegram: '✅ Đã duyệt đơn TDB-XXXXXX thành công!'
+      -> Gửi tin nhắn thông báo xác nhận vào group
+      -> Web và App tự động cập nhật trong 4 giây mà không cần Admin phải mở trình duyệt!
+    """
+    last_update_id = 0
+    try:
+        conn = get_db()
+        cfg = conn.execute("SELECT bot_token FROM telegram_config WHERE id = 1").fetchone()
+        conn.close()
+        if cfg and cfg["bot_token"]:
+            init_url = f"https://api.telegram.org/bot{cfg['bot_token'].strip()}/getUpdates?limit=1"
+            req = urllib.request.Request(init_url, headers={"User-Agent": "TidubaStoreBot/1.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                d = json.loads(resp.read().decode("utf-8"))
+                res_list = d.get("result", [])
+                if res_list:
+                    last_update_id = res_list[-1]["update_id"]
+    except Exception:
+        pass
+
+    while True:
+        try:
+            conn = get_db()
+            cfg = conn.execute("SELECT bot_token, chat_id FROM telegram_config WHERE id = 1").fetchone()
+            conn.close()
+
+            if not cfg or not cfg["bot_token"]:
+                time.sleep(10)
+                continue
+
+            bot_token = cfg["bot_token"].strip()
+            url = f"https://api.telegram.org/bot{bot_token}/getUpdates?offset={last_update_id + 1}&timeout=15"
+            req = urllib.request.Request(url, headers={"User-Agent": "TidubaStoreBot/1.0"})
+
+            with urllib.request.urlopen(req, timeout=25) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+
+            updates = data.get("result", [])
+            for u in updates:
+                uid = u["update_id"]
+                if uid > last_update_id:
+                    last_update_id = uid
+
+                # Xử lý Callback Query khi Admin bấm nút Inline trong Telegram
+                if "callback_query" in u:
+                    cq = u["callback_query"]
+                    cq_id = cq["id"]
+                    cq_data = cq.get("data", "")
+                    sender = cq.get("from", {}).get("first_name", "Admin")
+                    msg = cq.get("message", {})
+                    chat_id = msg.get("chat", {}).get("id")
+                    msg_id = msg.get("message_id")
+
+                    if cq_data.startswith("confirm_pay:"):
+                        parts = cq_data.split(":")
+                        if len(parts) >= 3:
+                            rental_id = int(parts[1])
+                            rental_code = parts[2]
+
+                            # Cập nhật đơn trong Database
+                            conn = get_db()
+                            cur = conn.cursor()
+                            r = cur.execute("SELECT * FROM rentals WHERE id = ?", (rental_id,)).fetchone()
+                            if r and r["status"] != "ACTIVE":
+                                cur.execute("UPDATE rentals SET status = 'ACTIVE' WHERE id = ?", (rental_id,))
+                                conn.commit()
+                                sync_items_availability(conn)
+
+                                now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                cur.execute("INSERT INTO print_queue (rental_id, bill_text, status, created_at) VALUES (?, ?, 'PENDING', ?)", (rental_id, f"Bill {rental_code}", now_str))
+                                conn.commit()
+
+                                # 1. Trả lời popup ngay trên màn hình Telegram
+                                ans_url = f"https://api.telegram.org/bot{bot_token}/answerCallbackQuery"
+                                ans_body = json.dumps({
+                                    "callback_query_id": cq_id,
+                                    "text": f"✅ Đã duyệt đơn {rental_code} thành công!",
+                                    "show_alert": True
+                                }).encode("utf-8")
+                                ans_req = urllib.request.Request(ans_url, data=ans_body, headers={"Content-Type": "application/json"}, method="POST")
+                                try:
+                                    urllib.request.urlopen(ans_req, timeout=5)
+                                except Exception: pass
+
+                                # 2. Gửi tin nhắn xác nhận vào nhóm
+                                notify_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                                notif_body = json.dumps({
+                                    "chat_id": chat_id,
+                                    "text": f"✅ <b>[ĐÃ DUYỆT ĐƠN {rental_code}]</b>\n👑 <b>{sender}</b> đã xác nhận nhận tiền thành công!\nThiết bị đã chuyển sang trạng thái <b>ĐANG THUÊ</b>.",
+                                    "parse_mode": "HTML",
+                                    "reply_to_message_id": msg_id
+                                }).encode("utf-8")
+                                notif_req = urllib.request.Request(notify_url, data=notif_body, headers={"Content-Type": "application/json"}, method="POST")
+                                try:
+                                    urllib.request.urlopen(notif_req, timeout=5)
+                                except Exception: pass
+                            else:
+                                st_text = r["status"] if r else "Không tìm thấy"
+                                ans_url = f"https://api.telegram.org/bot{bot_token}/answerCallbackQuery"
+                                ans_body = json.dumps({
+                                    "callback_query_id": cq_id,
+                                    "text": f"ℹ️ Đơn {rental_code} hiện đang ở trạng thái: {st_text}",
+                                    "show_alert": False
+                                }).encode("utf-8")
+                                ans_req = urllib.request.Request(ans_url, data=ans_body, headers={"Content-Type": "application/json"}, method="POST")
+                                try:
+                                    urllib.request.urlopen(ans_req, timeout=5)
+                                except Exception: pass
+                            conn.close()
+        except Exception:
+            time.sleep(3)
+
+
+# Khởi chạy luồng ngầm tự động:
+# 1. Nhắc hẹn 30 phút & cảnh báo quá hạn 5 phút vào group -1004498214603
 threading.Thread(target=background_reminder_worker, daemon=True, name="TidubaReminderWorker").start()
+# 2. Lắng nghe nút bấm [Xác Nhận Đã Nhận Tiền] trực tiếp từ Telegram Bot
+threading.Thread(target=telegram_bot_updates_worker, daemon=True, name="TidubaTelegramBotWorker").start()
 
 
 if __name__ == "__main__":

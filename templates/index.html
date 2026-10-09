@@ -17,10 +17,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cedarville+Cursive&family=Cormorant+Garamond:ital,wght@1,600;1,700&display=swap" rel="stylesheet">
-    <!-- Tailwind CSS & FontAwesome & Html5Qrcode Scanner -->
+    <!-- Tailwind CSS & FontAwesome & Html5Qrcode & jsQR Scanner -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -92,6 +93,24 @@
         @media (max-width: 1024px) {
             button, .btn-touch { min-height: 42px; }
             #sec-kiotviet-pos { padding: 10px !important; }
+            /* Khóa chặt các nút Admin không tràn lên Header trên điện thoại và máy tính bảng */
+            #nav-pos-btn, #nav-admin-btn, #nav-my-rentals-btn, #role-badge {
+                display: none !important;
+            }
+        }
+        /* Tối ưu các nút trôi nổi khi xoay ngang điện thoại (Landscape) */
+        @media (max-height: 520px) and (orientation: landscape) {
+            .floating-contact-stack {
+                flex-direction: row !important;
+                bottom: 3.8rem !important;
+                right: 0.75rem !important;
+                gap: 0.5rem !important;
+            }
+            .floating-contact-stack a, .floating-contact-stack button {
+                width: 32px !important;
+                height: 32px !important;
+                font-size: 13px !important;
+            }
         }
         /* Hỗ trợ thanh điều hướng đáy trên các dòng iPhone có Home Bar */
         .pb-safe {
@@ -1226,7 +1245,7 @@
     <!-- ============================================================== -->
     <!-- FLOATING CONTACT & QUICK ACTIONS (HOTLINE, TELEGRAM, MAPS)     -->
     <!-- ============================================================== -->
-    <div class="fixed bottom-20 md:bottom-6 right-3 md:right-6 z-40 flex flex-col items-end gap-2.5">
+    <div class="floating-contact-stack fixed bottom-20 md:bottom-6 right-3 md:right-6 z-40 flex flex-col items-end gap-2.5">
         <!-- Nút Tra Cứu Đơn Nhanh -->
         <button onclick="openOrderTrackerModal()" class="w-11 h-11 md:w-12 md:h-12 rounded-full bg-white hover:bg-[#faf7f2] text-[#0369a1] border border-[#bae6fd] flex items-center justify-center text-base md:text-lg shadow-md transition hover:scale-110" title="Tra cứu tiến độ & chi nhánh đơn hàng">
             <i class="fa-solid fa-magnifying-glass"></i>
@@ -1249,24 +1268,8 @@
     <!-- BOTTOM NAVIGATION BAR (DÀNH CHO ĐIỆN THOẠI & TABLET)          -->
     <!-- Sang trọng, sạch sẽ, chuẩn giao diện iOS & Shopee               -->
     <!-- ============================================================== -->
-    <nav class="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-t border-[#eae3d9] px-2 py-1.5 flex items-center justify-around shadow-lg">
-        <button onclick="showSection('catalog'); window.scrollTo({top:0, behavior:'smooth'});" class="flex flex-col items-center gap-0.5 text-[#78716c] hover:text-[#c86d51] py-1 px-3 rounded-xl transition">
-            <i class="fa-solid fa-house text-base text-[#c86d51]"></i>
-            <span class="text-[10px] font-bold text-[#1c1917]">Trang Chủ</span>
-        </button>
-        <button onclick="openCartDrawer()" class="relative flex flex-col items-center gap-0.5 text-[#78716c] hover:text-[#c86d51] py-1 px-3 rounded-xl transition">
-            <i class="fa-solid fa-cart-shopping text-base text-[#c86d51]"></i>
-            <span class="text-[10px] font-bold">Giỏ Hàng</span>
-            <span id="bottom-cart-badge" class="hidden absolute top-0 right-2 bg-[#c86d51] text-white text-[9px] font-mono font-black px-1.5 py-0.2 rounded-full">0</span>
-        </button>
-        <button onclick="showSection('my-rentals')" class="flex flex-col items-center gap-0.5 text-[#78716c] hover:text-[#c86d51] py-1 px-3 rounded-xl transition">
-            <i class="fa-solid fa-clock-rotate-left text-base text-[#0284c7]"></i>
-            <span class="text-[10px] font-bold">Đơn Thuê</span>
-        </button>
-        <button id="bottom-admin-btn" onclick="switchToAdminOrPos()" class="flex flex-col items-center gap-0.5 text-[#78716c] hover:text-[#c86d51] py-1 px-3 rounded-xl transition">
-            <i class="fa-solid fa-circle-user text-base text-[#78716c]" id="bottom-account-icon"></i>
-            <span class="text-[10px] font-bold" id="bottom-account-label">Tài Khoản</span>
-        </button>
+    <nav id="mobile-bottom-nav" class="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-t border-[#eae3d9] px-2 py-1.5 flex items-center justify-around shadow-lg pb-safe">
+        <!-- Rendered dynamically by renderBottomNav() in JS -->
     </nav>
 
     <!-- ============================================================== -->
@@ -3360,23 +3363,128 @@
             document.getElementById('qr-return-modal').style.display = 'none';
         }
 
+        // ==============================================================
+        // ADVANCED MULTI-ENGINE QR SCANNER (jsQR + Canvas + Html5Qrcode)
+        // Hỗ trợ 100% điện thoại iPhone Safari, Android, iPad & máy tính
+        // ==============================================================
+        let localCameraStream = null;
+        let qrVideoScanAnimationId = null;
+
+        function extractQrCodeString(text) {
+            if (!text) return "";
+            const t = String(text).trim();
+            // Trích xuất từ URL dạng ?code=TDB-XXXXXX hoặc ?code=HDXXXXXX
+            try {
+                const urlMatch = t.match(/[?&]code=([^&#]+)/i);
+                if (urlMatch) return decodeURIComponent(urlMatch[1]).toUpperCase();
+            } catch(e) {}
+            // Trích xuất mã TDB-XXXXXX
+            const tdbMatch = t.match(/TDB-[A-Za-z0-9_-]+/i);
+            if (tdbMatch) return tdbMatch[0].toUpperCase();
+            // Trích xuất mã HDXXXXXX
+            const hdMatch = t.match(/HD\d+/i);
+            if (hdMatch) return hdMatch[0].toUpperCase();
+            return t;
+        }
+
+        function decodeImageWithJsQR(img, width, height, contrastBoost = false) {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                ctx.drawImage(img, 0, 0, width, height);
+
+                let imgData = ctx.getImageData(0, 0, width, height);
+                if (contrastBoost) {
+                    const d = imgData.data;
+                    for (let i = 0; i < d.length; i += 4) {
+                        const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+                        const v = gray > 128 ? 255 : 0;
+                        d[i] = v; d[i+1] = v; d[i+2] = v;
+                    }
+                }
+
+                if (typeof jsQR !== 'undefined') {
+                    const code = jsQR(imgData.data, width, height, {
+                        inversionAttempts: "attemptBoth"
+                    });
+                    if (code && code.data) return code.data;
+                }
+            } catch(e) {
+                console.warn("jsQR decode error:", e);
+            }
+            return null;
+        }
+
+        async function decodeQrFromFileBlob(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const img = new Image();
+                    img.onload = () => {
+                        try {
+                            const origW = img.naturalWidth || img.width;
+                            const origH = img.naturalHeight || img.height;
+
+                            const scales = [800, 1200, 500];
+                            for (const targetW of scales) {
+                                const ratio = targetW / origW;
+                                const w = targetW;
+                                const h = Math.round(origH * ratio);
+
+                                let res = decodeImageWithJsQR(img, w, h, false);
+                                if (res) { resolve(res); return; }
+
+                                res = decodeImageWithJsQR(img, w, h, true);
+                                if (res) { resolve(res); return; }
+                            }
+
+                            if (origW < 2000) {
+                                let res = decodeImageWithJsQR(img, origW, origH, false);
+                                if (res) { resolve(res); return; }
+                            }
+
+                            resolve(null);
+                        } catch(err) {
+                            reject(err);
+                        }
+                    };
+                    img.onerror = () => reject(new Error("Không thể tải file ảnh"));
+                    img.src = reader.result;
+                };
+                reader.onerror = () => reject(new Error("Lỗi đọc file"));
+                reader.readAsDataURL(file);
+            });
+        }
+
         async function scanQrFromImageFile(input) {
             if (!input.files || input.files.length === 0) return;
             const file = input.files[0];
-            showToast("Đang quét mã QR từ ảnh...");
+            showToast("Đang phân tích & giải mã QR...");
             try {
-                if (typeof Html5Qrcode === 'undefined') {
-                    alert("Thư viện quét mã QR chưa tải xong. Vui lòng thử lại sau vài giây.");
-                    return;
+                let decoded = await decodeQrFromFileBlob(file);
+                
+                // Fallback nếu jsQR chưa đọc được
+                if (!decoded && typeof Html5Qrcode !== 'undefined') {
+                    try {
+                        const scanner = new Html5Qrcode("qr-reader");
+                        decoded = await scanner.scanFile(file, true);
+                    } catch(e) {}
                 }
-                const scanner = new Html5Qrcode("qr-reader");
-                const decodedText = await scanner.scanFile(file, true);
-                document.getElementById('qr-return-input').value = decodedText;
-                showToast(`📸 Đã nhận diện mã: ${decodedText}`);
-                submitQrReturn();
-            } catch (err) {
-                console.error("Scan image error:", err);
-                alert("Không nhận diện được mã QR trong ảnh. Vui lòng chụp rõ mã QR hoặc nhập mã đơn bên dưới!");
+
+                if (decoded) {
+                    const cleanCode = extractQrCodeString(decoded);
+                    document.getElementById('qr-return-input').value = cleanCode;
+                    playPosSuccessSound();
+                    showToast(`📸 Nhận diện thành công: ${cleanCode}`);
+                    submitQrReturn();
+                } else {
+                    alert("Không nhận diện được mã QR trong ảnh. Vui lòng chụp rõ mã QR hoặc nhập mã đơn bên dưới!");
+                }
+            } catch(err) {
+                console.error("Scan error:", err);
+                alert("Lỗi đọc ảnh QR: " + (err.message || err));
             } finally {
                 input.value = '';
             }
@@ -3386,41 +3494,69 @@
             const container = document.getElementById('qr-camera-container');
             const label = document.getElementById('cam-toggle-label');
 
-            if (html5QrScannerInstance) {
+            if (localCameraStream) {
                 stopQrCameraScanner();
                 return;
             }
 
             container.classList.remove('hidden');
-            label.innerText = 'Tắt Camera';
+            if (label) label.innerText = 'Tắt Camera';
+
+            let video = document.getElementById('qr-native-video');
+            if (!video) {
+                video = document.createElement('video');
+                video.id = 'qr-native-video';
+                video.setAttribute('playsinline', 'true');
+                video.setAttribute('autoplay', 'true');
+                video.setAttribute('muted', 'true');
+                video.className = 'w-full h-full object-cover';
+                const readerBox = document.getElementById('qr-reader');
+                if (readerBox) {
+                    readerBox.innerHTML = '';
+                    readerBox.appendChild(video);
+                }
+            }
 
             try {
-                if (typeof Html5Qrcode === 'undefined') {
-                    alert("Thư viện quét camera chưa tải xong. Vui lòng bấm 'Chụp/Chọn Ảnh QR' hoặc nhập mã thủ công.");
-                    stopQrCameraScanner();
-                    return;
-                }
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } }
+                });
+                localCameraStream = stream;
+                video.srcObject = stream;
+                video.play();
 
-                html5QrScannerInstance = new Html5Qrcode("qr-reader");
-                const config = { fps: 15, qrbox: { width: 220, height: 220 } };
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-                // Hỗ trợ Safari iOS & Chrome Android với camera sau
-                await html5QrScannerInstance.start(
-                    { facingMode: { ideal: "environment" } },
-                    config,
-                    (decodedText, decodedResult) => {
-                        console.log("QR scanned:", decodedText);
-                        stopQrCameraScanner();
-                        document.getElementById('qr-return-input').value = decodedText;
-                        showToast(`📸 Đã nhận diện: ${decodedText}`);
-                        submitQrReturn();
-                    },
-                    (errorMessage) => {}
-                );
+                const scanFrame = () => {
+                    if (!localCameraStream) return;
+                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                        canvas.width = Math.min(640, video.videoWidth);
+                        canvas.height = Math.round(canvas.width * (video.videoHeight / video.videoWidth));
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        if (typeof jsQR !== 'undefined') {
+                            const code = jsQR(imgData.data, canvas.width, canvas.height, { inversionAttempts: "dontInvert" });
+                            if (code && code.data) {
+                                const cleanCode = extractQrCodeString(code.data);
+                                stopQrCameraScanner();
+                                document.getElementById('qr-return-input').value = cleanCode;
+                                playPosSuccessSound();
+                                showToast(`📸 Nhận diện mã: ${cleanCode}`);
+                                submitQrReturn();
+                                return;
+                            }
+                        }
+                    }
+                    qrVideoScanAnimationId = requestAnimationFrame(scanFrame);
+                };
+                qrVideoScanAnimationId = requestAnimationFrame(scanFrame);
             } catch (err) {
-                console.error("Camera error:", err);
-                alert("Trình duyệt chưa được cấp quyền mở Camera trực tiếp. Bạn có thể bấm nút 'Chụp/Chọn Ảnh QR' để chụp ảnh quét ngay!");
+                console.error("Camera direct error:", err);
                 stopQrCameraScanner();
+                alert("Trình duyệt chưa được cấp quyền mở Camera trực tiếp. Bạn hãy bấm nút 'Chụp/Chọn Ảnh QR' để chụp ảnh quét ngay!");
+                const fileInp = document.getElementById('qr-camera-file');
+                if (fileInp) fileInp.click();
             }
         }
 
@@ -3430,18 +3566,16 @@
             if (label) label.innerText = 'Bật Camera';
             if (container) container.classList.add('hidden');
 
-            if (html5QrScannerInstance) {
-                try {
-                    html5QrScannerInstance.stop().then(() => {
-                        html5QrScannerInstance.clear();
-                        html5QrScannerInstance = null;
-                    }).catch(() => {
-                        html5QrScannerInstance = null;
-                    });
-                } catch (e) {
-                    html5QrScannerInstance = null;
-                }
+            if (qrVideoScanAnimationId) {
+                cancelAnimationFrame(qrVideoScanAnimationId);
+                qrVideoScanAnimationId = null;
             }
+            if (localCameraStream) {
+                localCameraStream.getTracks().forEach(track => track.stop());
+                localCameraStream = null;
+            }
+            const video = document.getElementById('qr-native-video');
+            if (video) video.srcObject = null;
         }
 
         async function submitQrReturn() {
@@ -6550,16 +6684,14 @@
                     if (isAdmin) alertWidget.classList.remove('hidden');
                     else alertWidget.classList.add('hidden');
                 }
+
+                if (isAdmin) {
+                    startAdminRealtimeAutoRefresh();
+                }
             } else {
                 if (roleBadge) roleBadge.classList.add('hidden');
                 const alertWidget = document.getElementById('live-alert-admin-widget');
                 if (alertWidget) alertWidget.classList.add('hidden');
-                const bottomAccountIcon = document.getElementById('bottom-account-icon');
-                const bottomAccountLabel = document.getElementById('bottom-account-label');
-                if (bottomAccountIcon && bottomAccountLabel) {
-                    bottomAccountIcon.className = 'fa-solid fa-circle-user text-base text-gray-400';
-                    bottomAccountLabel.innerText = 'Đăng Nhập';
-                }
                 if (authBox) {
                     authBox.innerHTML = `
                         <button onclick="openAuthModal()" class="bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-gray-950 font-black px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition">
@@ -6571,6 +6703,118 @@
                 if (loyaltyBox) loyaltyBox.classList.add('hidden');
                 if (adminBtn) adminBtn.classList.add('hidden');
                 if (ekycBtn) ekycBtn.classList.remove('hidden');
+            }
+
+            renderBottomNav();
+        }
+
+        let lastSeenRentalId = null;
+        let adminRealtimePoller = null;
+
+        function startAdminRealtimeAutoRefresh() {
+            if (adminRealtimePoller) clearInterval(adminRealtimePoller);
+            adminRealtimePoller = setInterval(async () => {
+                const token = localStorage.getItem('tiduba_token');
+                if (!currentUser || currentUser.role !== 'admin' || !token) return;
+
+                try {
+                    const res = await fetch('/api/admin/dashboard_stats', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (!res.ok) return;
+                    const stats = await res.json();
+
+                    if (stats.latest_rental_id && lastSeenRentalId !== null && stats.latest_rental_id > lastSeenRentalId) {
+                        playOrderChime();
+                        showToast(`🔔 CÓ ĐƠN THUÊ MỚI: #${stats.latest_rental_code} (${stats.latest_customer_name || 'Khách'})!`);
+                        
+                        // Cập nhật lại toàn bộ bảng đơn mà không cần F5
+                        fetchAdminDashboard();
+                        fetchCatalog();
+                    }
+                    if (stats.latest_rental_id) {
+                        lastSeenRentalId = stats.latest_rental_id;
+                    }
+
+                    if (document.getElementById('adm-total-revenue')) {
+                        document.getElementById('adm-total-revenue').innerText = `${Number(stats.total_revenue).toLocaleString()}đ`;
+                        document.getElementById('adm-total-rentals').innerText = stats.total_rentals;
+                        document.getElementById('adm-active-rentals').innerText = stats.active_rentals;
+                        document.getElementById('adm-overdue-rentals').innerText = stats.overdue_rentals;
+                    }
+                } catch(e) {}
+            }, 4000);
+        }
+
+        function playOrderChime() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(659.25, ctx.currentTime);
+                osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.5);
+            } catch(e) {}
+        }
+
+        function renderBottomNav() {
+            const nav = document.getElementById('mobile-bottom-nav');
+            if (!nav) return;
+            const isAdmin = currentUser && currentUser.role === 'admin';
+
+            if (isAdmin) {
+                nav.innerHTML = `
+                    <button onclick="showSection('catalog'); window.scrollTo({top:0, behavior:'smooth'});" class="flex flex-col items-center gap-0.5 text-[#78716c] hover:text-[#c86d51] py-1 px-2 rounded-xl transition">
+                        <i class="fa-solid fa-house text-base text-[#c86d51]"></i>
+                        <span class="text-[9px] font-bold text-[#1c1917]">Trang Chủ</span>
+                    </button>
+                    <button onclick="showSection('my-rentals')" class="flex flex-col items-center gap-0.5 text-[#78716c] hover:text-[#c86d51] py-1 px-2 rounded-xl transition">
+                        <i class="fa-solid fa-clock-rotate-left text-base text-[#0284c7]"></i>
+                        <span class="text-[9px] font-bold">Đơn Thuê</span>
+                    </button>
+                    <!-- NÚT QUÉT QR TRẢ ĐỒ NỔI BẬT Ở GIỮA DÀNH CHO ADMIN -->
+                    <button onclick="openQrReturnModal()" class="flex flex-col items-center gap-0.5 py-0.5 px-2 transition group" title="Mở máy quét QR trả đồ">
+                        <div class="w-12 h-12 -mt-5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-lg shadow-emerald-600/40 border-2 border-white group-hover:scale-105 transition">
+                            <i class="fa-solid fa-qrcode text-xl"></i>
+                        </div>
+                        <span class="text-[9px] font-black text-emerald-800">Quét QR</span>
+                    </button>
+                    <button onclick="switchToKiotvietPos()" class="flex flex-col items-center gap-0.5 text-[#78716c] hover:text-[#10b981] py-1 px-2 rounded-xl transition">
+                        <i class="fa-solid fa-cash-register text-base text-[#10b981]"></i>
+                        <span class="text-[9px] font-bold">POS Kiot</span>
+                    </button>
+                    <button onclick="switchToAdminMode()" class="flex flex-col items-center gap-0.5 text-[#78716c] hover:text-[#4f46e5] py-1 px-2 rounded-xl transition">
+                        <i class="fa-solid fa-crown text-base text-[#4f46e5]"></i>
+                        <span class="text-[9px] font-bold">Quản Trị</span>
+                    </button>
+                `;
+            } else {
+                nav.innerHTML = `
+                    <button onclick="showSection('catalog'); window.scrollTo({top:0, behavior:'smooth'});" class="flex flex-col items-center gap-0.5 text-[#78716c] hover:text-[#c86d51] py-1 px-3 rounded-xl transition">
+                        <i class="fa-solid fa-house text-base text-[#c86d51]"></i>
+                        <span class="text-[10px] font-bold text-[#1c1917]">Trang Chủ</span>
+                    </button>
+                    <button onclick="openCartDrawer()" class="relative flex flex-col items-center gap-0.5 text-[#78716c] hover:text-[#c86d51] py-1 px-3 rounded-xl transition">
+                        <i class="fa-solid fa-cart-shopping text-base text-[#c86d51]"></i>
+                        <span class="text-[10px] font-bold">Giỏ Hàng</span>
+                        <span id="bottom-cart-badge" class="hidden absolute top-0 right-2 bg-[#c86d51] text-white text-[9px] font-mono font-black px-1.5 py-0.2 rounded-full">0</span>
+                    </button>
+                    <button onclick="showSection('my-rentals')" class="flex flex-col items-center gap-0.5 text-[#78716c] hover:text-[#c86d51] py-1 px-3 rounded-xl transition">
+                        <i class="fa-solid fa-clock-rotate-left text-base text-[#0284c7]"></i>
+                        <span class="text-[10px] font-bold">Đơn Thuê</span>
+                    </button>
+                    <button onclick="openAuthModal()" class="flex flex-col items-center gap-0.5 text-[#78716c] hover:text-[#c86d51] py-1 px-3 rounded-xl transition">
+                        <i class="fa-solid fa-circle-user text-base text-[#78716c]"></i>
+                        <span class="text-[10px] font-bold">${currentUser ? currentUser.username.slice(0, 8) : 'Tài Khoản'}</span>
+                    </button>
+                `;
+                updateCartBadge();
             }
         }
 
