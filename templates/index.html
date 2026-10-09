@@ -479,6 +479,9 @@
                     <p class="text-xs text-gray-300 mt-1">Duyệt đơn, chỉnh sửa ngày giờ trả, duyệt gia hạn, lập biên bản kiểm tra thiết bị và cập nhật kho máy ảnh / trang phục.</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="openSyncDataModal()" class="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white font-black px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-indigo-950/80 transition" title="Đồng bộ trực tiếp danh mục & sản phẩm giữa máy tính và Web Cloud không cần chạm vào code">
+                        <i class="fa-solid fa-cloud-arrow-up text-cyan-300"></i> Đồng Bộ Web Cloud
+                    </button>
                     <button onclick="downloadAdminCsvReport()" class="bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-600/70 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md" title="Tải về file Excel / CSV toàn bộ đơn hàng và doanh thu">
                         <i class="fa-solid fa-file-excel text-emerald-400"></i> Xuất Báo Cáo Excel
                     </button>
@@ -2143,6 +2146,63 @@
             <button onclick="closeRefundQrModal()" class="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-2.5 rounded-xl text-xs">
                 Đóng
             </button>
+        </div>
+    </div>
+
+    <!-- DATA SYNC MODAL (ĐỒNG BỘ BỘ NHỚ WEB & MÁY TÍNH KHÔNG CẦN CHẠM CODE) -->
+    <div id="sync-data-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-5" style="display: none;">
+        <div class="bg-gray-900 border border-indigo-500/60 rounded-3xl max-w-lg w-full p-5 sm:p-6 space-y-4 shadow-2xl font-sans text-left">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-xl bg-indigo-950 text-indigo-400 border border-indigo-600 flex items-center justify-center text-sm font-bold">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </span>
+                    <div>
+                        <h3 class="text-base font-bold text-white">Đồng Bộ Bộ Nhớ Web Cloud</h3>
+                        <p class="text-[11px] text-gray-400 font-mono">Đẩy danh mục, sản phẩm từ máy tính lên Web (Không cần chạm code)</p>
+                    </div>
+                </div>
+                <button onclick="closeSyncDataModal()" class="text-gray-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3 text-xs font-mono">
+                <div>
+                    <label class="block text-gray-300 font-bold mb-1">Địa chỉ Web Server Cloud:</label>
+                    <input type="text" id="sync-remote-url" value="https://tidubastore.onrender.com" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2.5 text-white font-mono text-xs focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-gray-300 font-bold mb-1">Mật khẩu Admin Web:</label>
+                    <input type="password" id="sync-remote-pass" value="admin123" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2.5 text-white font-mono text-xs focus:border-indigo-500">
+                </div>
+            </div>
+
+            <div class="p-3 bg-indigo-950/40 border border-indigo-800/80 rounded-2xl text-[11px] text-indigo-200 space-y-1 font-sans">
+                <div class="font-bold text-amber-300 flex items-center gap-1">
+                    <i class="fa-solid fa-bolt"></i> CƠ CHẾ HOẠT ĐỘNG:
+                </div>
+                <p>• Bấm <strong>Đẩy Lên Web Ngay</strong>: Toàn bộ 16 danh mục, sản phẩm, cài đặt ở máy tính sẽ nạp thẳng lên Web Cloud trong 1 giây. Khách mở điện thoại là thấy ngay mà không cần chạm vào code!</p>
+                <p>• Bấm <strong>Tải Về Máy Tính</strong>: Kéo các đơn hàng khách vừa đặt trên web về máy tính của bạn.</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 pt-1">
+                <button type="button" onclick="submitPushDataToRemote()" id="btn-push-sync" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-950">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Đẩy Lên Web Ngay
+                </button>
+                <button type="button" onclick="submitPullDataFromRemote()" id="btn-pull-sync" class="bg-gray-800 hover:bg-gray-700 text-cyan-300 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 border border-gray-700">
+                    <i class="fa-solid fa-cloud-arrow-down"></i> Tải Về Máy Tính
+                </button>
+            </div>
+
+            <div class="flex justify-between items-center pt-2 border-t border-gray-800 text-[11px]">
+                <button onclick="downloadDatabaseJsonBackup()" class="text-gray-400 hover:text-white underline">
+                    <i class="fa-solid fa-download"></i> Tải file sao lưu JSON
+                </button>
+                <button onclick="closeSyncDataModal()" class="text-gray-400 hover:text-white">
+                    Đóng
+                </button>
+            </div>
         </div>
     </div>
 
@@ -6837,6 +6897,106 @@
 
         function closeRefundQrModal() {
             document.getElementById('refund-qr-modal').style.display = 'none';
+        }
+
+        // ==============================================================
+        // DATA SYNC ENGINE (ĐỒNG BỘ 1-CLICK GIỮA MÁY TÍNH & WEB CLOUD)
+        // ==============================================================
+        function openSyncDataModal() {
+            document.getElementById('sync-data-modal').style.display = 'flex';
+        }
+
+        function closeSyncDataModal() {
+            document.getElementById('sync-data-modal').style.display = 'none';
+        }
+
+        async function submitPushDataToRemote() {
+            const url = document.getElementById('sync-remote-url').value.trim();
+            const pass = document.getElementById('sync-remote-pass').value.trim();
+            if (!url) {
+                alert("Vui lòng nhập địa chỉ Web Server Cloud!");
+                return;
+            }
+            const btn = document.getElementById('btn-push-sync');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Đang đẩy dữ liệu...';
+            showToast("Đang đồng bộ dữ liệu lên Web Cloud...");
+
+            try {
+                const token = localStorage.getItem('tiduba_token');
+                const res = await fetch('/api/admin/sync/push_to_remote', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ remote_url: url, admin_password: pass })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast("✅ " + data.message);
+                    alert(data.message);
+                    closeSyncDataModal();
+                } else {
+                    alert(data.detail || "Lỗi đồng bộ dữ liệu lên Web!");
+                }
+            } catch (err) {
+                alert("Lỗi kết nối đồng bộ: " + err);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Đẩy Lên Web Ngay';
+            }
+        }
+
+        async function submitPullDataFromRemote() {
+            const url = document.getElementById('sync-remote-url').value.trim();
+            const pass = document.getElementById('sync-remote-pass').value.trim();
+            if (!url) {
+                alert("Vui lòng nhập địa chỉ Web Server Cloud!");
+                return;
+            }
+            if (!confirm("Tải dữ liệu từ Web về máy tính sẽ cập nhật kho trên máy tính theo Web. Tiếp tục?")) return;
+            const btn = document.getElementById('btn-pull-sync');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Đang tải...';
+
+            try {
+                const token = localStorage.getItem('tiduba_token');
+                const res = await fetch('/api/admin/sync/pull_from_remote', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ remote_url: url, admin_password: pass })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast("✅ " + data.message);
+                    alert(data.message);
+                    fetchCatalog();
+                    fetchAdminDashboard();
+                    closeSyncDataModal();
+                } else {
+                    alert(data.detail || "Lỗi tải dữ liệu từ Web!");
+                }
+            } catch (err) {
+                alert("Lỗi kết nối: " + err);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i> Tải Về Máy Tính';
+            }
+        }
+
+        function downloadDatabaseJsonBackup() {
+            const token = localStorage.getItem('tiduba_token');
+            showToast("Đang chuẩn bị file sao lưu...");
+            fetch('/api/admin/sync/export_data', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }).then(r => r.json()).then(data => {
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `TidubaStore_DataBackup_${new Date().toISOString().slice(0,10)}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                showToast("Đã tải file sao lưu JSON về máy!");
+            }).catch(e => alert("Lỗi tải sao lưu: " + e));
         }
 
         fetchCatalog();

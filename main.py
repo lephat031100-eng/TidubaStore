@@ -3261,6 +3261,191 @@ def export_rentals_csv(token: Optional[str] = None, authorization: Optional[str]
 
 
 # =============================================================================
+# 12.2B DATA SYNC ENGINE (ĐỒNG BỘ BỘ NHỚ WEB & MÁY TÍNH KHÔNG CẦN CHẠM CODE)
+# =============================================================================
+
+@app.get("/api/admin/sync/export_data")
+def export_sync_data(admin: Dict[str, Any] = Depends(require_admin)):
+    """Xuất toàn bộ danh mục, sản phẩm, cài đặt, combos và cấu hình dạng JSON."""
+    conn = get_db()
+    cats = [dict(r) for r in conn.execute("SELECT * FROM categories_config ORDER BY display_order ASC").fetchall()]
+    items = [dict(r) for r in conn.execute("SELECT * FROM items ORDER BY id ASC").fetchall()]
+    settings = [dict(r) for r in conn.execute("SELECT * FROM site_settings").fetchall()]
+    combos = [dict(r) for r in conn.execute("SELECT * FROM combos ORDER BY id ASC").fetchall()]
+    coupons = [dict(r) for r in conn.execute("SELECT * FROM coupons").fetchall()]
+    tele = dict(conn.execute("SELECT * FROM telegram_config WHERE id = 1").fetchone() or {})
+    conn.close()
+    return {
+        "success": True,
+        "exported_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "categories": cats,
+        "items": items,
+        "site_settings": settings,
+        "combos": combos,
+        "coupons": coupons,
+        "telegram_config": tele
+    }
+
+
+class ImportSyncDataRequest(BaseModel):
+    categories: Optional[List[Dict[str, Any]]] = None
+    items: Optional[List[Dict[str, Any]]] = None
+    site_settings: Optional[List[Dict[str, Any]]] = None
+    combos: Optional[List[Dict[str, Any]]] = None
+    coupons: Optional[List[Dict[str, Any]]] = None
+    telegram_config: Optional[Dict[str, Any]] = None
+
+
+@app.post("/api/admin/sync/import_data")
+def import_sync_data(payload: ImportSyncDataRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """Nạp đè bộ nhớ danh mục, sản phẩm và cài đặt vào hệ thống ngay lập tức (Không chạm vào code)."""
+    conn = get_db()
+    cur = conn.cursor()
+
+    # 1. Cập nhật Categories
+    if payload.categories is not None:
+        cur.execute("DELETE FROM categories_config")
+        for c in payload.categories:
+            cur.execute("""
+            INSERT INTO categories_config (id, code, name, filter_type, filter_value, display_order, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (c.get("id"), c.get("code"), c.get("name"), c.get("filter_type", "BRAND"), c.get("filter_value", ""), c.get("display_order", 0), c.get("is_active", 1)))
+
+    # 2. Cập nhật Items
+    if payload.items is not None:
+        cur.execute("DELETE FROM items")
+        for it in payload.items:
+            cur.execute("""
+            INSERT INTO items (
+                id, name, category, subcategory, brand, serial_or_size, mount_type,
+                shutter_count, measurements, price_4h, price_8h, price_24h, deposit_amount,
+                image_url, description, condition_status, availability, branch_code, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                it.get("id"), it.get("name"), it.get("category"), it.get("subcategory"), it.get("brand"),
+                it.get("serial_or_size"), it.get("mount_type"), it.get("shutter_count", 0), it.get("measurements"),
+                it.get("price_4h", 0), it.get("price_8h", 0), it.get("price_24h", 0), it.get("deposit_amount", 0),
+                it.get("image_url"), it.get("description"), it.get("condition_status"),
+                it.get("availability", "AVAILABLE"), it.get("branch_code", "CN1"),
+                it.get("created_at", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            ))
+
+    # 3. Cập nhật Site Settings
+    if payload.site_settings is not None:
+        for s in payload.site_settings:
+            cur.execute("UPDATE site_settings SET value = ? WHERE key = ?", (s.get("value"), s.get("key")))
+
+    # 4. Cập nhật Combos
+    if payload.combos is not None:
+        cur.execute("DELETE FROM combos")
+        for cb in payload.combos:
+            cur.execute("""
+            INSERT INTO combos (id, name, badge, price_24h, original_price_24h, deposit_amount, image_url, description, items_included_json, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                cb.get("id"), cb.get("name"), cb.get("badge"), cb.get("price_24h", 0), cb.get("original_price_24h", 0),
+                cb.get("deposit_amount", 0), cb.get("image_url"), cb.get("description"), cb.get("items_included_json"),
+                cb.get("created_at", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            ))
+
+    # 5. Cập nhật Telegram Config (nếu có gửi)
+    if payload.telegram_config is not None:
+        t = payload.telegram_config
+        cur.execute("""
+        UPDATE telegram_config
+        SET bot_token = COALESCE(?, bot_token),
+            chat_id = COALESCE(?, chat_id),
+            overdue_chat_id = COALESCE(?, overdue_chat_id),
+            is_active = COALESCE(?, is_active),
+            updated_at = ?
+        WHERE id = 1
+        """, (t.get("bot_token"), t.get("chat_id"), t.get("overdue_chat_id"), t.get("is_active"), datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "Đã đồng bộ toàn bộ bộ nhớ dữ liệu thành công!"}
+
+
+class RemoteSyncPushRequest(BaseModel):
+    remote_url: str = "https://tidubastore.onrender.com"
+    admin_password: str = "admin123"
+
+
+@app.post("/api/admin/sync/push_to_remote")
+def push_data_to_remote(req: RemoteSyncPushRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """Gửi trực tiếp toàn bộ dữ liệu từ máy tính lên Web Cloud chỉ bằng 1 nút bấm (Không chạm vào code)."""
+    target_url = req.remote_url.rstrip("/")
+    # 1. Lấy dữ liệu local
+    local_data = export_sync_data(admin=admin)
+
+    # 2. Đăng nhập vào Web từ xa để lấy token
+    login_url = f"{target_url}/api/auth/login"
+    login_payload = json.dumps({"username": "admin", "password": req.admin_password}).encode("utf-8")
+    login_req = urllib.request.Request(login_url, data=login_payload, headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(login_req, timeout=15) as resp:
+            login_res = json.loads(resp.read().decode("utf-8"))
+            remote_token = login_res.get("token")
+            if not remote_token:
+                raise HTTPException(status_code=400, detail="Đăng nhập vào Web từ xa thất bại!")
+    except urllib.error.HTTPError as e:
+        err_msg = e.read().decode("utf-8", errors="ignore")
+        raise HTTPException(status_code=400, detail=f"Không thể kết nối vào Web từ xa ({target_url}): {err_msg}")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Lỗi kết nối Web từ xa: {str(e)}")
+
+    # 3. Gửi gói dữ liệu sang import_data của Web từ xa
+    import_url = f"{target_url}/api/admin/sync/import_data"
+    import_payload = json.dumps(local_data).encode("utf-8")
+    import_req = urllib.request.Request(
+        import_url,
+        data=import_payload,
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {remote_token}"},
+        method="POST"
+    )
+    try:
+        with urllib.request.urlopen(import_req, timeout=20) as resp:
+            import_res = json.loads(resp.read().decode("utf-8"))
+            return {
+                "success": True,
+                "message": f"🚀 Đồng bộ thành công 100%! Đã đẩy {len(local_data.get('items', []))} sản phẩm và {len(local_data.get('categories', []))} danh mục lên Web Cloud ({target_url})."
+            }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Lỗi nạp dữ liệu lên Web từ xa: {str(e)}")
+
+
+@app.post("/api/admin/sync/pull_from_remote")
+def pull_data_from_remote(req: RemoteSyncPushRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """Kéo toàn bộ dữ liệu mới nhất (đơn hàng, danh mục) từ Web Cloud về máy tính."""
+    target_url = req.remote_url.rstrip("/")
+    login_url = f"{target_url}/api/auth/login"
+    login_payload = json.dumps({"username": "admin", "password": req.admin_password}).encode("utf-8")
+    login_req = urllib.request.Request(login_url, data=login_payload, headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(login_req, timeout=15) as resp:
+            login_res = json.loads(resp.read().decode("utf-8"))
+            remote_token = login_res.get("token")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Không thể kết nối Web từ xa: {str(e)}")
+
+    # Lấy dữ liệu từ remote
+    export_url = f"{target_url}/api/admin/sync/export_data"
+    export_req = urllib.request.Request(export_url, headers={"Authorization": f"Bearer {remote_token}"})
+    try:
+        with urllib.request.urlopen(export_req, timeout=20) as resp:
+            remote_data = json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Lỗi lấy dữ liệu từ Web từ xa: {str(e)}")
+
+    # Nạp vào database local
+    import_sync_data(payload=ImportSyncDataRequest(**remote_data), admin=admin)
+    return {
+        "success": True,
+        "message": f"📥 Đã kéo dữ liệu từ Web Cloud về máy tính thành công!"
+    }
+
+
+# =============================================================================
 # 12.3 SINH MÃ VIETQR HOÀN CỌC CHO ADMIN QUÉT TRẢ TIỀN 1-CHẠM
 # =============================================================================
 
