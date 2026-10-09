@@ -339,7 +339,8 @@ def test_custom_deposit_and_admin_confirm_payment_and_zalo():
     now = datetime.datetime.now()
     tomorrow = now + datetime.timedelta(days=1)
     items_res = client.get("/api/items")
-    item_id = items_res.json()["items"][0]["id"]
+    avail = [i for i in items_res.json()["items"] if i["availability"] == "AVAILABLE"]
+    item_id = avail[0]["id"]
 
     booking_payload = {
         "item_id": item_id,

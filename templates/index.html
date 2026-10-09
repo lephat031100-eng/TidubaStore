@@ -2607,9 +2607,9 @@
                 const isAdminView = currentUser && currentUser.role === 'admin';
 
                 let statusLabel, statusClass;
-                if (isAvail) { statusLabel = 'SẴN SÀNG'; statusClass = 'bg-[#ecfdf5] text-[#047857] border border-[#a7f3d0]'; }
-                else if (isRented) { statusLabel = 'ĐANG THUÊ'; statusClass = 'bg-[#fff1f2] text-[#be123c] border border-[#fecdd3]'; }
-                else { statusLabel = 'TẠM NGƯNG'; statusClass = 'bg-[#f5f5f4] text-[#78716c] border border-[#e7e5e4]'; }
+                if (isAvail) { statusLabel = 'SẴN SÀNG'; statusClass = 'bg-[#ecfdf5] text-[#047857] border border-[#a7f3d0] font-bold'; }
+                else if (isRented) { statusLabel = 'ĐANG THUÊ'; statusClass = 'bg-rose-100 text-rose-700 border border-rose-300 font-black'; }
+                else { statusLabel = 'TẠM NGƯNG'; statusClass = 'bg-[#f5f5f4] text-[#78716c] border border-[#e7e5e4] font-bold'; }
 
                 return `
                     <div class="bg-white rounded-2xl overflow-hidden border border-[#eee7de] shadow-sm hover:shadow-md transition duration-300 flex flex-col justify-between group ${isUnavail ? 'opacity-60' : ''}">
@@ -2662,11 +2662,13 @@
                                     ${isUnavail
                                         ? `<span class="flex-1 bg-[#f5f5f4] text-[#78716c] py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 font-sans"><i class="fa-solid fa-ban"></i> Tạm Ngưng</span>`
                                         : `
-                                            <button onclick="addToCart(${item.id})" class="bg-[#fef3c7] hover:bg-[#fde68a] text-[#92400e] border border-[#fcd34d] px-3 py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 font-bold shadow-sm" title="Thêm vào giỏ hàng Shopee">
-                                                <i class="fa-solid fa-cart-plus text-sm"></i>
-                                            </button>
-                                            <button onclick="openBookingModal(${item.id})" class="flex-1 ${isAvail ? 'bg-[#c86d51] hover:bg-[#b55d42] text-white font-bold shadow-sm' : 'bg-[#e7e5e4] text-[#a8a29e] cursor-not-allowed'} py-2 rounded-xl text-xs transition flex items-center justify-center gap-1.5" ${!isAvail ? 'disabled' : ''}>
-                                                <i class="fa-solid fa-bolt"></i> ${isAvail ? 'Thuê Ngay' : 'Đang Thuê'}
+                                            ${isAvail ? `
+                                                <button onclick="addToCart(${item.id})" class="bg-[#fef3c7] hover:bg-[#fde68a] text-[#92400e] border border-[#fcd34d] px-3 py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 font-bold shadow-sm" title="Thêm vào giỏ hàng Shopee">
+                                                    <i class="fa-solid fa-cart-plus text-sm"></i>
+                                                </button>
+                                            ` : ''}
+                                            <button onclick="openBookingModal(${item.id})" class="flex-1 ${isAvail ? 'bg-[#c86d51] hover:bg-[#b55d42] text-white font-bold shadow-sm' : 'bg-rose-50 text-rose-700 border border-rose-300 cursor-not-allowed font-bold'} py-2 rounded-xl text-xs transition flex items-center justify-center gap-1.5" ${!isAvail ? 'disabled' : ''}>
+                                                <i class="fa-solid ${isAvail ? 'fa-bolt' : 'fa-clock'}"></i> ${isAvail ? 'Thuê Ngay' : 'Đang Thuê'}
                                             </button>
                                         `
                                     }
@@ -5477,7 +5479,7 @@
                         </td>
                         <td class="p-3">
                             <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${isAvail ? 'bg-emerald-950 text-emerald-300 border-emerald-700' : isRented ? 'bg-rose-950 text-rose-300 border-rose-700' : 'bg-gray-800 text-gray-400 border-gray-700'}">
-                                ${it.availability}
+                                ${isAvail ? 'SẴN SÀNG' : isRented ? 'ĐANG THUÊ' : 'TẠM NGƯNG'}
                             </span>
                         </td>
                         <td class="p-3 text-right space-x-1 whitespace-nowrap">

@@ -838,6 +838,96 @@ def calculate_rental_metrics(start_iso: str, end_iso: str, price_4h: int, price_
     return rental_type, hours, rental_days, total_price, dt_start, dt_end
 
 
+def sync_items_availability(conn: Optional[sqlite3.Connection] = None):
+    """
+    Tự động đồng bộ chính xác trạng thái availability của tất cả items dựa trên rentals thực tế:
+    - Nếu admin hạ xuống UNAVAILABLE: Giữ nguyên UNAVAILABLE (TẠM NGƯNG).
+    - Nếu có đơn thuê status IN ('ACTIVE', 'APPROVED', 'OVERDUE') hoặc (status = 'HOLD' AND hold_expires_at >= now):
+      -> ĐANG THUÊ (RENTED)
+    - Nếu không có đơn thuê nào đang hoạt động:
+      -> SẴN SÀNG (AVAILABLE)
+    """
+    should_close = False
+    if conn is None:
+        conn = get_db()
+        should_close = True
+
+    try:
+        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cur = conn.cursor()
+
+        # 1. Hủy các đơn HOLD đã hết hạn 15 phút
+        cur.execute("""
+            UPDATE rentals 
+            SET status = 'CANCELLED' 
+            WHERE status = 'HOLD' AND hold_expires_at < ?
+        """, (now_str,))
+
+        # 2. Tìm tất cả item_id đang có đơn thuê ACTIVE, APPROVED, OVERDUE hoặc HOLD còn hạn
+        rented_ids = set()
+        active_rentals = cur.execute("""
+            SELECT item_id, items_json FROM rentals 
+            WHERE status IN ('ACTIVE', 'APPROVED', 'OVERDUE')
+               OR (status = 'HOLD' AND hold_expires_at >= ?)
+        """, (now_str,)).fetchall()
+
+        for r in active_rentals:
+            if r["item_id"]:
+                rented_ids.add(r["item_id"])
+            if "items_json" in r.keys() and r["items_json"]:
+                try:
+                    for itm in json.loads(r["items_json"]):
+                        if itm.get("item_id"):
+                            rented_ids.add(itm["item_id"])
+                except Exception:
+                    pass
+
+        try:
+            ri_rows = cur.execute("""
+                SELECT ri.item_id FROM rental_items ri
+                JOIN rentals r ON ri.rental_id = r.id
+                WHERE r.status IN ('ACTIVE', 'APPROVED', 'OVERDUE')
+                   OR (r.status = 'HOLD' AND r.hold_expires_at >= ?)
+            """, (now_str,)).fetchall()
+            for row in ri_rows:
+                if row["item_id"]:
+                    rented_ids.add(row["item_id"])
+        except Exception:
+            pass
+
+        # 3. Cập nhật bảng items
+        if rented_ids:
+            placeholders = ",".join(["?"] * len(rented_ids))
+            cur.execute(f"""
+                UPDATE items 
+                SET availability = 'RENTED' 
+                WHERE id IN ({placeholders}) AND availability != 'UNAVAILABLE'
+            """, list(rented_ids))
+
+            cur.execute(f"""
+                UPDATE items 
+                SET availability = 'AVAILABLE' 
+                WHERE id NOT IN ({placeholders}) AND availability != 'UNAVAILABLE'
+            """, list(rented_ids))
+        else:
+            cur.execute("""
+                UPDATE items 
+                SET availability = 'AVAILABLE' 
+                WHERE availability != 'UNAVAILABLE'
+            """)
+
+        conn.commit()
+    except Exception as e:
+        print(f"[SYNC AVAILABILITY] Lỗi: {e}")
+    finally:
+        if should_close:
+            conn.close()
+
+
+# Tự động đồng bộ tình trạng kho máy ảnh & trang phục ngay khi khởi động
+sync_items_availability()
+
+
 def update_and_check_rental_alerts():
     """Tự động kiểm tra hạn trả đồ, quét đơn quá hạn và tính phạt trễ hạn.
     - Máy ảnh: phạt 30.000đ/giờ quá hạn trả thực tế.
@@ -848,21 +938,8 @@ def update_and_check_rental_alerts():
     now = datetime.datetime.now()
     now_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
-    # 1. Nhả kho tự động cho các đơn HOLD quá 15 phút chưa thanh toán
-    holds = cur.execute("SELECT id, item_id, items_json FROM rentals WHERE status = 'HOLD' AND hold_expires_at < ?", (now_str,)).fetchall()
-    for h in holds:
-        h = dict(h)
-        cur.execute("UPDATE rentals SET status = 'CANCELLED' WHERE id = ?", (h["id"],))
-        if h.get("items_json"):
-            try:
-                itms = json.loads(h["items_json"])
-                for itm in itms:
-                    if itm.get("item_id"):
-                        cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (itm["item_id"],))
-            except Exception:
-                pass
-        elif h["item_id"]:
-            cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (h["item_id"],))
+    # 1. Thu hồi các đơn HOLD quá hạn và đồng bộ lại kho thiết bị
+    sync_items_availability(conn)
 
     # 2. Quét đơn đang hoạt động (APPROVED hoặc ACTIVE) để phát hiện quá hạn
     rentals = cur.execute("""
@@ -1674,6 +1751,7 @@ def get_items(
 ):
     """Lấy danh mục sản phẩm, có bộ lọc theo khoảng ngày nhận/trả trực tiếp và theo chi nhánh."""
     conn = get_db()
+    sync_items_availability(conn)
     query = "SELECT * FROM items WHERE 1=1"
     params = []
     if category:
@@ -1710,6 +1788,7 @@ def get_items(
 @app.get("/api/items/{item_id}")
 def get_item_detail(item_id: int):
     conn = get_db()
+    sync_items_availability(conn)
     item = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
     conn.close()
     if not item:
@@ -4737,6 +4816,7 @@ def background_reminder_worker():
 
             conn = get_db()
             cur = conn.cursor()
+            sync_items_availability(conn)
 
             rentals = cur.execute("""
             SELECT r.*, COALESCE(i.name, c.name, 'Đơn Thuê Nhiều Món') as item_name,
