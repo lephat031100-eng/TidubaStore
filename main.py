@@ -437,6 +437,13 @@ def init_db():
     except Exception:
         pass
 
+    # Tự động cập nhật cột overdue_chat_id cho telegram_config nếu chưa có
+    try:
+        cur.execute("ALTER TABLE telegram_config ADD COLUMN overdue_chat_id TEXT DEFAULT '';")
+        conn.commit()
+    except Exception:
+        pass
+
     # Tự động cập nhật cột refund_bank_info cho rentals nếu chưa có
     try:
         cur.execute("ALTER TABLE rentals ADD COLUMN refund_bank_info TEXT;")
@@ -2190,15 +2197,15 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
         if req.pos_surcharge and req.pos_surcharge > 0:
             total_rental_price += req.pos_surcharge
 
-    # PHẦN CỌC ĐÃ XÓA THEO YÊU CẦU: Tiền cọc = 0đ (Áp dụng quy định tại quầy: Để lại giấy tờ hoặc cọc thêm tiền)
+    # PHẦN CỌC: Mặc định 0đ cho khách, Admin KiotViet POS có thể tự chọn hình thức cọc & nhập tiền cọc
     final_deposit = 0
-    dep_type = "NONE"
-    asset_desc = "Để lại giấy tờ hoặc cọc thêm tiền (Hoàn lại khi trả đồ)"
+    dep_type = req.deposit_type or "NONE"
+    asset_desc = req.deposit_asset_desc or "Để lại giấy tờ hoặc cọc thêm tiền (Hoàn lại khi trả đồ)"
     
     if req.custom_deposit_amount is not None and req.custom_deposit_amount > 0:
         final_deposit = req.custom_deposit_amount
-        dep_type = "ASSET"
-        asset_desc = f"Khách tự nhập tiền cọc: {final_deposit:,}đ"
+        dep_type = req.deposit_type or "ASSET"
+        asset_desc = req.deposit_asset_desc or f"Cọc tiền/tài sản: {final_deposit:,}đ"
     discount = 0
 
     now = datetime.datetime.now()
@@ -3113,7 +3120,7 @@ def delete_admin_blacklist(bl_id: int, admin: Dict[str, Any] = Depends(require_a
 
 @app.get("/api/admin/reports/export_csv")
 def export_rentals_csv(token: Optional[str] = None, authorization: Optional[str] = Header(None)):
-    """Admin tải file CSV/Excel toàn bộ đơn hàng và doanh thu thực tế chuẩn UTF-8."""
+    """Admin tải file CSV/Excel toàn bộ đơn hàng và doanh thu thực tế chuẩn UTF-8 (Đã loại bỏ đơn bị hủy)."""
     auth_header = authorization or (f"Bearer {token}" if token else None)
     user = get_current_user(auth_header)
     if not user or user.get("role") != "admin":
@@ -3129,24 +3136,50 @@ def export_rentals_csv(token: Optional[str] = None, authorization: Optional[str]
     LEFT JOIN items i ON r.item_id = i.id
     LEFT JOIN combos c ON r.combo_id = c.id
     JOIN users u ON r.user_id = u.id
+    WHERE r.status != 'CANCELLED'
     ORDER BY r.id DESC
     """).fetchall()
     conn.close()
+
+    branch_names = {
+        "CN1": "CN1: 183A Huỳnh Thúc Kháng, Pleiku",
+        "CN2": "CN2: 801 Lê Duẩn, Pleiku"
+    }
+
+    status_labels = {
+        "ACTIVE": "Đang thuê",
+        "RETURNED": "Đã trả đồ xong",
+        "OVERDUE": "Quá hạn",
+        "HOLD": "Chờ xác nhận tiền",
+        "PENDING": "Đang xử lý"
+    }
 
     output = io.StringIO()
     # Ghi UTF-8 BOM để Excel tự động mở tiếng Việt không bị lỗi font
     output.write("\ufeff")
     writer = csv.writer(output)
     writer.writerow([
-        "ID", "Mã Đơn", "Khách Hàng", "Số Điện Thoại", "Thiết Bị / Đồ Thuê",
-        "Tiền Thuê (VNĐ)", "Tiền Cọc (VNĐ)", "Hình Thức Cọc", "Mô Tả Cọc",
-        "Trạng Thái", "Chi Nhánh", "Giờ Bắt Đầu", "Hạn Trả", "Phạt Trễ (VNĐ)", "Ngày Đặt"
+        "ID", "Mã Đơn Hàng", "Khách Hàng", "Số Điện Thoại", "Thiết Bị / Trang Phục",
+        "Tiền Thuê (VNĐ)", "Tiền Cọc (VNĐ)", "Phạt Trễ Hạn (VNĐ)", "Tổng Thu Thực Tế (VNĐ)",
+        "Hình Thức Cọc", "Mô Tả Cọc", "Trạng Thái Đơn", "Chi Nhánh Bàn Giao", "Ngày Giờ Bắt Đầu", "Hạn Trả", "Ngày Tạo Đơn"
     ])
     for r in rentals:
+        total_revenue = (r["total_price"] or 0) + (r["late_fee"] or 0)
+        b_label = branch_names.get(r["branch_code"] or "CN1", "CN1: 183A Huỳnh Thúc Kháng, Pleiku")
+        st_label = status_labels.get(r["status"], r["status"])
         writer.writerow([
             r["id"], r["rental_code"], r["customer_name"], r["customer_phone"], r["item_name"],
-            r["total_price"], r["deposit_paid"], r["deposit_type"], r["deposit_asset_desc"] or "",
-            r["status"], r["branch_code"] or "CN1", r["start_time"], r["end_time"], r["late_fee"], r["created_at"]
+            f"{r['total_price']:,}" if r['total_price'] else "0",
+            f"{r['deposit_paid']:,}" if r['deposit_paid'] else "0",
+            f"{r['late_fee']:,}" if r['late_fee'] else "0",
+            f"{total_revenue:,}",
+            r["deposit_type"] or "Giữ giấy tờ",
+            r["deposit_asset_desc"] or "",
+            st_label,
+            b_label,
+            r["start_time"],
+            r["end_time"],
+            r["created_at"]
         ])
 
     csv_data = output.getvalue()
@@ -3601,6 +3634,11 @@ def _send_telegram_notification(
         active_token = (override_token or (cfg["bot_token"] if cfg else "")).strip()
         active_chat_id = (override_chat_id or (cfg["chat_id"] if cfg else "")).strip()
 
+        # Nếu là sự kiện QUÁ HẠN hoặc NHẮC HẸN SẮP TỚI GIỜ TRẢ/NHẬN: Ưu tiên gửi sang Group quá hạn riêng nếu có cấu hình
+        if not override_chat_id and cfg and "overdue_chat_id" in cfg.keys() and cfg["overdue_chat_id"]:
+            if event_type in ("OVERDUE", "WARNING_DUE_SOON", "PICKUP_REMINDER"):
+                active_chat_id = cfg["overdue_chat_id"].strip()
+
         if active_token and active_chat_id:
             # Kiểm tra phân loại sự kiện theo cấu hình bật/tắt (nếu không phải TEST hoặc override)
             if not override_chat_id and cfg and cfg["is_active"]:
@@ -3823,6 +3861,7 @@ def get_telegram_config(admin: Dict[str, Any] = Depends(require_admin)):
 class TelegramConfigRequest(BaseModel):
     bot_token: Optional[str] = None
     chat_id: Optional[str] = None
+    overdue_chat_id: Optional[str] = None
     is_active: Optional[int] = None
     auto_notify_new_rental: Optional[int] = None
     auto_notify_payment: Optional[int] = None
@@ -3832,7 +3871,7 @@ class TelegramConfigRequest(BaseModel):
 
 @app.post("/api/admin/telegram/config")
 def save_telegram_config(req: TelegramConfigRequest, admin: Dict[str, Any] = Depends(require_admin)):
-    """Lưu cấu hình Telegram Bot."""
+    """Lưu cấu hình Telegram Bot (Hỗ trợ group chính và group quá hạn riêng biệt)."""
     conn = get_db()
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     existing = conn.execute("SELECT id FROM telegram_config WHERE id = 1").fetchone()
@@ -3856,6 +3895,78 @@ def save_telegram_config(req: TelegramConfigRequest, admin: Dict[str, Any] = Dep
     conn.commit()
     conn.close()
     return {"success": True, "message": "Đã lưu cấu hình Telegram Bot thành công!"}
+
+
+@app.post("/api/admin/telegram/check_overdue_alerts")
+def check_overdue_alerts_now(admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin quét tự động và bắn cảnh báo các đơn quá hạn / sắp tới giờ trả vào Group Telegram Quá Hạn."""
+    conn = get_db()
+    cur = conn.cursor()
+    rentals = cur.execute("""
+    SELECT r.*, COALESCE(i.name, c.name, 'Đơn Thuê Nhiều Món') as item_name,
+           u.full_name as customer_name, u.phone as customer_phone
+    FROM rentals r
+    LEFT JOIN items i ON r.item_id = i.id
+    LEFT JOIN combos c ON r.combo_id = c.id
+    JOIN users u ON r.user_id = u.id
+    WHERE r.status = 'ACTIVE'
+    """).fetchall()
+    conn.close()
+
+    now = datetime.datetime.now()
+    overdue_count = 0
+    remind_count = 0
+
+    for r in rentals:
+        try:
+            end_dt = datetime.datetime.strptime(r["end_time"], "%Y-%m-%d %H:%M")
+        except Exception:
+            continue
+
+        diff_seconds = (end_dt - now).total_seconds()
+        diff_hours = round(diff_seconds / 3600.0, 1)
+
+        b_code = r["branch_code"] if ("branch_code" in r.keys() and r["branch_code"]) else "CN1"
+        branch_info = STORE_BRANCHES.get(b_code, STORE_BRANCHES["CN1"])
+
+        if diff_seconds < 0:
+            # ĐÃ QUÁ HẠN!
+            overdue_hours = round(abs(diff_seconds) / 3600.0, 1)
+            msg = (
+                f"<b>🚨 [CẢNH BÁO QUÁ HẠN] ĐƠN CHƯA TRẢ ĐỒ!</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"📋 <b>Mã đơn:</b> <code>{r['rental_code']}</code>\n"
+                f"👤 <b>Khách hàng:</b> {r['customer_name']} (<code>{r['customer_phone']}</code>)\n"
+                f"📦 <b>Thiết bị/Đồ:</b> {r['item_name']}\n"
+                f"⏰ <b>Hạn trả:</b> <b>{r['end_time']}</b> (Đã trễ: <b>{overdue_hours}h</b>)\n"
+                f"📍 <b>Chi nhánh:</b> {branch_info['name']}\n"
+                f"⚠️ <i>Phí trễ hạn: 30.000đ/giờ. Vui lòng liên hệ khách!</i>\n"
+                f"━━━━━━━━━━━━━━━━━━"
+            )
+            _send_telegram_notification(msg, rental_id=r["id"], event_type="OVERDUE")
+            overdue_count += 1
+        elif diff_hours <= 3.0:
+            # SẮP TỚI HẠN TRẢ TRONG VÒNG 3 TIẾNG!
+            msg = (
+                f"<b>⏰ [NHẮC HẸN] SẮP ĐẾN GIỜ TRẢ ĐỒ!</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"📋 <b>Mã đơn:</b> <code>{r['rental_code']}</code>\n"
+                f"👤 <b>Khách hàng:</b> {r['customer_name']} (<code>{r['customer_phone']}</code>)\n"
+                f"📦 <b>Thiết bị/Đồ:</b> {r['item_name']}\n"
+                f"⏰ <b>Hạn trả:</b> <b>{r['end_time']}</b> (Còn lại: <b>{diff_hours}h</b>)\n"
+                f"📍 <b>Chi nhánh nhận trả:</b> {branch_info['name']}\n"
+                f"💡 <i>Nhắc khách chuẩn bị trả đồ đúng hạn tránh phát sinh phí.</i>\n"
+                f"━━━━━━━━━━━━━━━━━━"
+            )
+            _send_telegram_notification(msg, rental_id=r["id"], event_type="WARNING_DUE_SOON")
+            remind_count += 1
+
+    return {
+        "success": True,
+        "message": f"Đã quét xong: Phát hiện {overdue_count} đơn quá hạn và {remind_count} đơn sắp đến giờ trả.",
+        "overdue_count": overdue_count,
+        "remind_count": remind_count
+    }
 
 
 @app.get("/api/admin/telegram/logs")

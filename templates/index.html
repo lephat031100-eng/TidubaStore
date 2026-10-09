@@ -98,8 +98,18 @@
             padding-bottom: env(safe-area-inset-bottom, 16px);
         }
 
-        /* CHUẨN IN HÓA ĐƠN NHIỆT K80 (KIOTVIET STYLE) */
+        /* CHUẨN IN HÓA ĐƠN NHIỆT K80 (KIOTVIET STYLE ĐẬM NÉT ĐEN TUYỀN) */
         @media print {
+            @page {
+                size: 80mm auto;
+                margin: 0mm;
+            }
+            html, body {
+                width: 80mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #ffffff !important;
+            }
             body * {
                 visibility: hidden !important;
             }
@@ -110,32 +120,52 @@
                 position: absolute !important;
                 left: 0 !important;
                 top: 0 !important;
-                width: 100% !important;
-                background: white !important;
+                width: 80mm !important;
+                min-height: 100% !important;
+                background: #ffffff !important;
                 display: block !important;
                 padding: 0 !important;
                 margin: 0 !important;
+                border: none !important;
+                box-shadow: none !important;
             }
             #k80-modal-box {
                 border: none !important;
                 box-shadow: none !important;
-                background: white !important;
-                max-width: 100% !important;
+                background: #ffffff !important;
+                width: 80mm !important;
+                max-width: 80mm !important;
                 padding: 0 !important;
                 margin: 0 !important;
             }
             #k80-printable-area {
-                width: 78mm !important;
-                max-width: 78mm !important;
+                width: 76mm !important;
+                max-width: 76mm !important;
                 margin: 0 auto !important;
-                padding: 2mm !important;
+                padding: 2mm 3mm !important;
                 border: none !important;
                 box-shadow: none !important;
-                color: #000 !important;
-                background: #fff !important;
-                font-family: 'Courier New', Courier, monospace !important;
-                font-size: 11px !important;
-                line-height: 1.25 !important;
+                color: #000000 !important;
+                background: #ffffff !important;
+                font-family: Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+                font-size: 11.5px !important;
+                font-weight: 700 !important;
+                line-height: 1.35 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            #k80-printable-area * {
+                color: #000000 !important;
+                font-family: Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+            }
+            #k80-bill-qr-img {
+                width: 130px !important;
+                height: 130px !important;
+                margin: 0 auto !important;
+                image-rendering: pixelated !important;
+                image-rendering: -moz-crisp-edges !important;
+                image-rendering: crisp-edges !important;
+                filter: contrast(300%) grayscale(100%) !important;
             }
             .k80-no-print {
                 display: none !important;
@@ -146,24 +176,24 @@
 <body class="min-h-screen flex flex-col antialiased bg-[#faf7f2] text-[#1c1917]">
 
     <!-- TOP ANNOUNCEMENT & 2 CHI NHÁNH & MBBANK RECONCILIATION -->
-    <div class="bg-[#f6efe6] border-b border-[#eadfd5] px-3 md:px-6 py-2 text-xs text-[#52443a] font-sans flex flex-wrap items-center justify-between gap-2">
-        <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-[11px] sm:text-xs">
-            <span class="text-[#c86d51] font-bold flex items-center gap-1.5"><i class="fa-solid fa-store"></i> <strong>HỆ THỐNG 2 CHI NHÁNH:</strong></span>
-            <span class="bg-[#ede3d6] text-[#3e342d] px-2.5 py-0.5 rounded-full border border-[#ded0bf] font-medium" title="Chi nhánh 1 (Trụ sở chính)">
-                📍 <strong>CN1:</strong> 183A Huỳnh Thúc Kháng, Pleiku, Gia Lai
-            </span>
-            <span class="bg-[#ede3d6] text-[#3e342d] px-2.5 py-0.5 rounded-full border border-[#ded0bf] font-medium" title="Chi nhánh 2">
-                📍 <strong>CN2:</strong> 801 Lê Duẩn, P. An Phú, TP. Pleiku, Gia Lai
-            </span>
-        </div>
-        <div class="flex items-center gap-3 text-[11px] sm:text-xs ml-auto">
-            <a href="tel:0977078981" class="text-[#c86d51] font-bold hover:underline flex items-center gap-1"><i class="fa-solid fa-phone"></i> Hotline: 0977.078.981</a>
-            <span class="text-[#d5c7b9] hidden sm:inline">•</span>
-            <button onclick="openOrderTrackerModal()" class="text-[#4b5563] hover:text-[#c86d51] underline flex items-center gap-1 font-semibold">
-                <i class="fa-solid fa-magnifying-glass"></i> Tra Cứu Đơn
-            </button>
-            <span class="text-[#d5c7b9] hidden sm:inline">•</span>
-            <span class="hidden sm:inline text-[#6b7280]">MBBank: <strong class="text-[#1c1917]">0123006101998</strong> (KHONG KY DUYEN)</span>
+    <div class="bg-[#f6efe6] border-b border-[#eadfd5] px-3 sm:px-6 py-1.5 text-xs text-[#52443a] font-sans">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2 overflow-x-auto no-scrollbar whitespace-nowrap text-[11px] sm:text-xs">
+                <span class="text-[#c86d51] font-bold flex items-center gap-1"><i class="fa-solid fa-store"></i> <strong>2 CHI NHÁNH PLEIKU:</strong></span>
+                <span class="bg-[#ede3d6] text-[#3e342d] px-2 py-0.5 rounded-full border border-[#ded0bf] font-medium">
+                    📍 <strong>CN1:</strong> 183A Huỳnh Thúc Kháng
+                </span>
+                <span class="bg-[#ede3d6] text-[#3e342d] px-2 py-0.5 rounded-full border border-[#ded0bf] font-medium">
+                    📍 <strong>CN2:</strong> 801 Lê Duẩn
+                </span>
+            </div>
+            <div class="flex items-center gap-3 text-[11px] sm:text-xs ml-auto whitespace-nowrap">
+                <a href="tel:0977078981" class="text-[#c86d51] font-bold hover:underline flex items-center gap-1"><i class="fa-solid fa-phone"></i> 0977.078.981</a>
+                <span class="text-[#d5c7b9]">•</span>
+                <button onclick="openOrderTrackerModal()" class="text-[#4b5563] hover:text-[#c86d51] font-semibold flex items-center gap-1 underline">
+                    <i class="fa-solid fa-magnifying-glass"></i> Tra Cứu Đơn
+                </button>
+            </div>
         </div>
     </div>
 
@@ -253,7 +283,7 @@
                     <div class="lg:col-span-7 p-6 sm:p-8 md:p-12 flex flex-col justify-center space-y-4 z-10 bg-gradient-to-r from-[#f4ece3] via-[#f4ece3]/95 to-transparent">
                         <div>
                             <span class="text-xs font-semibold text-[#8c5e4f] uppercase tracking-widest font-sans" id="site-hero-subtitle">
-                                TIDUBASTORE.COM • THUÊ ĐỒ THIẾT KẾ & MÁY ẢNH
+                                TIDUBA STORE • THUÊ ĐỒ THIẾT KẾ & MÁY ẢNH
                             </span>
                             <h1 class="text-2xl sm:text-4xl md:text-5xl font-bold text-[#1c1917] leading-tight mt-1 tracking-tight" style="font-family: 'Times New Roman', Georgia, serif;" id="site-hero-title">
                                 Thuê Máy Ảnh & Trang Phục <br>
@@ -284,7 +314,7 @@
                         <img id="site-hero-img" src="/static/banner_tiduba_new.png" alt="Tiduba - Chuyên thuê đồ thiết kế Váy tiệc, áo dài, du lịch" class="w-full h-full object-contain max-h-[380px] rounded-2xl drop-shadow-md">
                         <div class="absolute top-4 right-4 text-right hidden sm:block">
                             <span class="text-lg md:text-xl font-bold text-[#1c1917] tracking-wider uppercase" style="font-family: 'Times New Roman', Georgia, serif;">
-                                TIDUBASTORE.COM
+                                TIDUBA STORE
                             </span>
                             <div class="text-[11px] text-[#78716c] font-medium italic" style="font-family: 'Times New Roman', Georgia, serif;">
                                 Thuê Đồ Thiết Kế & Máy Ảnh
@@ -591,6 +621,15 @@
                                 💡 <strong>Nhóm TidubaStore:</strong> ID chuẩn là <code>-5368352616</code>. Hệ thống tự động hỗ trợ cả nhóm thường (<code>-xxx</code>), nhóm supergroup (<code>-100xxx</code>) và cá nhân.
                             </p>
                         </div>
+                        <div>
+                            <label class="block text-amber-300 font-bold mb-1 flex items-center gap-1">
+                                <i class="fa-solid fa-triangle-exclamation"></i> Telegram Group ID Nhắc Hẹn & Quá Hạn (Group riêng):
+                            </label>
+                            <input type="text" id="telegram-overdue-chat-id" placeholder="vd: -5368352616 (Nếu để trống sẽ dùng chung Group chính)" class="w-full bg-gray-900 border border-amber-600/60 rounded-lg p-2 text-amber-200 font-mono text-xs">
+                            <p class="text-[10px] text-gray-400 mt-1">
+                                💡 Các thông báo quá hạn chưa trả và nhắc hẹn sắp đến giờ trả đồ sẽ gửi vào group này.
+                            </p>
+                        </div>
                         <div class="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-gray-300">
                             <label class="flex items-center gap-1.5 cursor-pointer">
                                 <input type="checkbox" id="tele-chk-new" checked class="rounded bg-gray-900 border-gray-700 text-sky-500">
@@ -609,12 +648,15 @@
                                 <span>Cảnh báo quá hạn</span>
                             </label>
                         </div>
-                        <div class="flex items-center justify-between pt-2">
-                            <button onclick="saveTelegramConfig()" class="bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-sky-600/20">
-                                <i class="fa-solid fa-floppy-disk"></i> Lưu Cấu Hình Telegram
+                        <div class="flex flex-wrap items-center justify-between gap-2 pt-2">
+                            <button onclick="saveTelegramConfig()" class="bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-sky-600/20">
+                                <i class="fa-solid fa-floppy-disk"></i> Lưu Cấu Hình
+                            </button>
+                            <button onclick="triggerOverdueAlertsCheck()" class="bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-600 font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1 transition">
+                                <i class="fa-solid fa-bell"></i> Quét Quá Hạn Ngay
                             </button>
                             <button onclick="testTelegramNotify()" class="bg-gray-800 hover:bg-gray-700 text-amber-300 font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1">
-                                <i class="fa-solid fa-paper-plane"></i> Gửi Thử Tin Test
+                                <i class="fa-solid fa-paper-plane"></i> Gửi Tin Test
                             </button>
                         </div>
                     </div>
@@ -1004,6 +1046,33 @@
                                 </div>
                             </div>
 
+                            <!-- HÌNH THỨC CỌC & TIỀN CỌC POS (DÀNH RIÊNG CHO ADMIN) -->
+                            <div class="bg-amber-50/80 p-2.5 rounded-xl border border-amber-300 space-y-1.5 text-xs font-mono">
+                                <div class="flex items-center justify-between text-[11px] font-bold text-amber-900">
+                                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-shield-halved text-amber-600"></i> Hình thức cọc tại quầy (Chỉ dành cho Admin):</span>
+                                    <span class="text-gray-500 font-normal">Tự động đồng bộ hóa đơn</span>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-amber-800 mb-0.5">Hình thức cọc:</label>
+                                        <select id="pos-deposit-type-select" onchange="posRecalculateActiveInvoice()" class="w-full bg-white border border-amber-400 rounded-lg p-1.5 text-xs font-bold text-gray-800">
+                                            <option value="NONE">Cọc 0đ (Giữ giấy tờ)</option>
+                                            <option value="CCCD">Giữ CCCD gốc</option>
+                                            <option value="ASSET">Cọc tài sản (ĐT, Xe, Laptop...)</option>
+                                            <option value="CASH">Cọc tiền mặt / Chuyển khoản</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-amber-800 mb-0.5">Tiền cọc thu (VNĐ):</label>
+                                        <input type="number" id="pos-deposit-amount-input" oninput="posRecalculateActiveInvoice()" placeholder="0" class="w-full bg-white border border-amber-400 rounded-lg p-1.5 text-xs text-amber-800 font-bold font-mono focus:outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-amber-800 mb-0.5">Mô tả tài sản cọc:</label>
+                                        <input type="text" id="pos-deposit-desc-input" placeholder="vd: iPhone 14, Xe Wave..." class="w-full bg-white border border-amber-400 rounded-lg p-1.5 text-xs text-gray-800 focus:outline-none">
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Big Green KiotViet Checkout Button -->
                             <div class="flex items-center gap-2 pt-1">
                                 <button onclick="posClearActiveInvoice()" class="px-3.5 py-3 rounded-2xl bg-white hover:bg-rose-50 text-gray-500 hover:text-rose-600 border border-gray-200 font-bold text-xs transition" title="Xóa toàn bộ món trong hóa đơn này">
@@ -1324,12 +1393,12 @@
                 <!-- GỢI Ý THỜI GIAN NHANH 1-CHẠM (DÙNG FLEX-WRAP KHÔNG BỊ THANH CUỘN XẤU) -->
                 <div class="flex flex-wrap items-center gap-1.5 text-[11px] font-mono">
                     <span class="text-gray-400 text-[10px] whitespace-nowrap">Nhanh:</span>
-                    <button type="button" onclick="applyQuickDuration(4)" class="bg-gray-950 hover:bg-gray-800 text-cyan-300 border border-gray-700 px-2.5 py-1 rounded-lg">⚡ 4 Tiếng</button>
-                    <button type="button" onclick="applyQuickDuration(8)" class="bg-gray-950 hover:bg-gray-800 text-cyan-300 border border-gray-700 px-2.5 py-1 rounded-lg">📸 8 Tiếng</button>
-                    <button type="button" onclick="applyQuickDuration(24)" class="bg-gray-950 hover:bg-gray-800 text-amber-300 border border-gray-700 px-2.5 py-1 rounded-lg">🌙 1 Ngày</button>
-                    <button type="button" onclick="applyQuickDuration(48)" class="bg-gray-950 hover:bg-gray-800 text-emerald-300 border border-gray-700 px-2.5 py-1 rounded-lg">🏖️ 2 Ngày (-15%)</button>
-                    <button type="button" onclick="applyQuickDuration(72)" class="bg-gray-950 hover:bg-gray-800 text-emerald-300 border border-gray-700 px-2.5 py-1 rounded-lg">✈️ 3 Ngày (-25%)</button>
-                    <button type="button" onclick="applyQuickDuration(168)" class="bg-gray-950 hover:bg-gray-800 text-purple-300 border border-gray-700 px-2.5 py-1 rounded-lg">⭐ 7 Ngày (-35%)</button>
+                    <button type="button" id="quick-dur-4h" onclick="applyQuickDuration(4)" class="bg-gray-950 hover:bg-gray-800 text-cyan-300 border border-gray-700 px-2.5 py-1 rounded-lg">⚡ 4 Tiếng</button>
+                    <button type="button" id="quick-dur-8h" onclick="applyQuickDuration(8)" class="bg-gray-950 hover:bg-gray-800 text-cyan-300 border border-gray-700 px-2.5 py-1 rounded-lg">📸 8 Tiếng</button>
+                    <button type="button" id="quick-dur-1d" onclick="applyQuickDuration(24)" class="bg-gray-950 hover:bg-gray-800 text-amber-300 border border-gray-700 px-2.5 py-1 rounded-lg">🌙 1 Ngày</button>
+                    <button type="button" id="quick-dur-2d" onclick="applyQuickDuration(48)" class="bg-gray-950 hover:bg-gray-800 text-emerald-300 border border-gray-700 px-2.5 py-1 rounded-lg">🏖️ 2 Ngày (-15%)</button>
+                    <button type="button" id="quick-dur-3d" onclick="applyQuickDuration(72)" class="bg-gray-950 hover:bg-gray-800 text-emerald-300 border border-gray-700 px-2.5 py-1 rounded-lg">✈️ 3 Ngày (-25%)</button>
+                    <button type="button" id="quick-dur-7d" onclick="applyQuickDuration(168)" class="bg-gray-950 hover:bg-gray-800 text-purple-300 border border-gray-700 px-2.5 py-1 rounded-lg">⭐ 7 Ngày (-35%)</button>
                 </div>
 
                 <!-- Datetime Pickers -->
@@ -1913,79 +1982,79 @@
                 </button>
             </div>
 
-            <!-- Khu vực Bill Nhiệt K80 (Chuẩn máy in 80mm KiotViet) -->
+            <!-- Khu vực Bill Nhiệt K80 (Chuẩn máy in 80mm KiotViet Đậm Nét) -->
             <div class="p-3 sm:p-4 flex-1 overflow-auto custom-scroll bg-gray-950 flex justify-center">
-                <div id="k80-printable-area" class="bg-white text-gray-950 font-mono text-[11px] p-4 sm:p-5 rounded-xl shadow-2xl leading-normal max-w-[320px] w-full border border-gray-300 space-y-2 select-all">
+                <div id="k80-printable-area" class="bg-white text-black font-sans text-xs p-4 sm:p-5 rounded-xl shadow-2xl leading-normal max-w-[320px] w-full border border-gray-400 space-y-2 select-all">
                     
                     <!-- Phần đầu: Thương hiệu & Chi nhánh -->
-                    <div class="text-center space-y-1 pb-2 border-b border-dashed border-gray-400">
-                        <div class="text-2xl font-black tracking-widest text-black" style="font-family: 'Times New Roman', serif;">TIDUBA</div>
-                        <div class="text-[10px] leading-tight text-gray-800 font-sans">
+                    <div class="text-center space-y-1 pb-2 border-b-2 border-dashed border-black">
+                        <div class="text-3xl font-black tracking-widest text-black">TIDUBA</div>
+                        <div class="text-[11px] font-bold leading-tight text-black pt-0.5">
                             <div>CN1: 183A Huỳnh Thúc Kháng - Pleiku - Gia Lai</div>
                             <div>CN2: 801 Lê Duẩn - Pleiku - Gia Lai</div>
-                            <div class="font-bold">Điện thoại: 0977 078 981</div>
+                            <div class="font-black text-xs mt-0.5">Điện thoại: 0977 078 981</div>
                         </div>
                     </div>
 
                     <!-- Tiêu đề Hóa Đơn & Mã -->
-                    <div class="text-center py-1 space-y-0.5 border-b border-dashed border-gray-400 font-sans">
-                        <div class="text-sm font-black uppercase text-black tracking-wide">HOÁ ĐƠN BÁN HÀNG</div>
-                        <div class="text-xs font-bold text-gray-900 font-mono" id="k80-disp-code">HD001135</div>
-                        <div class="text-[10px] text-gray-600 font-mono" id="k80-disp-time">26/09/2026 19:56</div>
+                    <div class="text-center py-1 space-y-0.5 border-b-2 border-dashed border-black">
+                        <div class="text-base font-black uppercase text-black tracking-wide">HOÁ ĐƠN BÁN HÀNG</div>
+                        <div class="text-xs font-black text-black font-mono tracking-wider" id="k80-disp-code">HD001135</div>
+                        <div class="text-[11px] font-bold text-black font-mono" id="k80-disp-time">26/09/2026 19:56</div>
                     </div>
 
                     <!-- Thông tin Khách Hàng & Nhân Viên -->
-                    <div class="py-1.5 space-y-1 text-[11px] font-sans border-b border-dashed border-gray-400">
+                    <div class="py-1.5 space-y-1 text-xs font-bold border-b-2 border-dashed border-black text-black">
                         <div class="flex justify-between">
-                            <span class="text-gray-600">Khách hàng:</span>
-                            <strong class="text-black uppercase" id="k80-disp-customer">OANH</strong>
+                            <span class="text-black">Khách hàng:</span>
+                            <strong class="text-black uppercase text-right" id="k80-disp-customer">OANH</strong>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-600">Điện thoại:</span>
-                            <strong class="text-black font-mono" id="k80-disp-phone">0346512018</strong>
+                            <span class="text-black">Điện thoại:</span>
+                            <strong class="text-black font-mono text-right" id="k80-disp-phone">0346512018</strong>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-600">Nhân viên:</span>
-                            <span class="text-gray-800" id="k80-disp-staff">Admin</span>
+                            <span class="text-black">Nhân viên:</span>
+                            <span class="text-black font-bold text-right" id="k80-disp-staff">Admin</span>
                         </div>
                     </div>
 
                     <!-- Danh sách sản phẩm (Đơn giá - SL - Thành tiền) -->
-                    <div class="py-1.5 border-b border-dashed border-gray-400 space-y-1">
-                        <div class="flex justify-between text-[10px] font-bold text-gray-700 pb-1 border-b border-gray-200">
+                    <div class="py-1.5 border-b-2 border-dashed border-black space-y-1 text-black">
+                        <div class="flex justify-between text-[11px] font-black text-black pb-1 border-b border-black">
                             <span>Đơn giá</span>
                             <span class="text-center">SL</span>
                             <span class="text-right">Thành tiền</span>
                         </div>
-                        <div id="k80-disp-items" class="space-y-1.5 text-[11px]">
+                        <div id="k80-disp-items" class="space-y-1.5 text-xs font-bold">
                             <!-- Javascript render sản phẩm -->
                         </div>
                     </div>
 
                     <!-- Tổng kết thanh toán -->
-                    <div class="py-1.5 border-b border-dashed border-gray-400 space-y-1 text-[11px] font-mono">
+                    <div class="py-1.5 border-b-2 border-dashed border-black space-y-1 text-xs font-bold font-mono text-black">
                         <div class="flex justify-between">
-                            <span class="font-sans text-gray-700">Tổng tiền hàng:</span>
-                            <strong id="k80-disp-subtotal">100,000</strong>
+                            <span class="font-sans font-bold">Tổng tiền hàng:</span>
+                            <strong class="text-black" id="k80-disp-subtotal">100,000</strong>
                         </div>
                         <div class="flex justify-between">
-                            <span class="font-sans text-gray-700">Chiết khấu:</span>
-                            <span id="k80-disp-discount">0</span>
+                            <span class="font-sans font-bold">Chiết khấu:</span>
+                            <span class="text-black" id="k80-disp-discount">0</span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="font-sans text-gray-700">Tiền cọc:</span>
-                            <span id="k80-disp-deposit">0</span>
+                            <span class="font-sans font-bold">Tiền cọc:</span>
+                            <span class="text-black" id="k80-disp-deposit">0</span>
                         </div>
-                        <div class="flex justify-between text-xs font-black text-black pt-1 border-t border-gray-300">
-                            <span class="font-sans uppercase">Tổng cộng:</span>
-                            <strong class="text-sm" id="k80-disp-total">100,000</strong>
+                        <div class="flex justify-between text-sm font-black text-black pt-1 border-t border-black">
+                            <span class="font-sans uppercase">TỔNG CỘNG:</span>
+                            <strong class="text-base text-black" id="k80-disp-total">100,000</strong>
                         </div>
                     </div>
 
                     <!-- Quy định ngày trả đồ y hệt ảnh thật -->
-                    <div class="py-1.5 text-[10px] leading-relaxed text-gray-800 font-sans border-b border-dashed border-gray-400">
-                        <div class="font-bold text-black uppercase mb-0.5">QUY ĐỊNH NGÀY TRẢ:</div>
-                        <div class="space-y-0.5">
+                    <div class="py-1.5 text-[11px] leading-relaxed text-black font-bold border-b-2 border-dashed border-black">
+                        <div class="font-black text-black uppercase mb-0.5">QUY ĐỊNH NGÀY TRẢ:</div>
+                        <div class="space-y-0.5 text-black">
                             <div>• Hôm nay lấy mai trả (trước 8h tối).</div>
                             <div>• Thêm 1 ngày: đồ dưới 1 triệu thêm 10K, đồ trên 1 triệu thêm 30K (cần báo trước).</div>
                             <div>• Đối với máy ảnh: cọc giấy tờ + 1 tài sản.</div>
@@ -1993,14 +2062,14 @@
                         </div>
                     </div>
 
-                    <!-- Mã QR Code Trả Đồ In Ngay Trong Bill -->
-                    <div class="pt-1.5 text-center space-y-1">
-                        <div class="p-1 bg-white inline-block border border-gray-300 rounded shadow-sm">
-                            <img id="k80-bill-qr-img" src="" alt="Mã QR Trả Đồ" class="w-28 h-28 mx-auto object-contain">
+                    <!-- Mã QR Code Trả Đồ In Ngay Trong Bill (Độ tương phản cao) -->
+                    <div class="pt-2 text-center space-y-1 text-black font-bold">
+                        <div class="p-1 bg-white inline-block border-2 border-black rounded shadow-sm">
+                            <img id="k80-bill-qr-img" src="" alt="Mã QR Trả Đồ" class="w-32 h-32 mx-auto object-contain" style="image-rendering: pixelated; filter: contrast(300%) grayscale(100%);">
                         </div>
-                        <div class="text-[9px] font-bold text-gray-800 font-mono tracking-wider" id="k80-bill-qr-text">* TDB-XXXXXX *</div>
-                        <div class="text-[9px] text-gray-500 font-sans">Quét mã QR để nhận trả đồ nhanh</div>
-                        <div class="text-[10px] italic text-gray-700 font-sans pt-1">Cảm ơn quý khách & Hẹn gặp lại!</div>
+                        <div class="text-[10px] font-black text-black font-mono tracking-wider" id="k80-bill-qr-text">* TDB-XXXXXX *</div>
+                        <div class="text-[10px] font-bold text-black font-sans">Quét mã QR để nhận trả đồ nhanh</div>
+                        <div class="text-[11px] font-black italic text-black font-sans pt-1">Cảm ơn quý khách & Hẹn gặp lại!</div>
                     </div>
                 </div>
             </div>
@@ -2085,12 +2154,16 @@
 
             <!-- CAMERA SCANNER VIEWPORT -->
             <div class="space-y-2">
-                <div class="flex items-center justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                     <span class="text-xs font-bold text-gray-300 font-mono flex items-center gap-1.5">
-                        <i class="fa-solid fa-camera text-emerald-400"></i> Quét Trực Tiếp Bằng Camera:
+                        <i class="fa-solid fa-qrcode text-emerald-400"></i> Quét Mã Trên Điện Thoại:
                     </span>
-                    <div class="flex gap-1.5">
-                        <button type="button" id="btn-toggle-cam" onclick="toggleQrCameraScanner()" class="bg-emerald-600 hover:bg-emerald-500 text-gray-950 font-black px-3 py-1 rounded-lg text-xs font-mono transition flex items-center gap-1">
+                    <div class="flex flex-wrap gap-1.5">
+                        <input type="file" id="qr-camera-file" accept="image/*" capture="environment" onchange="scanQrFromImageFile(this)" class="hidden">
+                        <button type="button" onclick="document.getElementById('qr-camera-file').click()" class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-2.5 py-1 rounded-lg text-xs font-mono transition flex items-center gap-1 shadow">
+                            <i class="fa-solid fa-camera"></i> <span>Chụp/Chọn Ảnh QR</span>
+                        </button>
+                        <button type="button" id="btn-toggle-cam" onclick="toggleQrCameraScanner()" class="bg-emerald-600 hover:bg-emerald-500 text-gray-950 font-black px-2.5 py-1 rounded-lg text-xs font-mono transition flex items-center gap-1">
                             <i class="fa-solid fa-video"></i> <span id="cam-toggle-label">Bật Camera</span>
                         </button>
                     </div>
@@ -3214,6 +3287,28 @@
             document.getElementById('qr-return-modal').style.display = 'none';
         }
 
+        async function scanQrFromImageFile(input) {
+            if (!input.files || input.files.length === 0) return;
+            const file = input.files[0];
+            showToast("Đang quét mã QR từ ảnh...");
+            try {
+                if (typeof Html5Qrcode === 'undefined') {
+                    alert("Thư viện quét mã QR chưa tải xong. Vui lòng thử lại sau vài giây.");
+                    return;
+                }
+                const scanner = new Html5Qrcode("qr-reader");
+                const decodedText = await scanner.scanFile(file, true);
+                document.getElementById('qr-return-input').value = decodedText;
+                showToast(`📸 Đã nhận diện mã: ${decodedText}`);
+                submitQrReturn();
+            } catch (err) {
+                console.error("Scan image error:", err);
+                alert("Không nhận diện được mã QR trong ảnh. Vui lòng chụp rõ mã QR hoặc nhập mã đơn bên dưới!");
+            } finally {
+                input.value = '';
+            }
+        }
+
         async function toggleQrCameraScanner() {
             const container = document.getElementById('qr-camera-container');
             const label = document.getElementById('cam-toggle-label');
@@ -3228,7 +3323,7 @@
 
             try {
                 if (typeof Html5Qrcode === 'undefined') {
-                    alert("Thư viện quét camera chưa tải xong. Vui lòng thử lại sau vài giây hoặc nhập mã đơn thủ công.");
+                    alert("Thư viện quét camera chưa tải xong. Vui lòng bấm 'Chụp/Chọn Ảnh QR' hoặc nhập mã thủ công.");
                     stopQrCameraScanner();
                     return;
                 }
@@ -3236,24 +3331,22 @@
                 html5QrScannerInstance = new Html5Qrcode("qr-reader");
                 const config = { fps: 15, qrbox: { width: 220, height: 220 } };
 
+                // Hỗ trợ Safari iOS & Chrome Android với camera sau
                 await html5QrScannerInstance.start(
-                    { facingMode: "environment" },
+                    { facingMode: { ideal: "environment" } },
                     config,
                     (decodedText, decodedResult) => {
-                        // Nhận diện mã QR thành công từ Camera
                         console.log("QR scanned:", decodedText);
                         stopQrCameraScanner();
                         document.getElementById('qr-return-input').value = decodedText;
-                        showToast(`📸 Camera đã nhận diện: ${decodedText}`);
+                        showToast(`📸 Đã nhận diện: ${decodedText}`);
                         submitQrReturn();
                     },
-                    (errorMessage) => {
-                        // Frame scanning... ignore
-                    }
+                    (errorMessage) => {}
                 );
             } catch (err) {
                 console.error("Camera error:", err);
-                alert("Không thể truy cập camera: " + (err.message || err) + ". Vui lòng cấp quyền camera cho trình duyệt.");
+                alert("Trình duyệt chưa được cấp quyền mở Camera trực tiếp. Bạn có thể bấm nút 'Chụp/Chọn Ảnh QR' để chụp ảnh quét ngay!");
                 stopQrCameraScanner();
             }
         }
@@ -3452,12 +3545,23 @@
             document.getElementById('modal-item-price').innerText = `${Number(item.price_24h).toLocaleString()}đ / ngày`;
             document.getElementById('modal-item-img').src = item.image_url;
 
-            // Hiển thị hoặc ẩn quy định riêng cho trang phục
+            // Hiển thị hoặc ẩn quy định riêng cho trang phục & ẩn nút 4h-8h
             const isCostume = item.category === 'COSTUME_FASHION';
             const costumeAlert = document.getElementById('costume-rule-alert');
             if (costumeAlert) {
                 if (isCostume) costumeAlert.classList.remove('hidden');
                 else costumeAlert.classList.add('hidden');
+            }
+
+            // Trang phục chỉ tính theo ngày (không có 4h - 8h)
+            const dur4h = document.getElementById('quick-dur-4h');
+            const dur8h = document.getElementById('quick-dur-8h');
+            if (isCostume) {
+                if (dur4h) dur4h.classList.add('hidden');
+                if (dur8h) dur8h.classList.add('hidden');
+            } else {
+                if (dur4h) dur4h.classList.remove('hidden');
+                if (dur8h) dur8h.classList.remove('hidden');
             }
 
             // Gói thuê máy ảnh (4h, 8h, 1 ngày, nhiều ngày)
@@ -3554,13 +3658,16 @@
         }
 
         function applyQuickDuration(hours) {
+            const target = selectedComboForBooking || selectedItemForBooking;
+            if (target && target.category === 'COSTUME_FASHION' && hours < 24) {
+                hours = 24; // Trang phục không có gói 4h-8h, luôn tính theo ngày
+            }
             const now = new Date();
             const pad = (n) => String(n).padStart(2, '0');
             const startStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:00`;
             const endDt = new Date(now.getTime() + hours * 3600000);
 
-            const target = selectedComboForBooking || selectedItemForBooking;
-            if (target && target.category === 'COSTUME_FASHION' && hours >= 24) {
+            if (target && target.category === 'COSTUME_FASHION') {
                 endDt.setHours(20, 0, 0, 0);
             }
             const endStr = `${endDt.getFullYear()}-${pad(endDt.getMonth()+1)}-${pad(endDt.getDate())}T${pad(endDt.getHours())}:${pad(endDt.getMinutes())}`;
@@ -4576,8 +4683,19 @@
             activeInv.discountVal = discountVal;
             activeInv.surchargeVal = surchargeVal;
 
+            // Đọc Hình thức cọc & Tiền cọc (Dành riêng cho Admin):
+            const depTypeSelect = document.getElementById('pos-deposit-type-select');
+            const depAmtInp = document.getElementById('pos-deposit-amount-input');
+            const depDescInp = document.getElementById('pos-deposit-desc-input');
+            const depType = depTypeSelect ? depTypeSelect.value : 'NONE';
+            const depAmt = depAmtInp ? (parseInt(depAmtInp.value) || 0) : 0;
+            const depDesc = depDescInp ? depDescInp.value.trim() : '';
+            activeInv.depositType = depType;
+            activeInv.depositAmount = depAmt;
+            activeInv.depositDesc = depDesc;
+
             const finalRent = Math.max(0, subtotalRent - discountVal + surchargeVal);
-            const totalPayable = finalRent;
+            const totalPayable = finalRent + depAmt;
 
             document.getElementById('pos-subtotal-rent').innerText = `${subtotalRent.toLocaleString()}đ`;
             document.getElementById('pos-subtotal-discount').innerText = discountVal > 0 ? `-${discountVal.toLocaleString()}đ` : (surchargeVal > 0 ? `+${surchargeVal.toLocaleString()}đ (phụ thu)` : '0đ');
@@ -4605,6 +4723,14 @@
             } else if (phoneInp && activeInv.customerPhone === '0900000000') {
                 phoneInp.value = '';
             }
+
+            // Đồng bộ ô cọc
+            const depTypeSel = document.getElementById('pos-deposit-type-select');
+            if (depTypeSel) depTypeSel.value = activeInv.depositType || 'NONE';
+            const depAmtInp = document.getElementById('pos-deposit-amount-input');
+            if (depAmtInp) depAmtInp.value = activeInv.depositAmount || '';
+            const depDescInp = document.getElementById('pos-deposit-desc-input');
+            if (depDescInp) depDescInp.value = activeInv.depositDesc || '';
 
             if (activeInv.items.length === 0) {
                 area.innerHTML = `
@@ -4750,14 +4876,18 @@
 
             const branchCode = document.getElementById('pos-branch-code') ? document.getElementById('pos-branch-code').value : 'CN1';
 
+            const depType = activeInv.depositType || 'NONE';
+            const depAmt = activeInv.depositAmount || 0;
+            const depDesc = activeInv.depositDesc || (depType === 'CCCD' ? 'Giữ CCCD gốc' : 'Để lại giấy tờ hoặc cọc thêm tiền');
+
             const payload = {
                 items: itemsPayload,
                 start_time: startTime,
                 end_time: endTime,
                 branch_code: branchCode,
-                deposit_type: 'NONE',
-                deposit_asset_desc: 'Để lại giấy tờ hoặc cọc thêm tiền',
-                custom_deposit_amount: 0,
+                deposit_type: depType,
+                deposit_asset_desc: depDesc,
+                custom_deposit_amount: depAmt,
                 pos_discount: activeInv.discountVal || 0,
                 pos_surcharge: activeInv.surchargeVal || 0,
                 walk_in_customer_name: activeInv.customerName,
@@ -6256,14 +6386,14 @@
                     roleBadge.classList.remove('hidden');
                     if (isAdmin) {
                         roleBadge.innerHTML = `
-                            <span class="bg-gradient-to-r from-purple-900 to-indigo-950 text-purple-200 border border-purple-500/80 px-3 py-1.5 rounded-xl font-black font-mono text-xs flex items-center gap-1.5 shadow-lg shadow-purple-950/80">
-                                <i class="fa-solid fa-crown text-yellow-400"></i> QUẢN TRỊ VIÊN (ADMIN)
+                            <span class="bg-gradient-to-r from-purple-900 to-indigo-950 text-purple-200 border border-purple-500/80 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl font-black font-mono text-[10px] sm:text-xs flex items-center gap-1 shadow-md whitespace-nowrap">
+                                <i class="fa-solid fa-crown text-yellow-400"></i> <span class="hidden sm:inline">QUẢN TRỊ VIÊN (ADMIN)</span><span class="sm:hidden">Admin</span>
                             </span>
                         `;
                     } else {
                         roleBadge.innerHTML = `
-                            <span class="bg-cyan-950 text-cyan-300 border border-cyan-700/80 px-3 py-1.5 rounded-xl font-bold font-mono text-xs flex items-center gap-1.5 shadow-md">
-                                <i class="fa-solid fa-user-check text-cyan-400"></i> KHÁCH HÀNG
+                            <span class="bg-cyan-950 text-cyan-300 border border-cyan-700/80 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl font-bold font-mono text-[10px] sm:text-xs flex items-center gap-1 shadow-md whitespace-nowrap">
+                                <i class="fa-solid fa-user-check text-cyan-400"></i> <span class="hidden sm:inline">KHÁCH HÀNG</span><span class="sm:hidden">Khách</span>
                             </span>
                         `;
                     }
@@ -6386,6 +6516,7 @@
                 if (cfg) {
                     if (document.getElementById('telegram-bot-token')) document.getElementById('telegram-bot-token').value = cfg.bot_token || '';
                     if (document.getElementById('telegram-chat-id')) document.getElementById('telegram-chat-id').value = cfg.chat_id || '';
+                    if (document.getElementById('telegram-overdue-chat-id')) document.getElementById('telegram-overdue-chat-id').value = cfg.overdue_chat_id || '';
                     if (document.getElementById('tele-chk-new')) document.getElementById('tele-chk-new').checked = !!cfg.auto_notify_new_rental;
                     if (document.getElementById('tele-chk-pay')) document.getElementById('tele-chk-pay').checked = !!cfg.auto_notify_payment;
                     if (document.getElementById('tele-chk-return')) document.getElementById('tele-chk-return').checked = !!cfg.auto_notify_return;
@@ -6399,6 +6530,7 @@
             const payload = {
                 bot_token: document.getElementById('telegram-bot-token').value.trim(),
                 chat_id: document.getElementById('telegram-chat-id').value.trim(),
+                overdue_chat_id: document.getElementById('telegram-overdue-chat-id') ? document.getElementById('telegram-overdue-chat-id').value.trim() : '',
                 is_active: 1,
                 auto_notify_new_rental: document.getElementById('tele-chk-new').checked ? 1 : 0,
                 auto_notify_payment: document.getElementById('tele-chk-pay').checked ? 1 : 0,
@@ -6414,6 +6546,25 @@
                 const data = await res.json();
                 showToast(data.message || "Đã lưu cấu hình Telegram Bot!");
             } catch (err) { alert("Lỗi lưu cấu hình Telegram: " + err); }
+        }
+
+        async function triggerOverdueAlertsCheck() {
+            const token = localStorage.getItem('tiduba_token');
+            showToast("Đang quét các đơn quá hạn & nhắc hẹn...");
+            try {
+                const res = await fetch('/api/admin/telegram/check_overdue_alerts', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(`✅ ${data.message}`);
+                    alert(data.message);
+                    fetchTelegramLogs();
+                } else {
+                    alert(data.message || "Lỗi quét quá hạn!");
+                }
+            } catch (e) { alert("Lỗi kết nối quét quá hạn: " + e); }
         }
 
         async function fetchTelegramLogs() {
