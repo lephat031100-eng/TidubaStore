@@ -18,6 +18,7 @@ import hmac
 import hashlib
 import sqlite3
 import datetime
+import threading
 import urllib.parse
 import urllib.request
 import urllib.error
@@ -439,10 +440,78 @@ def init_db():
 
     # Tự động cập nhật cột overdue_chat_id cho telegram_config nếu chưa có
     try:
-        cur.execute("ALTER TABLE telegram_config ADD COLUMN overdue_chat_id TEXT DEFAULT '';")
+        cur.execute("ALTER TABLE telegram_config ADD COLUMN overdue_chat_id TEXT DEFAULT '-1004498214603';")
         conn.commit()
     except Exception:
         pass
+
+    # Luôn đảm bảo overdue_chat_id là -1004498214603 nếu chưa có
+    try:
+        cur.execute("UPDATE telegram_config SET overdue_chat_id = '-1004498214603' WHERE (overdue_chat_id IS NULL OR overdue_chat_id = '')")
+        conn.commit()
+    except Exception:
+        pass
+
+    # Bảng Lưu Log Nhắc Hẹn & Quá Hạn (Tránh gửi lặp lại)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS reminder_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rental_id INTEGER NOT NULL,
+        event_type TEXT NOT NULL,
+        sent_at TEXT NOT NULL
+    );
+    """)
+    conn.commit()
+
+    # Bảng Cấu Hình Danh Mục & Chip Lọc (Tự động đồng bộ chuẩn 100%)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS categories_config (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT NOT NULL,
+        name TEXT NOT NULL,
+        filter_type TEXT NOT NULL,
+        filter_value TEXT,
+        display_order INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1
+    );
+    """)
+    conn.commit()
+
+    # Xóa các danh mục rác cũ nếu có và nạp đầy đủ 16 danh mục chuẩn
+    try:
+        cur.execute("DELETE FROM categories_config WHERE name IN ('mầm ơi', '200k - 500k', 'DU LỊCH & CHỤP ẢNH')")
+        conn.commit()
+    except Exception:
+        pass
+
+    official_cats = [
+        ('all', 'Tất Cả', 'ALL', '', 0),
+        ('sony', 'Máy Sony', 'BRAND', 'Sony', 1),
+        ('canon', 'Máy Canon', 'BRAND', 'Canon', 2),
+        ('vay', 'Váy Tiệc', 'BRAND', 'Váy', 3),
+        ('fuji', 'Máy Fujifilm', 'BRAND', 'Fujifilm', 4),
+        ('t1', 'Áo Khoác', 'BRAND', 'tier1', 5),
+        ('t2', 'Du Lịch - Chụp Ảnh', 'BRAND', 'tier2', 6),
+        ('t3', 'Đồ Đông', 'BRAND', 'tier3', 7),
+        ('boot', 'Boot', 'BRAND', 'Boot', 9),
+        ('aodai', 'Áo Dài Thiết Kế', 'BRAND', 'áo dài', 10),
+        ('vaytiec', 'Váy Tiệc', 'BRAND', 'Váy Tiệc', 11),
+        ('yem', 'Yếm', 'BRAND', 'Yếm', 12),
+        ('yembe', 'Yếm Bé', 'BRAND', 'Yếm Bé', 13),
+        ('vietphuc', 'Việt Phục', 'BRAND', 'Việt Phục', 14),
+        ('túi', 'Túi Xách', 'BRAND', 'Túi', 15),
+        ('phukien', 'Phụ Kiện', 'BRAND', 'Phụ Kiện', 16),
+    ]
+    cur.execute("SELECT count(*) as c FROM categories_config")
+    if cur.fetchone()["c"] < len(official_cats):
+        for c in official_cats:
+            exists = cur.execute("SELECT id FROM categories_config WHERE code = ?", (c[0],)).fetchone()
+            if not exists:
+                cur.execute("""
+                INSERT INTO categories_config (code, name, filter_type, filter_value, display_order, is_active)
+                VALUES (?, ?, ?, ?, ?, 1)
+                """, c)
+        conn.commit()
 
     # Tự động cập nhật cột refund_bank_info cho rentals nếu chưa có
     try:
@@ -4464,6 +4533,135 @@ def free_port_if_stuck(port: int = 9000):
                         subprocess.run(f"taskkill /F /PID {pid}", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception:
             pass
+
+
+def background_reminder_worker():
+    """
+    Vòng lặp chạy ngầm tự động 100%:
+    - Nhắc trước 30 phút để nhân viên chuẩn bị đồ trước khi khách đến nhận.
+    - Nhắc trước 5 phút khi đơn sắp hết hạn để chuẩn bị gọi khách.
+    - Cảnh báo ngay khi đơn quá hạn.
+    - Gửi thẳng vào Group Telegram: -1004498214603 (Thông Báo Giờ).
+    """
+    OVERDUE_GROUP_ID = "-1004498214603"
+    while True:
+        try:
+            time.sleep(30)
+            now = datetime.datetime.now()
+            now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+
+            conn = get_db()
+            cur = conn.cursor()
+
+            rentals = cur.execute("""
+            SELECT r.*, COALESCE(i.name, c.name, 'Đơn Thuê Nhiều Món') as item_name,
+                   u.full_name as customer_name, u.phone as customer_phone
+            FROM rentals r
+            LEFT JOIN items i ON r.item_id = i.id
+            LEFT JOIN combos c ON r.combo_id = c.id
+            JOIN users u ON r.user_id = u.id
+            WHERE r.status NOT IN ('CANCELLED', 'RETURNED')
+            """).fetchall()
+
+            for r in rentals:
+                rid = r["id"]
+                code = r["rental_code"]
+                b_code = r["branch_code"] if ("branch_code" in r.keys() and r["branch_code"]) else "CN1"
+                branch_info = STORE_BRANCHES.get(b_code, STORE_BRANCHES["CN1"])
+
+                # --- 1. NHẮC TRƯỚC 30 PHÚT CHUẨN BỊ ĐỒ ---
+                try:
+                    start_dt = datetime.datetime.strptime(r["start_time"], "%Y-%m-%d %H:%M")
+                    diff_start_mins = (start_dt - now).total_seconds() / 60.0
+                    if 0 <= diff_start_mins <= 30.0:
+                        chk = cur.execute("SELECT id FROM reminder_logs WHERE rental_id = ? AND event_type = 'PICKUP_30M'", (rid,)).fetchone()
+                        if not chk:
+                            mins_left = max(1, int(round(diff_start_mins)))
+                            msg = (
+                                f"<b>⏰ [NHẮC CHUẨN BỊ ĐỒ] KHÁCH SẮP ĐẾN NHẬN (CÒN ~{mins_left} PHÚT)!</b>\n"
+                                f"━━━━━━━━━━━━━━━━━━\n"
+                                f"📋 <b>Mã đơn:</b> <code>{code}</code>\n"
+                                f"👤 <b>Khách hàng:</b> {r['customer_name']} (<code>{r['customer_phone']}</code>)\n"
+                                f"📦 <b>Thiết bị / Trang phục:</b> <b>{r['item_name']}</b>\n"
+                                f"📅 <b>Khung giờ khách đặt:</b>\n"
+                                f"👉 <b>Giờ nhận:</b> <b>{r['start_time']}</b>\n"
+                                f"👉 <b>Hạn trả:</b> <b>{r['end_time']}</b>\n"
+                                f"📍 <b>Chi nhánh:</b> {branch_info['name']}\n"
+                                f"💡 <i>Nhân viên vui lòng kiểm tra pin, thẻ nhớ, vệ sinh đồ để sẵn sàng giao khách!</i>\n"
+                                f"━━━━━━━━━━━━━━━━━━"
+                            )
+                            _send_telegram_notification(msg, rental_id=rid, event_type="PICKUP_REMINDER", override_chat_id=OVERDUE_GROUP_ID)
+                            cur.execute("INSERT INTO reminder_logs (rental_id, event_type, sent_at) VALUES (?, 'PICKUP_30M', ?)", (rid, now_str))
+                            conn.commit()
+                except Exception:
+                    pass
+
+                # --- 2. NHẮC SẮP QUÁ HẠN 5 PHÚT & ĐÃ QUÁ HẠN (Áp dụng đơn ACTIVE) ---
+                if r["status"] == "ACTIVE":
+                    try:
+                        end_dt = datetime.datetime.strptime(r["end_time"], "%Y-%m-%d %H:%M")
+                        diff_end_mins = (end_dt - now).total_seconds() / 60.0
+
+                        if 0 <= diff_end_mins <= 5.0:
+                            # Sắp quá hạn 5 phút
+                            chk = cur.execute("SELECT id FROM reminder_logs WHERE rental_id = ? AND event_type = 'OVERDUE_5M'", (rid,)).fetchone()
+                            if not chk:
+                                mins_left = max(1, int(round(diff_end_mins)))
+                                msg = (
+                                    f"<b>⚠️ [SẮP QUÁ HẠN] CÒN ~{mins_left} PHÚT HẾT HẠN TRẢ ĐỒ!</b>\n"
+                                    f"━━━━━━━━━━━━━━━━━━\n"
+                                    f"📋 <b>Mã đơn:</b> <code>{code}</code>\n"
+                                    f"👤 <b>Khách hàng:</b> {r['customer_name']} (📞 <code>{r['customer_phone']}</code>)\n"
+                                    f"📦 <b>Thiết bị / Trang phục:</b> <b>{r['item_name']}</b>\n"
+                                    f"📅 <b>Khung giờ khách thuê:</b>\n"
+                                    f"👉 <b>Từ:</b> {r['start_time']}\n"
+                                    f"👉 <b>Hạn trả:</b> <b>{r['end_time']}</b>\n"
+                                    f"📍 <b>Chi nhánh trả:</b> {branch_info['name']}\n"
+                                    f"📞 <i>Chuẩn bị gọi khách nhắc trả đồ để tránh phát sinh phí trễ hạn (30.000đ/h)!</i>\n"
+                                    f"━━━━━━━━━━━━━━━━━━"
+                                )
+                                _send_telegram_notification(msg, rental_id=rid, event_type="WARNING_DUE_SOON", override_chat_id=OVERDUE_GROUP_ID)
+                                cur.execute("INSERT INTO reminder_logs (rental_id, event_type, sent_at) VALUES (?, 'OVERDUE_5M', ?)", (rid, now_str))
+                                conn.commit()
+                        elif diff_end_mins < 0:
+                            # Đã quá hạn
+                            chk = cur.execute("SELECT sent_at FROM reminder_logs WHERE rental_id = ? AND event_type = 'OVERDUE_EXPIRED' ORDER BY id DESC LIMIT 1", (rid,)).fetchone()
+                            should_send_overdue = False
+                            if not chk:
+                                should_send_overdue = True
+                            else:
+                                last_sent = datetime.datetime.strptime(chk["sent_at"], "%Y-%m-%d %H:%M:%S")
+                                if (now - last_sent).total_seconds() >= 7200:
+                                    should_send_overdue = True
+
+                            if should_send_overdue:
+                                overdue_h = round(abs(diff_end_mins) / 60.0, 1)
+                                msg = (
+                                    f"<b>🚨 [ĐÃ QUÁ HẠN TRẢ ĐỒ] VUI LÒNG GỌI KHÁCH NGAY!</b>\n"
+                                    f"━━━━━━━━━━━━━━━━━━\n"
+                                    f"📋 <b>Mã đơn:</b> <code>{code}</code>\n"
+                                    f"👤 <b>Khách hàng:</b> {r['customer_name']} (📞 <code>{r['customer_phone']}</code>)\n"
+                                    f"📦 <b>Thiết bị / Trang phục:</b> <b>{r['item_name']}</b>\n"
+                                    f"📅 <b>Khung giờ khách đặt:</b>\n"
+                                    f"👉 <b>Từ:</b> {r['start_time']}\n"
+                                    f"👉 <b>Hạn trả:</b> <b>{r['end_time']}</b> (ĐÃ TRỄ: <b>{overdue_h} GIỜ</b>)\n"
+                                    f"📍 <b>Chi nhánh:</b> {branch_info['name']}\n"
+                                    f"⚠️ <i>Hệ thống bắt đầu tính phí phạt 30.000đ/giờ!</i>\n"
+                                    f"━━━━━━━━━━━━━━━━━━"
+                                )
+                                _send_telegram_notification(msg, rental_id=rid, event_type="OVERDUE", override_chat_id=OVERDUE_GROUP_ID)
+                                cur.execute("INSERT INTO reminder_logs (rental_id, event_type, sent_at) VALUES (?, 'OVERDUE_EXPIRED', ?)", (rid, now_str))
+                                conn.commit()
+                    except Exception:
+                        pass
+
+            conn.close()
+        except Exception:
+            pass
+
+
+# Khởi chạy luồng ngầm tự động nhắc hẹn & quá hạn 24/7
+threading.Thread(target=background_reminder_worker, daemon=True, name="TidubaReminderWorker").start()
 
 
 if __name__ == "__main__":
