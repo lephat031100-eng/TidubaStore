@@ -15,6 +15,25 @@ import urllib.request
 import webbrowser
 from pathlib import Path
 
+# Đảm bảo UTF-8 stream trên Windows và PyInstaller không bị UnicodeEncodeError
+if sys.platform.startswith("win"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+
+def safe_print(*args, **kwargs):
+    """Ghi log an toàn không bao giờ văng lỗi UnicodeEncodeError cp1252 trên Windows GUI."""
+    try:
+        msg = " ".join(str(a) for a in args)
+        if sys.stdout:
+            sys.stdout.write(msg + "\n")
+            sys.stdout.flush()
+    except Exception:
+        pass
+
 # Đảm bảo working directory
 BASE_DIR = Path(__file__).resolve().parent
 os.chdir(str(BASE_DIR))
@@ -67,16 +86,16 @@ def run_uvicorn_thread():
         from main import app as fastapi_app
         uvicorn.run(fastapi_app, host="0.0.0.0", port=9000, log_level="error")
     except Exception as e:
-        print(f"[ADMIN APP] Lỗi khởi động Uvicorn thread: {e}")
+        safe_print(f"[ADMIN APP] Lỗi khởi động Uvicorn thread: {e}")
 
 
 def start_backend_server():
     """Tự động kiểm tra và khởi chạy Backend Server nếu chưa chạy."""
     if is_server_running():
-        print("[ADMIN APP] 🚀 Backend server đã hoạt động sẵn tại port 9000.")
+        safe_print("[ADMIN APP] Backend server da hoat dong san tai port 9000.")
         return
 
-    print("[ADMIN APP] ⚙️ Khởi tạo Backend Server FastAPI port 9000...")
+    safe_print("[ADMIN APP] Khoi tao Backend Server FastAPI port 9000...")
     free_port_if_stuck()
     time.sleep(0.5)
 
@@ -87,10 +106,10 @@ def start_backend_server():
     for _ in range(20):
         time.sleep(0.5)
         if is_server_running():
-            print("[ADMIN APP] ✅ Backend server khởi động thành công!")
+            safe_print("[ADMIN APP] Backend server khoi dong thanh cong!")
             return
 
-    print("[ADMIN APP] ⚠️ Server đang khởi động...")
+    safe_print("[ADMIN APP] Server dang khoi dong...")
 
 
 class AdminApi:
@@ -121,9 +140,9 @@ def main():
     if cloud_online:
         target_url = ADMIN_URL
         window_title = "Tiduba Store - Quản Trị Hệ Thống (Cloud Online: tidubastore.onrender.com)"
-        print("[ADMIN APP] 🌐 Đã kết nối trực tiếp Máy Chủ Cloud: https://tidubastore.onrender.com")
+        safe_print("[ADMIN APP] Da ket noi truc tiep May Chu Cloud: https://tidubastore.onrender.com")
     else:
-        print("[ADMIN APP] 💻 Máy chủ Cloud chưa sẵn sàng hoặc không có internet. Khởi chạy máy chủ nội bộ port 9000...")
+        safe_print("[ADMIN APP] May chu Cloud chua san sang hoac khong co internet. Khoi chay may chu noi bo port 9000...")
         start_backend_server()
         target_url = LOCAL_ADMIN_URL
         window_title = "Tiduba Store - Quản Trị Hệ Thống (Offline Localhost)"
@@ -143,18 +162,18 @@ def main():
             js_api=api
         )
 
-        print("=" * 70)
-        print("📸 TIDUBA STORE - ADMIN DESKTOP APP ONLINE")
-        print(f"🌐 Máy chủ chính: {target_url}")
-        print("🏢 Chi nhánh 1 (Trụ sở): 183A Huỳnh Thúc Kháng, Pleiku, Gia Lai (0977.078.981)")
-        print("🏢 Chi nhánh 2: 801 Lê Duẩn, P. An Phú, TP. Pleiku, Gia Lai (0977.078.981)")
-        print("👑 App Admin tự động kết nối & đồng bộ dữ liệu thời gian thực.")
-        print("=" * 70)
+        safe_print("======================================================================")
+        safe_print("TIDUBA STORE - ADMIN DESKTOP APP ONLINE")
+        safe_print(f"May chu: {target_url}")
+        safe_print("CN1: 183A Huynh Thuc Khang, Pleiku, Gia Lai (0977.078.981)")
+        safe_print("CN2: 801 Le Duan, P. An Phu, TP. Pleiku, Gia Lai (0977.078.981)")
+        safe_print("App Admin tu dong ket noi & dong bo du lieu thoi gian thuc.")
+        safe_print("======================================================================")
 
         webview.start(private_mode=False)
 
     except ImportError:
-        print("[ADMIN APP] pywebview chưa cài đặt. Mở giao diện Admin qua trình duyệt...")
+        safe_print("[ADMIN APP] pywebview chua cai dat. Mo giao dien Admin qua trinh duyet...")
         webbrowser.open(target_url)
 
 
