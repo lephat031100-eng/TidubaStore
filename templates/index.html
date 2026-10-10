@@ -647,9 +647,18 @@
                             <label class="block text-amber-300 font-bold mb-1 flex items-center gap-1">
                                 <i class="fa-solid fa-triangle-exclamation"></i> Telegram Group ID Nhắc Hẹn & Quá Hạn (Group riêng):
                             </label>
-                            <input type="text" id="telegram-overdue-chat-id" placeholder="vd: -5368352616 (Nếu để trống sẽ dùng chung Group chính)" class="w-full bg-gray-900 border border-amber-600/60 rounded-lg p-2 text-amber-200 font-mono text-xs">
+                            <input type="text" id="telegram-overdue-chat-id" placeholder="vd: -1004498214603" class="w-full bg-gray-900 border border-amber-600/60 rounded-lg p-2 text-amber-200 font-mono text-xs">
                             <p class="text-[10px] text-gray-400 mt-1">
-                                💡 Các thông báo quá hạn chưa trả và nhắc hẹn sắp đến giờ trả đồ sẽ gửi vào group này.
+                                💡 Các thông báo quá hạn chưa trả và nhắc hẹn 30 phút sẽ gửi vào group này.
+                            </p>
+                        </div>
+                        <div>
+                            <label class="block text-emerald-400 font-bold mb-1 flex items-center gap-1">
+                                <i class="fa-solid fa-chart-line"></i> Telegram Group Báo Cáo Doanh Thu Ngày (Group riêng):
+                            </label>
+                            <input type="text" id="telegram-revenue-chat-id" placeholder="vd: -1003930707954" class="w-full bg-gray-900 border border-emerald-600/60 rounded-lg p-2 text-emerald-300 font-mono text-xs">
+                            <p class="text-[10px] text-gray-400 mt-1">
+                                💡 Đúng 21:00 (9h tối) tự động chốt sổ gửi tổng bill, tổng tiền, tổng cọc. Nếu sau 21h có biến động trả đồ/thanh toán, Bot tự động nhắn bản cập nhật mới nhất!
                             </p>
                         </div>
                         <div class="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-gray-300">
@@ -674,8 +683,11 @@
                             <button onclick="saveTelegramConfig()" class="bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-sky-600/20">
                                 <i class="fa-solid fa-floppy-disk"></i> Lưu Cấu Hình
                             </button>
+                            <button onclick="triggerDailyRevenueReportNow()" class="bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-600 font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1 transition" title="Bắn báo cáo doanh thu ngày hôm nay vào group -1003930707954 ngay lập tức">
+                                <i class="fa-solid fa-chart-pie"></i> Chốt Sổ Doanh Thu Ngay
+                            </button>
                             <button onclick="triggerOverdueAlertsCheck()" class="bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-600 font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1 transition">
-                                <i class="fa-solid fa-bell"></i> Quét Quá Hạn Ngay
+                                <i class="fa-solid fa-bell"></i> Quét Quá Hạn
                             </button>
                             <button onclick="testTelegramNotify()" class="bg-gray-800 hover:bg-gray-700 text-amber-300 font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1">
                                 <i class="fa-solid fa-paper-plane"></i> Gửi Tin Test
@@ -755,6 +767,62 @@
                             </table>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- ============================================================== -->
+            <!-- QUẢN LÝ BỘ NHỚ LƯU TRỮ SQLite (.db) VÀ SAO LƯU DỮ LIỆU ĐỘC LẬP -->
+            <!-- ============================================================== -->
+            <div class="luxury-card rounded-2xl p-6 space-y-4 border border-blue-900/40 bg-[#0f172a] text-white">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-gray-800 pb-3">
+                    <div>
+                        <span class="text-xs font-mono bg-blue-950 text-blue-300 border border-blue-700 px-2 py-0.5 rounded font-bold uppercase">PERSISTENT STORAGE & DATABASE</span>
+                        <h4 class="text-base font-bold text-blue-400 mt-1 flex items-center gap-2">
+                            <i class="fa-solid fa-database text-blue-400"></i> Quản Lý Bộ Nhớ Riêng Biệt (Không Liên Quan Tới Code)
+                        </h4>
+                        <p class="text-xs text-gray-400 mt-0.5">Dữ liệu được lưu độc lập. Bạn có thể tải file database về máy tính hoặc nạp file database lên web bất cứ lúc nào!</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="fetchDatabaseStorageStatus()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-xl text-xs font-mono transition">
+                            <i class="fa-solid fa-rotate"></i> Kiểm Tra
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Thông tin tình trạng bộ nhớ -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+                    <div class="bg-gray-950 p-3 rounded-xl border border-gray-800">
+                        <div class="text-[10px] text-gray-400">Vị trí file lưu trữ:</div>
+                        <div class="text-blue-300 font-bold truncate text-[11px]" id="db-stat-path">data/tiduba.db</div>
+                    </div>
+                    <div class="bg-gray-950 p-3 rounded-xl border border-gray-800">
+                        <div class="text-[10px] text-gray-400">Dung lượng Database:</div>
+                        <div class="text-emerald-400 font-bold text-sm" id="db-stat-size">-- KB</div>
+                    </div>
+                    <div class="bg-gray-950 p-3 rounded-xl border border-gray-800">
+                        <div class="text-[10px] text-gray-400">Tổng sản phẩm:</div>
+                        <div class="text-amber-300 font-bold text-sm" id="db-stat-items">-- món</div>
+                    </div>
+                    <div class="bg-gray-950 p-3 rounded-xl border border-gray-800">
+                        <div class="text-[10px] text-gray-400">Tổng đơn thuê:</div>
+                        <div class="text-cyan-300 font-bold text-sm" id="db-stat-rentals">-- đơn</div>
+                    </div>
+                </div>
+
+                <!-- Thao tác sao lưu và phục hồi -->
+                <div class="flex flex-wrap items-center gap-3 pt-2">
+                    <button onclick="downloadRawSqliteDb()" class="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-emerald-950 transition">
+                        <i class="fa-solid fa-download"></i> Tải File Database (.db) Về Máy Tính
+                    </button>
+
+                    <label class="cursor-pointer bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-indigo-950 transition">
+                        <i class="fa-solid fa-upload"></i> Nạp File Database (.db) Lên Web
+                        <input type="file" id="db-upload-input" accept=".db,.sqlite" onchange="uploadRawSqliteDb(this)" class="hidden">
+                    </label>
+
+                    <button onclick="openSyncDataModal()" class="bg-gray-800 hover:bg-gray-700 text-cyan-300 font-bold py-2.5 px-4 rounded-xl text-xs flex items-center gap-2 border border-gray-700 transition">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Đồng Bộ 1-Click Lên Cloud
+                    </button>
                 </div>
             </div>
 
@@ -1890,6 +1958,40 @@
                 </div>
                 <button onclick="submitRegister()" class="w-full bg-gradient-to-r from-amber-500 to-yellow-400 text-gray-950 font-black py-2.5 rounded-xl text-xs transition">
                     Đăng Ký Tài Khoản
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHANGE PASSWORD MODAL (ĐỔI MẬT KHẨU TÀI KHOẢN) -->
+    <div id="change-password-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 items-center justify-center p-4" style="display: none;">
+        <div class="bg-gray-900 border border-amber-500/50 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl font-sans">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-xl bg-amber-950 text-amber-400 border border-amber-600 flex items-center justify-center text-sm font-bold">
+                        <i class="fa-solid fa-key"></i>
+                    </span>
+                    <h3 class="text-base font-bold text-white">Đổi Mật Khẩu Tài Khoản</h3>
+                </div>
+                <button onclick="closeChangePasswordModal()" class="text-gray-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block text-gray-300 font-mono mb-1">Mật khẩu hiện tại (*):</label>
+                    <input type="password" id="cp-old-pass" placeholder="Nhập mật khẩu đang dùng" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2.5 text-white font-mono focus:outline-none focus:border-amber-500">
+                </div>
+                <div>
+                    <label class="block text-gray-300 font-mono mb-1">Mật khẩu mới (*):</label>
+                    <input type="password" id="cp-new-pass" placeholder="Tối thiểu 6 ký tự" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2.5 text-white font-mono focus:outline-none focus:border-amber-500">
+                </div>
+                <div>
+                    <label class="block text-gray-300 font-mono mb-1">Xác nhận mật khẩu mới (*):</label>
+                    <input type="password" id="cp-confirm-pass" placeholder="Nhập lại mật khẩu mới" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2.5 text-white font-mono focus:outline-none focus:border-amber-500">
+                </div>
+                <button onclick="submitChangePassword()" id="btn-submit-change-pass" class="w-full bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-gray-950 font-black py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/20">
+                    <i class="fa-solid fa-check"></i> Xác Nhận Đổi Mật Khẩu
                 </button>
             </div>
         </div>
@@ -6629,7 +6731,8 @@
                 if (authBox) {
                     authBox.innerHTML = `
                         <div class="flex items-center gap-2">
-                            <span class="text-amber-300 font-mono font-bold">${currentUser.full_name}</span>
+                            <span class="text-amber-300 font-mono font-bold text-xs truncate max-w-[120px]">${currentUser.full_name}</span>
+                            <button onclick="openChangePasswordModal()" class="text-gray-400 hover:text-amber-400 text-xs px-1" title="Đổi mật khẩu"><i class="fa-solid fa-key"></i></button>
                             <button onclick="logout()" class="text-gray-400 hover:text-rose-400 text-xs px-1" title="Đăng xuất"><i class="fa-solid fa-power-off"></i></button>
                         </div>
                     `;
@@ -6853,7 +6956,8 @@
                 if (cfg) {
                     if (document.getElementById('telegram-bot-token')) document.getElementById('telegram-bot-token').value = cfg.bot_token || '';
                     if (document.getElementById('telegram-chat-id')) document.getElementById('telegram-chat-id').value = cfg.chat_id || '';
-                    if (document.getElementById('telegram-overdue-chat-id')) document.getElementById('telegram-overdue-chat-id').value = cfg.overdue_chat_id || '';
+                    if (document.getElementById('telegram-overdue-chat-id')) document.getElementById('telegram-overdue-chat-id').value = cfg.overdue_chat_id || '-1004498214603';
+                    if (document.getElementById('telegram-revenue-chat-id')) document.getElementById('telegram-revenue-chat-id').value = cfg.revenue_chat_id || '-1003930707954';
                     if (document.getElementById('tele-chk-new')) document.getElementById('tele-chk-new').checked = !!cfg.auto_notify_new_rental;
                     if (document.getElementById('tele-chk-pay')) document.getElementById('tele-chk-pay').checked = !!cfg.auto_notify_payment;
                     if (document.getElementById('tele-chk-return')) document.getElementById('tele-chk-return').checked = !!cfg.auto_notify_return;
@@ -6867,7 +6971,8 @@
             const payload = {
                 bot_token: document.getElementById('telegram-bot-token').value.trim(),
                 chat_id: document.getElementById('telegram-chat-id').value.trim(),
-                overdue_chat_id: document.getElementById('telegram-overdue-chat-id') ? document.getElementById('telegram-overdue-chat-id').value.trim() : '',
+                overdue_chat_id: document.getElementById('telegram-overdue-chat-id') ? document.getElementById('telegram-overdue-chat-id').value.trim() : '-1004498214603',
+                revenue_chat_id: document.getElementById('telegram-revenue-chat-id') ? document.getElementById('telegram-revenue-chat-id').value.trim() : '-1003930707954',
                 is_active: 1,
                 auto_notify_new_rental: document.getElementById('tele-chk-new').checked ? 1 : 0,
                 auto_notify_payment: document.getElementById('tele-chk-pay').checked ? 1 : 0,
@@ -6883,6 +6988,27 @@
                 const data = await res.json();
                 showToast(data.message || "Đã lưu cấu hình Telegram Bot!");
             } catch (err) { alert("Lỗi lưu cấu hình Telegram: " + err); }
+        }
+
+        async function triggerDailyRevenueReportNow() {
+            const token = localStorage.getItem('tiduba_token');
+            showToast("Đang tính toán & gửi báo cáo doanh thu hôm nay...");
+            try {
+                const res = await fetch('/api/admin/telegram/send_daily_revenue_report', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast("✅ Đã gửi báo cáo doanh thu vào Group -1003930707954!");
+                    alert(data.message || "Đã gửi báo cáo doanh thu thành công!");
+                    fetchTelegramLogs();
+                } else {
+                    alert(data.message || "Lỗi gửi báo cáo doanh thu!");
+                }
+            } catch (e) {
+                alert("Lỗi kết nối gửi báo cáo: " + e);
+            }
         }
 
         async function triggerOverdueAlertsCheck() {
@@ -7245,12 +7371,141 @@
             }).catch(e => alert("Lỗi tải sao lưu: " + e));
         }
 
+        // ==============================================================
+        // TÍNH NĂNG ĐỔI MẬT KHẨU TÀI KHOẢN (CHANGE PASSWORD)
+        // ==============================================================
+        function openChangePasswordModal() {
+            if (!currentUser) {
+                openAuthModal();
+                return;
+            }
+            document.getElementById('cp-old-pass').value = '';
+            document.getElementById('cp-new-pass').value = '';
+            document.getElementById('cp-confirm-pass').value = '';
+            document.getElementById('change-password-modal').style.display = 'flex';
+        }
+
+        function closeChangePasswordModal() {
+            document.getElementById('change-password-modal').style.display = 'none';
+        }
+
+        async function submitChangePassword() {
+            const oldPass = document.getElementById('cp-old-pass').value.trim();
+            const newPass = document.getElementById('cp-new-pass').value.trim();
+            const confirmPass = document.getElementById('cp-confirm-pass').value.trim();
+
+            if (!oldPass || !newPass) {
+                alert("Vui lòng nhập mật khẩu hiện tại và mật khẩu mới!");
+                return;
+            }
+            if (newPass.length < 6) {
+                alert("Mật khẩu mới phải có tối thiểu 6 ký tự!");
+                return;
+            }
+            if (newPass !== confirmPass) {
+                alert("Mật khẩu xác nhận không khớp với mật khẩu mới!");
+                return;
+            }
+
+            const btn = document.getElementById('btn-submit-change-pass');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Đang đổi mật khẩu...';
+
+            try {
+                const token = localStorage.getItem('tiduba_token');
+                const res = await fetch('/api/auth/change_password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ old_password: oldPass, new_password: newPass })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast("✅ " + data.message);
+                    alert(data.message);
+                    closeChangePasswordModal();
+                } else {
+                    alert(data.detail || "Đổi mật khẩu thất bại!");
+                }
+            } catch (err) {
+                alert("Lỗi kết nối đổi mật khẩu: " + err);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Xác Nhận Đổi Mật Khẩu';
+            }
+        }
+
+        // ==============================================================
+        // PERSISTENT DATABASE ENGINE: BACKUP & RESTORE FILE .db
+        // ==============================================================
+        async function fetchDatabaseStorageStatus() {
+            const token = localStorage.getItem('tiduba_token');
+            if (!token) return;
+            try {
+                const res = await fetch('/api/admin/database/status', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (document.getElementById('db-stat-path')) document.getElementById('db-stat-path').innerText = data.db_path;
+                    if (document.getElementById('db-stat-size')) document.getElementById('db-stat-size').innerText = `${data.size_kb} KB`;
+                    if (document.getElementById('db-stat-items')) document.getElementById('db-stat-items').innerText = `${data.items_count} món`;
+                    if (document.getElementById('db-stat-rentals')) document.getElementById('db-stat-rentals').innerText = `${data.rentals_count} đơn`;
+                }
+            } catch (e) {
+                console.error("Lỗi lấy thông tin database:", e);
+            }
+        }
+
+        function downloadRawSqliteDb() {
+            const token = localStorage.getItem('tiduba_token');
+            if (!token) return;
+            showToast("Đang tải file database .db về máy...");
+            window.open(`/api/admin/database/download?token=${encodeURIComponent(token)}`, '_blank');
+        }
+
+        async function uploadRawSqliteDb(input) {
+            if (!input.files || input.files.length === 0) return;
+            const file = input.files[0];
+            if (!confirm(`Bạn có chắc chắn muốn nạp đè file '${file.name}' vào hệ thống? Mọi dữ liệu cũ sẽ được thay thế bằng file này!`)) {
+                input.value = '';
+                return;
+            }
+
+            showToast("Đang nạp file database lên Web...");
+            const formData = new FormData();
+            formData.append('file', file);
+            const token = localStorage.getItem('tiduba_token');
+
+            try {
+                const res = await fetch('/api/admin/database/upload', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast("✅ " + data.message);
+                    alert(data.message);
+                    fetchDatabaseStorageStatus();
+                    fetchCatalog();
+                    fetchAdminDashboard();
+                } else {
+                    alert(data.detail || "Lỗi nạp database!");
+                }
+            } catch (err) {
+                alert("Lỗi kết nối nạp database: " + err);
+            } finally {
+                input.value = '';
+            }
+        }
+
         fetchCatalog();
         checkAuthSession();
         fetchTelegramConfig();
         fetchTelegramLogs();
         fetchAdminCategoriesList();
         fetchSiteSettingsForm();
+        fetchDatabaseStorageStatus();
     </script>
 </body>
 </html>

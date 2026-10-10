@@ -511,3 +511,65 @@ def test_rental_refund_qr():
     assert res.status_code == 200
     assert res.json()["success"] is True
     assert "refund_amount" in res.json()
+
+
+def test_change_password_flow():
+    """Kiểm tra chức năng đổi mật khẩu người dùng."""
+    login_res = client.post("/api/auth/login", json={"username": "khachhang", "password": "123456"})
+    assert login_res.status_code == 200
+    token = login_res.json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Đổi mật khẩu sang mật khẩu mới
+    cp_res = client.post("/api/auth/change_password", json={
+        "old_password": "123456",
+        "new_password": "newpassword123"
+    }, headers=headers)
+    assert cp_res.status_code == 200
+    assert cp_res.json()["success"] is True
+
+    # Đăng nhập bằng mật khẩu mới
+    login_new = client.post("/api/auth/login", json={"username": "khachhang", "password": "newpassword123"})
+    assert login_new.status_code == 200
+
+    # Trả lại mật khẩu cũ 123456
+    token_new = login_new.json()["token"]
+    client.post("/api/auth/change_password", json={
+        "old_password": "newpassword123",
+        "new_password": "123456"
+    }, headers={"Authorization": f"Bearer {token_new}"})
+
+
+def test_daily_revenue_report_preview_and_send():
+    """Kiểm tra tính năng xem trước & chốt sổ doanh thu ngày gửi sang Telegram."""
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    adm_headers = {"Authorization": f"Bearer {login_adm.json()['token']}"}
+
+    # Xem trước số liệu
+    prev_res = client.get("/api/admin/telegram/daily_revenue_preview", headers=adm_headers)
+    assert prev_res.status_code == 200
+    assert prev_res.json()["success"] is True
+    assert "total_revenue" in prev_res.json()["metrics"]
+    assert "total_bills" in prev_res.json()["metrics"]
+
+    # Bắn thử chốt sổ
+    send_res = client.post("/api/admin/telegram/send_daily_revenue_report", headers=adm_headers)
+    assert send_res.status_code == 200
+    assert "message" in send_res.json()
+
+
+def test_database_backup_and_status():
+    """Kiểm tra thông tin tình trạng bộ nhớ SQLite và tải file .db."""
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    token = login_adm.json()["token"]
+    adm_headers = {"Authorization": f"Bearer {token}"}
+
+    stat_res = client.get("/api/admin/database/status", headers=adm_headers)
+    assert stat_res.status_code == 200
+    assert stat_res.json()["success"] is True
+    assert "size_kb" in stat_res.json()
+
+    # Tải file DB
+    dl_res = client.get(f"/api/admin/database/download?token={token}")
+    assert dl_res.status_code == 200
+    assert len(dl_res.content) > 1000

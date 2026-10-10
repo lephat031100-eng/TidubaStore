@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional, Union, Tuple
 from pydantic import BaseModel, Field
 from fastapi import FastAPI, HTTPException, Request, Depends, Header, WebSocket, WebSocketDisconnect, UploadFile, File
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import shutil
@@ -43,14 +43,25 @@ if sys.platform.startswith("win"):
         pass
 
 BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
+
+# Hỗ trợ lưu trữ bền vững (Render Persistent Disk / Custom Volume)
+_env_data_dir = os.environ.get("PERSISTENT_DATA_DIR") or os.environ.get("DATA_DIR")
+if _env_data_dir:
+    DATA_DIR = Path(_env_data_dir)
+elif Path("/var/data").exists() and os.access("/var/data", os.W_OK):
+    DATA_DIR = Path("/var/data")
+else:
+    DATA_DIR = BASE_DIR / "data"
+
 TEMPLATES_DIR = BASE_DIR / "templates"
 STATIC_DIR = BASE_DIR / "static"
+UPLOADS_DIR = STATIC_DIR / "uploads"
 DB_PATH = DATA_DIR / "tiduba.db"
 
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 # CẤU HÌNH NGÂN HÀNG THỤ HƯỞNG CHÍNH THỨC CỦA APP (MBBANK 0123006101998)
 BANK_CONFIG = {
@@ -452,12 +463,40 @@ def init_db():
     except Exception:
         pass
 
+    # Tự động cập nhật cột revenue_chat_id cho telegram_config (-1003930707954)
+    try:
+        cur.execute("ALTER TABLE telegram_config ADD COLUMN revenue_chat_id TEXT DEFAULT '-1003930707954';")
+        conn.commit()
+    except Exception:
+        pass
+
+    try:
+        cur.execute("UPDATE telegram_config SET revenue_chat_id = '-1003930707954' WHERE (revenue_chat_id IS NULL OR revenue_chat_id = '')")
+        conn.commit()
+    except Exception:
+        pass
+
     # Bảng Lưu Log Nhắc Hẹn & Quá Hạn (Tránh gửi lặp lại)
     cur.execute("""
     CREATE TABLE IF NOT EXISTS reminder_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         rental_id INTEGER NOT NULL,
         event_type TEXT NOT NULL,
+        sent_at TEXT NOT NULL
+    );
+    """)
+    conn.commit()
+
+    # Bảng Lưu Log Chốt Sổ & Báo Cáo Doanh Thu Ngày (Group -1003930707954)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS daily_revenue_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        report_date TEXT NOT NULL,
+        bills_count INTEGER NOT NULL DEFAULT 0,
+        total_revenue INTEGER NOT NULL DEFAULT 0,
+        total_deposit_paid INTEGER NOT NULL DEFAULT 0,
+        total_deposit_refunded INTEGER NOT NULL DEFAULT 0,
+        is_updated INTEGER NOT NULL DEFAULT 0,
         sent_at TEXT NOT NULL
     );
     """)
@@ -1112,6 +1151,61 @@ def get_me(user: Optional[Dict[str, Any]] = Depends(get_current_user)):
     if not user:
         return {"authenticated": False}
     return {"authenticated": True, "user": user}
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+
+@app.post("/api/auth/change_password")
+def change_password(req: ChangePasswordRequest, user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+    """Đổi mật khẩu tài khoản đang đăng nhập."""
+    if not user:
+        raise HTTPException(status_code=401, detail="Vui lòng đăng nhập để đổi mật khẩu!")
+
+    new_p = req.new_password.strip()
+    if len(new_p) < 6:
+        raise HTTPException(status_code=400, detail="Mật khẩu mới phải có ít nhất 6 ký tự!")
+
+    conn = get_db()
+    cur = conn.cursor()
+    old_hash = hash_password(req.old_password.strip())
+    u = cur.execute("SELECT id FROM users WHERE id = ? AND password_hash = ?", (user["id"], old_hash)).fetchone()
+    if not u:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Mật khẩu hiện tại không chính xác!")
+
+    new_hash = hash_password(new_p)
+    cur.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_hash, user["id"]))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "✅ Đổi mật khẩu thành công! Vui lòng ghi nhớ mật khẩu mới."}
+
+
+class AdminResetPasswordRequest(BaseModel):
+    new_password: str
+
+
+@app.post("/api/admin/users/{user_id}/change_password")
+def admin_reset_user_password(user_id: int, req: AdminResetPasswordRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin đặt lại mật khẩu cho bất kỳ người dùng nào."""
+    new_p = req.new_password.strip()
+    if len(new_p) < 6:
+        raise HTTPException(status_code=400, detail="Mật khẩu mới phải có ít nhất 6 ký tự!")
+
+    conn = get_db()
+    cur = conn.cursor()
+    u = cur.execute("SELECT username, full_name FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not u:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản người dùng!")
+
+    new_hash = hash_password(new_p)
+    cur.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_hash, user_id))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": f"✅ Đã đặt lại mật khẩu cho tài khoản '{u['username']}' ({u['full_name']}) thành công!"}
 
 
 # =============================================================================
@@ -3540,6 +3634,86 @@ def pull_data_from_remote(req: RemoteSyncPushRequest, admin: Dict[str, Any] = De
 
 
 # =============================================================================
+# 12.2C BACKUP & RESTORE TRỰC TIẾP FILE DATABASE SQLite (.db) TÁCH BIỆT CODE
+# =============================================================================
+
+@app.get("/api/admin/database/download")
+def download_database_file(token: Optional[str] = None, authorization: Optional[str] = Header(None)):
+    """Admin tải file sqlite tiduba.db về máy tính để sao lưu vĩnh viễn."""
+    auth_header = authorization or (f"Bearer {token}" if token else None)
+    user = get_current_user(auth_header)
+    if not user or user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ Quản trị viên (Admin) mới có quyền tải database!")
+
+    if not DB_PATH.exists():
+        raise HTTPException(status_code=404, detail="File database không tồn tại!")
+
+    filename = f"tiduba_backup_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+    return FileResponse(
+        path=str(DB_PATH),
+        filename=filename,
+        media_type="application/x-sqlite3"
+    )
+
+
+@app.post("/api/admin/database/upload")
+async def upload_and_restore_database(file: UploadFile = File(...), admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin tải file .db từ máy tính lên Web Cloud để phục hồi toàn bộ dữ liệu (Hot-Reload tức thì)."""
+    fname = (file.filename or "").lower()
+    if not (fname.endswith(".db") or fname.endswith(".sqlite")):
+        raise HTTPException(status_code=400, detail="Chỉ chấp nhận file SQLite (.db hoặc .sqlite)!")
+
+    content = await file.read()
+    if len(content) < 100:
+        raise HTTPException(status_code=400, detail="File database không hợp lệ hoặc rỗng!")
+
+    # Sao lưu file cũ trước khi ghi đè
+    backup_path = DATA_DIR / f"tiduba_pre_restore_{int(time.time())}.db"
+    if DB_PATH.exists():
+        try:
+            shutil.copy2(DB_PATH, backup_path)
+        except Exception:
+            pass
+
+    # Ghi đè file DB_PATH
+    with open(DB_PATH, "wb") as f:
+        f.write(content)
+
+    # Đồng bộ lại trạng thái items
+    sync_items_availability()
+
+    return {
+        "success": True,
+        "message": f"✅ Đã khôi phục và nạp database thành công! Kích thước: {len(content):,} bytes."
+    }
+
+
+@app.get("/api/admin/database/status")
+def get_database_status(admin: Dict[str, Any] = Depends(require_admin)):
+    """Kiểm tra tình trạng bộ nhớ lưu trữ và thống kê số lượng dữ liệu hiện tại."""
+    conn = get_db()
+    items_count = conn.execute("SELECT count(*) as c FROM items").fetchone()["c"]
+    rentals_count = conn.execute("SELECT count(*) as c FROM rentals").fetchone()["c"]
+    users_count = conn.execute("SELECT count(*) as c FROM users").fetchone()["c"]
+    cats_count = conn.execute("SELECT count(*) as c FROM categories_config").fetchone()["c"]
+    conn.close()
+
+    size_bytes = DB_PATH.stat().st_size if DB_PATH.exists() else 0
+    mtime = datetime.datetime.fromtimestamp(DB_PATH.stat().st_mtime).strftime("%d/%m/%Y %H:%M:%S") if DB_PATH.exists() else "--"
+
+    return {
+        "success": True,
+        "db_path": str(DB_PATH),
+        "size_kb": round(size_bytes / 1024, 1),
+        "last_modified": mtime,
+        "items_count": items_count,
+        "rentals_count": rentals_count,
+        "users_count": users_count,
+        "categories_count": cats_count
+    }
+
+
+# =============================================================================
 # 12.3 SINH MÃ VIETQR HOÀN CỌC CHO ADMIN QUÉT TRẢ TIỀN 1-CHẠM
 # =============================================================================
 
@@ -3985,6 +4159,11 @@ def _send_telegram_notification(
             if event_type in ("OVERDUE", "WARNING_DUE_SOON", "PICKUP_REMINDER"):
                 active_chat_id = cfg["overdue_chat_id"].strip()
 
+        # Nếu là sự kiện BÁO CÁO DOANH THU NGÀY: Ưu tiên gửi sang Group doanh thu ngày (-1003930707954)
+        if not override_chat_id and cfg and "revenue_chat_id" in cfg.keys() and cfg["revenue_chat_id"]:
+            if event_type == "DAILY_REVENUE":
+                active_chat_id = cfg["revenue_chat_id"].strip()
+
         if active_token and active_chat_id:
             # Kiểm tra phân loại sự kiện theo cấu hình bật/tắt (nếu không phải TEST hoặc override)
             if not override_chat_id and cfg and cfg["is_active"]:
@@ -4208,6 +4387,7 @@ class TelegramConfigRequest(BaseModel):
     bot_token: Optional[str] = None
     chat_id: Optional[str] = None
     overdue_chat_id: Optional[str] = None
+    revenue_chat_id: Optional[str] = None
     is_active: Optional[int] = None
     auto_notify_new_rental: Optional[int] = None
     auto_notify_payment: Optional[int] = None
@@ -4313,6 +4493,185 @@ def check_overdue_alerts_now(admin: Dict[str, Any] = Depends(require_admin)):
         "overdue_count": overdue_count,
         "remind_count": remind_count
     }
+
+
+# =============================================================================
+# 15.1 BÁO CÁO TỔNG KẾT DOANH THU NGÀY 21:00 (GROUP -1003930707954)
+# =============================================================================
+
+def calculate_daily_revenue_metrics(target_date: Optional[str] = None) -> Dict[str, Any]:
+    """Tính toán chi tiết toàn bộ doanh thu, tiền cọc, số bill phát sinh trong ngày."""
+    if not target_date:
+        target_date = datetime.date.today().strftime("%Y-%m-%d")
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    # 1. Các đơn hàng tạo trong ngày (không tính đơn CANCELLED)
+    rentals_today = cur.execute("""
+        SELECT r.*, COALESCE(i.name, c.name, 'Đơn nhiều món') as item_name,
+               u.full_name as customer_name, u.phone as customer_phone
+        FROM rentals r
+        LEFT JOIN items i ON r.item_id = i.id
+        LEFT JOIN combos c ON r.combo_id = c.id
+        JOIN users u ON r.user_id = u.id
+        WHERE r.status != 'CANCELLED' AND r.created_at LIKE ?
+        ORDER BY r.id ASC
+    """, (f"{target_date}%",)).fetchall()
+
+    # 2. Các đơn hoàn trả trong ngày
+    returns_today = cur.execute("""
+        SELECT r.*, COALESCE(i.name, c.name, 'Đơn nhiều món') as item_name,
+               u.full_name as customer_name, u.phone as customer_phone
+        FROM rentals r
+        LEFT JOIN items i ON r.item_id = i.id
+        LEFT JOIN combos c ON r.combo_id = c.id
+        JOIN users u ON r.user_id = u.id
+        WHERE r.status = 'RETURNED' AND (
+            r.admin_notes LIKE ? OR r.created_at LIKE ?
+        )
+    """, (f"%{target_date}%", f"{target_date}%")).fetchall()
+
+    conn.close()
+
+    total_bills = len(rentals_today)
+    bills_cn1 = sum(1 for r in rentals_today if (r["branch_code"] or "CN1") == "CN1")
+    bills_cn2 = sum(1 for r in rentals_today if (r["branch_code"] or "CN1") == "CN2")
+
+    total_rent = sum(r["total_price"] or 0 for r in rentals_today if r["status"] in ("ACTIVE", "RETURNED"))
+    total_late = sum(r["late_fee"] or 0 for r in rentals_today if r["status"] in ("ACTIVE", "RETURNED"))
+    total_revenue = total_rent + total_late
+
+    total_deposit_paid = sum(r["deposit_paid"] or 0 for r in rentals_today if r["status"] in ("ACTIVE", "RETURNED"))
+    total_deposit_refunded = sum(r["deposit_paid"] or 0 for r in returns_today if (r["deposit_paid"] or 0) > 0)
+
+    active_count = sum(1 for r in rentals_today if r["status"] in ("ACTIVE", "HOLD"))
+    returned_count = sum(1 for r in rentals_today if r["status"] == "RETURNED")
+
+    return {
+        "date": target_date,
+        "total_bills": total_bills,
+        "bills_cn1": bills_cn1,
+        "bills_cn2": bills_cn2,
+        "total_rent": total_rent,
+        "total_late": total_late,
+        "total_revenue": total_revenue,
+        "total_deposit_paid": total_deposit_paid,
+        "total_deposit_refunded": total_deposit_refunded,
+        "active_count": active_count,
+        "returned_count": returned_count,
+        "rentals": [dict(r) for r in rentals_today]
+    }
+
+
+def format_daily_revenue_message(m: Dict[str, Any], is_update: bool = False) -> str:
+    """Soạn thảo tin nhắn báo cáo doanh thu ngày cực kỳ chi tiết, rõ ràng và sang trọng."""
+    now_str = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    date_parts = m["date"].split("-")
+    display_date = f"{date_parts[2]}/{date_parts[1]}/{date_parts[0]}" if len(date_parts) == 3 else m["date"]
+
+    title = "🔄 <b>[CẬP NHẬT DOANH THU] CÓ BIẾN ĐỘNG SAU GIỜ CHỐT SỔ (21:00)!</b>" if is_update else f"📊 <b>TIDUBA STORE - TỔNG KẾT DOANH THU NGÀY {display_date}</b>"
+    note_header = "⚡ <i>Vừa có giao dịch trả đồ / thanh toán mới sau 21:00! Dưới đây là tổng kết cập nhật mới nhất:</i>\n" if is_update else ""
+
+    bills_list_preview = ""
+    if m["rentals"]:
+        bills_list_preview = "\n📝 <b>Danh sách bill trong ngày:</b>\n"
+        for idx, r in enumerate(m["rentals"][:8], 1):
+            st = "✅ Đã trả" if r["status"] == "RETURNED" else ("⏳ Đang thuê" if r["status"] == "ACTIVE" else r["status"])
+            dep_info = f" (Cọc: {r['deposit_paid']:,}đ)" if (r.get("deposit_paid") or 0) > 0 else ""
+            bills_list_preview += f"{idx}. <code>{r['rental_code']}</code> - {r['customer_name']}: <b>{r['total_price']:,}đ</b>{dep_info} [{st}]\n"
+        if len(m["rentals"]) > 8:
+            bills_list_preview += f"   <i>... và {len(m['rentals']) - 8} đơn khác.</i>\n"
+
+    msg = (
+        f"{title}\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"{note_header}"
+        f"🧾 <b>Tổng số bill trong ngày:</b> <b>{m['total_bills']} bill</b>\n"
+        f"   • CN1 (183A Huỳnh Thúc Kháng): <b>{m['bills_cn1']}</b>\n"
+        f"   • CN2 (801 Lê Duẩn): <b>{m['bills_cn2']}</b>\n\n"
+        f"💰 <b>TỔNG DOANH THU HÔM NAY:</b> <b>{m['total_revenue']:,}đ</b>\n"
+        f"   • Tiền thuê thiết bị / đồ: <b>{m['total_rent']:,}đ</b>\n"
+        f"   • Phụ thu & phí trễ hạn: <b>{m['total_late']:,}đ</b>\n\n"
+        f"🛡️ <b>TỔNG TIỀN CỌC TRONG NGÀY:</b>\n"
+        f"   • Tiền cọc đã thu vào: <b>{m['total_deposit_paid']:,}đ</b>\n"
+        f"   • Tiền cọc đã hoàn trả khách: <b>{m['total_deposit_refunded']:,}đ</b>\n\n"
+        f"📦 <b>Tình trạng thiết bị trong ngày:</b>\n"
+        f"   • Đã nhận trả về kho: <b>{m['returned_count']} đơn</b>\n"
+        f"   • Đang còn thuê ngoài: <b>{m['active_count']} đơn</b>\n"
+        f"{bills_list_preview}"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"⏰ <i>Thời gian chốt: {now_str}</i>"
+    )
+    return msg
+
+
+def send_daily_revenue_report(target_date: Optional[str] = None, is_update: bool = False) -> Tuple[bool, str]:
+    """Gửi tin nhắn tổng kết doanh thu ngày vào Group Telegram -1003930707954."""
+    if not target_date:
+        target_date = datetime.date.today().strftime("%Y-%m-%d")
+
+    m = calculate_daily_revenue_metrics(target_date)
+    msg = format_daily_revenue_message(m, is_update=is_update)
+
+    conn = get_db()
+    cfg = conn.execute("SELECT * FROM telegram_config WHERE id = 1").fetchone()
+    rev_chat_id = (cfg["revenue_chat_id"] if (cfg and "revenue_chat_id" in cfg.keys() and cfg["revenue_chat_id"]) else "-1003930707954").strip()
+
+    sent = _send_telegram_notification(msg, event_type="DAILY_REVENUE", override_chat_id=rev_chat_id)
+
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO daily_revenue_logs (
+            report_date, bills_count, total_revenue, total_deposit_paid,
+            total_deposit_refunded, is_updated, sent_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (target_date, m["total_bills"], m["total_revenue"], m["total_deposit_paid"], m["total_deposit_refunded"], 1 if is_update else 0, now_str))
+    conn.commit()
+    conn.close()
+
+    return (sent, f"Đã gửi báo cáo doanh thu ngày {target_date} vào Group {rev_chat_id}!")
+
+
+def check_and_trigger_daily_revenue_update():
+    """Nếu sau giờ chốt sổ 21:00 có biến động mới (trả đồ, thu thêm cọc, hóa đơn mới), tự động tính lại và gửi bản cập nhật."""
+    try:
+        today_str = datetime.date.today().strftime("%Y-%m-%d")
+        conn = get_db()
+        last_log = conn.execute("""
+            SELECT * FROM daily_revenue_logs 
+            WHERE report_date = ? 
+            ORDER BY id DESC LIMIT 1
+        """, (today_str,)).fetchone()
+        conn.close()
+
+        # Chỉ kích hoạt nếu hôm nay ĐÃ TỪNG GỬI báo cáo chốt sổ (lúc 21h hoặc Admin bấm chốt)
+        if last_log:
+            cur_m = calculate_daily_revenue_metrics(today_str)
+            if (cur_m["total_bills"] != last_log["bills_count"] or
+                cur_m["total_revenue"] != last_log["total_revenue"] or
+                cur_m["total_deposit_refunded"] != last_log["total_deposit_refunded"]):
+                print("[DAILY REVENUE] Phát hiện biến động sau 21:00 -> Tự động gửi bản cập nhật mới nhất!")
+                send_daily_revenue_report(today_str, is_update=True)
+    except Exception as e:
+        print(f"[DAILY REVENUE UPDATE ERROR] {e}")
+
+
+@app.post("/api/admin/telegram/send_daily_revenue_report")
+def api_send_daily_revenue_report(date: Optional[str] = None, admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin chủ động bấm chốt sổ & bắn báo cáo doanh thu vào Group Telegram ngay lập tức."""
+    target_date = date or datetime.date.today().strftime("%Y-%m-%d")
+    sent, msg = send_daily_revenue_report(target_date, is_update=False)
+    return {"success": sent, "message": msg}
+
+
+@app.get("/api/admin/telegram/daily_revenue_preview")
+def api_get_daily_revenue_preview(date: Optional[str] = None, admin: Dict[str, Any] = Depends(require_admin)):
+    """Xem trước số liệu doanh thu, bill và cọc của ngày hôm nay."""
+    target_date = date or datetime.date.today().strftime("%Y-%m-%d")
+    m = calculate_daily_revenue_metrics(target_date)
+    return {"success": True, "metrics": m}
 
 
 @app.get("/api/admin/telegram/logs")
@@ -4515,6 +4874,9 @@ def process_return_by_qr(req: ReturnQrRequest, admin: Dict[str, Any] = Depends(r
         f"━━━━━━━━━━━━━━━━━━"
     )
     _send_telegram_notification(tele_msg, rental_id=rental_dict["id"], event_type="RETURN")
+
+    # Tự động cập nhật lại tổng kết doanh thu nếu sau 21h có khách trả đồ
+    check_and_trigger_daily_revenue_update()
 
     return {
         "success": True,
@@ -5016,6 +5378,9 @@ def telegram_bot_updates_worker():
                                 cur.execute("INSERT INTO print_queue (rental_id, bill_text, status, created_at) VALUES (?, ?, 'PENDING', ?)", (rental_id, f"Bill {rental_code}", now_str))
                                 conn.commit()
 
+                                # Kích hoạt cập nhật doanh thu nếu sau 21h
+                                check_and_trigger_daily_revenue_update()
+
                                 # 1. Trả lời popup ngay trên màn hình Telegram
                                 ans_url = f"https://api.telegram.org/bot{bot_token}/answerCallbackQuery"
                                 ans_body = json.dumps({
@@ -5052,7 +5417,15 @@ def telegram_bot_updates_worker():
                                 try:
                                     urllib.request.urlopen(ans_req, timeout=5)
                                 except Exception: pass
-                            conn.close()
+            # --- 3. TỰ ĐỘNG CHỐT SỔ DOANH THU LÚC 21:00 (9 GIỜ TỐI) VÀO GROUP -1003930707954 ---
+            if now.hour == 21 and now.minute <= 5:
+                today_d = now.strftime("%Y-%m-%d")
+                chk_rep = cur.execute("SELECT id FROM daily_revenue_logs WHERE report_date = ? AND is_updated = 0", (today_d,)).fetchone()
+                if not chk_rep:
+                    print(f"[DAILY REVENUE] Đúng 21:00 -> Tự động chốt sổ doanh thu ngày {today_d}...")
+                    send_daily_revenue_report(today_d, is_update=False)
+
+            conn.close()
         except Exception:
             time.sleep(3)
 
