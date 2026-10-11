@@ -44,6 +44,29 @@ if sys.platform.startswith("win"):
 
 BASE_DIR = Path(__file__).resolve().parent
 
+# =============================================================================
+# CẤU HÌNH MÚI GIỜ VIỆT NAM (GMT+7 / Asia/Ho_Chi_Minh) CHUẨN XÁC 100%
+# Đồng bộ tuyệt đối giữa Web, App, Database và Bot Telegram trên mọi nền tảng
+# =============================================================================
+os.environ["TZ"] = "Asia/Ho_Chi_Minh"
+if hasattr(time, "tzset"):
+    try:
+        time.tzset()
+    except Exception:
+        pass
+
+VN_TZ = datetime.timezone(datetime.timedelta(hours=7))
+
+
+def vn_now() -> datetime.datetime:
+    """Trả về thời gian hiện tại chuẩn Việt Nam (GMT+7, Asia/Ho_Chi_Minh)."""
+    return datetime.datetime.now(VN_TZ).replace(tzinfo=None)
+
+
+def vn_today() -> datetime.date:
+    """Trả về ngày hiện tại chuẩn Việt Nam (GMT+7)."""
+    return vn_now().date()
+
 # Hỗ trợ lưu trữ bền vững (Render Persistent Disk / Custom Volume)
 _env_data_dir = os.environ.get("PERSISTENT_DATA_DIR") or os.environ.get("DATA_DIR")
 if _env_data_dir:
@@ -569,7 +592,7 @@ def init_db():
     # Pre-seed Telegram Config nếu chưa có
     cur.execute("SELECT count(*) as c FROM telegram_config")
     if cur.fetchone()["c"] == 0:
-        now_dt = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now_dt = vn_now().strftime("%Y-%m-%d %H:%M:%S")
         cur.execute("""
         INSERT INTO telegram_config (bot_token, chat_id, is_active, auto_notify_new_rental, auto_notify_payment, auto_notify_return, auto_notify_overdue, updated_at)
         VALUES ('', '', 1, 1, 1, 1, 1, ?)
@@ -579,7 +602,7 @@ def init_db():
     # Pre-seed Admin, Khách mẫu & Blacklist
     cur.execute("SELECT count(*) as c FROM users")
     if cur.fetchone()["c"] == 0:
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = vn_now().strftime("%Y-%m-%d %H:%M:%S")
         cur.execute("""
         INSERT INTO users (username, email, password_hash, full_name, phone, role, cccd_number, face_liveness_verified, loyalty_points, created_at)
         VALUES 
@@ -597,7 +620,7 @@ def init_db():
     # Pre-seed Items với đầy đủ giá 4h, 8h, 24h & ngàm/shot/size
     cur.execute("SELECT count(*) as c FROM items")
     if cur.fetchone()["c"] == 0:
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = vn_now().strftime("%Y-%m-%d %H:%M:%S")
         seed_items = [
             ("Sony Alpha A7 IV (Body Full-Frame 33MP)", "CAMERA_GEAR", "Body Máy Ảnh", "Sony", "SN: SONY-A7M4-8891",
              "Sony E-mount", 4120, None, 150000, 250000, 350000, 5000000,
@@ -670,7 +693,7 @@ def init_db():
     # Pre-seed Combos
     cur.execute("SELECT count(*) as c FROM combos")
     if cur.fetchone()["c"] == 0:
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = vn_now().strftime("%Y-%m-%d %H:%M:%S")
         seed_combos = [
             ("Combo Kỷ Yếu Cổ Phục Hoàng Cung", "TIẾT KIỆM 15%", 720000, 850000, 7000000,
              "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=800&q=80",
@@ -697,7 +720,7 @@ def init_db():
     # Pre-seed Reviews
     cur.execute("SELECT count(*) as c FROM reviews")
     if cur.fetchone()["c"] == 0:
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = vn_now().strftime("%Y-%m-%d %H:%M:%S")
         seed_reviews = [
             (1, 2, "Nguyễn Văn Khách", 5, "Máy Sony A7IV siêu mới, cảm biến sạch bong không một hạt bụi. Chụp kỷ yếu ảnh nét căng!", None, now),
             (7, 2, "Nguyễn Văn Khách", 5, "Set cổ phục thêu tay lộng lẫy, đi chụp ở Cố đô Huế ai cũng khen nức nở. Áo thơm tho sạch sẽ!", None, now),
@@ -892,7 +915,7 @@ def sync_items_availability(conn: Optional[sqlite3.Connection] = None):
         should_close = True
 
     try:
-        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
         cur = conn.cursor()
 
         # 1. Hủy các đơn HOLD đã hết hạn 15 phút
@@ -974,7 +997,7 @@ def update_and_check_rental_alerts():
     """
     conn = get_db()
     cur = conn.cursor()
-    now = datetime.datetime.now()
+    now = vn_now()
     now_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
     # 1. Thu hồi các đơn HOLD quá hạn và đồng bộ lại kho thiết bị
@@ -1091,7 +1114,7 @@ def register(req: RegisterRequest):
     conn = get_db()
     cur = conn.cursor()
     try:
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = vn_now().strftime("%Y-%m-%d %H:%M:%S")
         cur.execute("""
         INSERT INTO users (username, email, password_hash, full_name, phone, role, loyalty_points, created_at)
         VALUES (?, ?, ?, ?, ?, 'customer', 50000, ?)
@@ -1313,7 +1336,7 @@ def sign_contract_otp(rental_id: int, req: VerifyOtpSignRequest, user: Optional[
         conn.close()
         raise HTTPException(status_code=400, detail="Mã OTP không chính xác hoặc đã hết hạn!")
 
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
     cur.execute("""
     UPDATE rentals 
     SET e_contract_signed = 1, signed_at = ?, e_contract_otp = NULL
@@ -1468,7 +1491,7 @@ def payment_webhook_ipn(payload: PaymentWebhookPayload, request: Request):
         "deposit_paid": rental["deposit_paid"]
     })
 
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
     cur.execute("""
     INSERT INTO print_queue (rental_id, bill_text, status, created_at)
     VALUES (?, ?, 'PENDING', ?)
@@ -1509,7 +1532,7 @@ def ack_printer_job(job_id: int, x_printer_secret: Optional[str] = Header(None))
     if not hmac.compare_digest((x_printer_secret or ""), PRINTER_SECRET):
         raise HTTPException(status_code=401, detail="Printer secret không hợp lệ!")
     conn = get_db()
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
     conn.execute("UPDATE print_queue SET status = 'PRINTED', printed_at = ? WHERE id = ?", (now_str, job_id))
     conn.commit()
     conn.close()
@@ -1529,7 +1552,7 @@ class ApplyCouponRequest(BaseModel):
 def apply_coupon(req: ApplyCouponRequest):
     """Kiểm tra và tính toán giảm giá của mã Coupon."""
     conn = get_db()
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
 
     c = conn.execute("""
     SELECT * FROM coupons 
@@ -1591,7 +1614,7 @@ def submit_handover_protocol(req: HandoverSubmitRequest, admin: Dict[str, Any] =
     """Nhân viên và khách hàng ký biên bản bàn giao số trực tiếp qua camera & chữ ký cảm ứng."""
     conn = get_db()
     cur = conn.cursor()
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
 
     cur.execute("""
     INSERT INTO handover_protocols (
@@ -1633,7 +1656,7 @@ def add_damage_penalty(req: DamagePenaltyRequest, admin: Dict[str, Any] = Depend
     """Nhân viên chọn lỗi từ danh mục chuẩn hóa để tự động trừ tiền cọc."""
     conn = get_db()
     cur = conn.cursor()
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
 
     cur.execute("""
     INSERT INTO damage_penalties (rental_id, damage_code, damage_title, penalty_amount, notes, created_at)
@@ -1654,7 +1677,7 @@ def complete_qc_and_refund(rental_id: int, admin: Dict[str, Any] = Depends(requi
     """Hoàn tất nghiệm thu: Tính toán tổng cọc trừ tiền phạt và kích hoạt hoàn tiền tự động qua MBBank."""
     conn = get_db()
     cur = conn.cursor()
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
 
     rental = cur.execute("""
     SELECT r.*, u.full_name as customer_name, u.phone as customer_phone
@@ -1734,7 +1757,7 @@ def get_legal_overdue_dossier(rental_id: int, admin: Dict[str, Any] = Depends(re
     if not r:
         raise HTTPException(status_code=404, detail="Không tìm thấy đơn!")
 
-    now_str = datetime.datetime.now().strftime("ngày %d tháng %m năm %Y")
+    now_str = vn_now().strftime("ngày %d tháng %m năm %Y")
 
     html = f"""<!DOCTYPE html>
 <html lang="vi">
@@ -1938,7 +1961,7 @@ def post_item_review(item_id: int, req: PostReviewRequest, user: Optional[Dict[s
         raise HTTPException(status_code=401, detail="Vui lòng đăng nhập để đánh giá!")
     conn = get_db()
     cur = conn.cursor()
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
 
     cur.execute("""
     INSERT INTO reviews (item_id, user_id, user_name, rating, comment, photo_sample_url, created_at)
@@ -2047,7 +2070,7 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
     effective_end_time = dt_end.strftime("%Y-%m-%d %H:%M")
     discount = 0
 
-    now = datetime.datetime.now()
+    now = vn_now()
     now_str = now.strftime("%Y-%m-%d %H:%M:%S")
     hold_expires_at = (now + datetime.timedelta(minutes=15)).strftime("%Y-%m-%d %H:%M:%S")
     rental_code = f"TDB-{int(time.time()*1000)%1000000:06d}"
@@ -2387,7 +2410,7 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
             hours = 24.0
             r_days = 1.0
             it_price = price_24h
-            dt_s = datetime.datetime.now()
+            dt_s = vn_now()
             dt_e = dt_s + datetime.timedelta(days=1)
 
         # Nếu là máy ảnh và người dùng chọn gói riêng: 4h, 8h, 1_day, multi_days
@@ -2450,7 +2473,7 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
         asset_desc = req.deposit_asset_desc or f"Cọc tiền/tài sản: {final_deposit:,}đ"
     discount = 0
 
-    now = datetime.datetime.now()
+    now = vn_now()
     now_str = now.strftime("%Y-%m-%d %H:%M:%S")
     hold_expires_at = (now + datetime.timedelta(minutes=15)).strftime("%Y-%m-%d %H:%M:%S")
     rental_code = f"TDB-{int(time.time()*1000)%1000000:06d}"
@@ -2598,7 +2621,7 @@ def request_extension(rental_id: int, req: RequestExtensionRequest, user: Option
     WHERE id = ?
     """, (req.extension_hours, req.extension_hours, req.notes or '', rental_id))
 
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
     cur.execute("""
     INSERT INTO alerts (rental_id, alert_type, title, message, created_at)
     VALUES (?, 'EXTENSION_REQUEST', ?, ?, ?)
@@ -2679,7 +2702,7 @@ def get_rental_contract(rental_id: int, user: Optional[Dict[str, Any]] = Depends
     if user is None or (user.get("role") != "admin" and r["user_id"] != user["id"]):
         raise HTTPException(status_code=403, detail="Bạn không có quyền xem hợp đồng này!")
 
-    now_str = datetime.datetime.now().strftime("ngày %d tháng %m năm %Y")
+    now_str = vn_now().strftime("ngày %d tháng %m năm %Y")
     total_val = r["total_price"] + r["deposit_paid"]
     otp_status = "ĐÃ KÝ SỐ QUA MÃ OTP CHÍNH CHỦ" if r["e_contract_signed"] else "CHỜ KÝ SỐ OTP"
     b_code = r["branch_code"] if ("branch_code" in r.keys() and r["branch_code"]) else "CN1"
@@ -2816,7 +2839,7 @@ def get_admin_dashboard_stats(admin: Dict[str, Any] = Depends(require_admin)):
 
     # Thống kê doanh thu 7 ngày gần nhất
     revenue_7d = []
-    today = datetime.date.today()
+    today = vn_today()
     for idx in range(6, -1, -1):
         day_date = today - datetime.timedelta(days=idx)
         day_str = day_date.strftime("%Y-%m-%d")
@@ -2879,7 +2902,7 @@ def get_all_rentals_admin(status: Optional[str] = None, admin: Dict[str, Any] = 
     rentals = [dict(row) for row in conn.execute(query, params).fetchall()]
     conn.close()
 
-    now = datetime.datetime.now()
+    now = vn_now()
     for r in rentals:
         try:
             dt_end = datetime.datetime.fromisoformat(r["end_time"])
@@ -3132,7 +3155,7 @@ async def upload_payment_proof_image(
 def create_item_admin(req: CreateItemAdminRequest, admin: Dict[str, Any] = Depends(require_admin)):
     conn = get_db()
     cur = conn.cursor()
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
 
     cur.execute("""
     INSERT INTO items (name, category, subcategory, brand, serial_or_size, price_4h, price_8h, price_24h, deposit_amount, image_url, gallery_json, description, condition_status, availability, branch_code, created_at)
@@ -3258,7 +3281,7 @@ def update_site_settings(req: UpdateSiteSettingsRequest, admin: Dict[str, Any] =
     """Admin cập nhật các mục nội dung trực tiếp trên website (tiêu đề, hotline, banner, note...)."""
     conn = get_db()
     cur = conn.cursor()
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
 
     for k, v in req.settings.items():
         cur.execute("""
@@ -3351,7 +3374,7 @@ def add_admin_blacklist(req: BlacklistAddRequest, admin: Dict[str, Any] = Depend
     if not clean_p and not clean_c and not clean_b:
         raise HTTPException(status_code=400, detail="Vui lòng nhập ít nhất SĐT, CCCD hoặc STK Ngân Hàng!")
     conn = get_db()
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
     conn.execute("""
     INSERT INTO blacklist (phone, cccd_number, bank_account, reason, flagged_at)
     VALUES (?, ?, ?, ?, ?)
@@ -3440,7 +3463,7 @@ def export_rentals_csv(token: Optional[str] = None, authorization: Optional[str]
         ])
 
     csv_data = output.getvalue()
-    filename = f"TidubaStore_BaoCaoDoanhThu_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    filename = f"TidubaStore_BaoCaoDoanhThu_{vn_now().strftime('%Y%m%d_%H%M%S')}.csv"
     return Response(
         content=csv_data,
         media_type="text/csv; charset=utf-8",
@@ -3465,7 +3488,7 @@ def export_sync_data(admin: Dict[str, Any] = Depends(require_admin)):
     conn.close()
     return {
         "success": True,
-        "exported_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "exported_at": vn_now().strftime("%Y-%m-%d %H:%M:%S"),
         "categories": cats,
         "items": items,
         "site_settings": settings,
@@ -3515,7 +3538,7 @@ def import_sync_data(payload: ImportSyncDataRequest, admin: Dict[str, Any] = Dep
                 it.get("price_4h", 0), it.get("price_8h", 0), it.get("price_24h", 0), it.get("deposit_amount", 0),
                 it.get("image_url"), it.get("description"), it.get("condition_status"),
                 it.get("availability", "AVAILABLE"), it.get("branch_code", "CN1"),
-                it.get("created_at", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                it.get("created_at", vn_now().strftime("%Y-%m-%d %H:%M:%S"))
             ))
 
     # 3. Cập nhật Site Settings
@@ -3533,7 +3556,7 @@ def import_sync_data(payload: ImportSyncDataRequest, admin: Dict[str, Any] = Dep
             """, (
                 cb.get("id"), cb.get("name"), cb.get("badge"), cb.get("price_24h", 0), cb.get("original_price_24h", 0),
                 cb.get("deposit_amount", 0), cb.get("image_url"), cb.get("description"), cb.get("items_included_json"),
-                cb.get("created_at", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                cb.get("created_at", vn_now().strftime("%Y-%m-%d %H:%M:%S"))
             ))
 
     # 5. Cập nhật Telegram Config (nếu có gửi)
@@ -3547,7 +3570,7 @@ def import_sync_data(payload: ImportSyncDataRequest, admin: Dict[str, Any] = Dep
             is_active = COALESCE(?, is_active),
             updated_at = ?
         WHERE id = 1
-        """, (t.get("bot_token"), t.get("chat_id"), t.get("overdue_chat_id"), t.get("is_active"), datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        """, (t.get("bot_token"), t.get("chat_id"), t.get("overdue_chat_id"), t.get("is_active"), vn_now().strftime("%Y-%m-%d %H:%M:%S")))
 
     conn.commit()
     conn.close()
@@ -3648,7 +3671,7 @@ def download_database_file(token: Optional[str] = None, authorization: Optional[
     if not DB_PATH.exists():
         raise HTTPException(status_code=404, detail="File database không tồn tại!")
 
-    filename = f"tiduba_backup_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+    filename = f"tiduba_backup_{vn_now().strftime('%Y%m%d_%H%M%S')}.db"
     return FileResponse(
         path=str(DB_PATH),
         filename=filename,
@@ -3923,7 +3946,7 @@ def admin_confirm_payment(rental_id: int, admin: Dict[str, Any] = Depends(requir
         "deposit_paid": rental["deposit_paid"]
     })
 
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
     cur.execute("""
     INSERT INTO print_queue (rental_id, bill_text, status, created_at)
     VALUES (?, ?, 'PENDING', ?)
@@ -4091,7 +4114,7 @@ def telegram_quick_confirm_payment(rental_id: int, code: str, sig: Optional[str]
     elif rental["item_id"]:
         cur.execute("UPDATE items SET availability = 'RENTED' WHERE id = ?", (rental["item_id"],))
 
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
     cur.execute("""
     INSERT INTO print_queue (rental_id, bill_text, status, created_at)
     VALUES (?, ?, 'PENDING', ?)
@@ -4148,7 +4171,7 @@ def _send_telegram_notification(
     try:
         conn = get_db()
         cfg = conn.execute("SELECT * FROM telegram_config WHERE id = 1").fetchone()
-        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
         status = "LOG_ONLY"
 
         active_token = (override_token or (cfg["bot_token"] if cfg else "")).strip()
@@ -4399,7 +4422,7 @@ class TelegramConfigRequest(BaseModel):
 def save_telegram_config(req: TelegramConfigRequest, admin: Dict[str, Any] = Depends(require_admin)):
     """Lưu cấu hình Telegram Bot (Hỗ trợ group chính và group quá hạn riêng biệt)."""
     conn = get_db()
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
     existing = conn.execute("SELECT id FROM telegram_config WHERE id = 1").fetchone()
 
     fields = []
@@ -4439,7 +4462,7 @@ def check_overdue_alerts_now(admin: Dict[str, Any] = Depends(require_admin)):
     """).fetchall()
     conn.close()
 
-    now = datetime.datetime.now()
+    now = vn_now()
     overdue_count = 0
     remind_count = 0
 
@@ -4502,7 +4525,7 @@ def check_overdue_alerts_now(admin: Dict[str, Any] = Depends(require_admin)):
 def calculate_daily_revenue_metrics(target_date: Optional[str] = None) -> Dict[str, Any]:
     """Tính toán chi tiết toàn bộ doanh thu, tiền cọc, số bill phát sinh trong ngày."""
     if not target_date:
-        target_date = datetime.date.today().strftime("%Y-%m-%d")
+        target_date = vn_today().strftime("%Y-%m-%d")
 
     conn = get_db()
     cur = conn.cursor()
@@ -4566,7 +4589,7 @@ def calculate_daily_revenue_metrics(target_date: Optional[str] = None) -> Dict[s
 
 def format_daily_revenue_message(m: Dict[str, Any], is_update: bool = False) -> str:
     """Soạn thảo tin nhắn báo cáo doanh thu ngày cực kỳ chi tiết, rõ ràng và sang trọng."""
-    now_str = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    now_str = vn_now().strftime("%d/%m/%Y %H:%M:%S")
     date_parts = m["date"].split("-")
     display_date = f"{date_parts[2]}/{date_parts[1]}/{date_parts[0]}" if len(date_parts) == 3 else m["date"]
 
@@ -4609,7 +4632,7 @@ def format_daily_revenue_message(m: Dict[str, Any], is_update: bool = False) -> 
 def send_daily_revenue_report(target_date: Optional[str] = None, is_update: bool = False) -> Tuple[bool, str]:
     """Gửi tin nhắn tổng kết doanh thu ngày vào Group Telegram -1003930707954."""
     if not target_date:
-        target_date = datetime.date.today().strftime("%Y-%m-%d")
+        target_date = vn_today().strftime("%Y-%m-%d")
 
     m = calculate_daily_revenue_metrics(target_date)
     msg = format_daily_revenue_message(m, is_update=is_update)
@@ -4620,7 +4643,7 @@ def send_daily_revenue_report(target_date: Optional[str] = None, is_update: bool
 
     sent = _send_telegram_notification(msg, event_type="DAILY_REVENUE", override_chat_id=rev_chat_id)
 
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO daily_revenue_logs (
@@ -4637,7 +4660,7 @@ def send_daily_revenue_report(target_date: Optional[str] = None, is_update: bool
 def check_and_trigger_daily_revenue_update():
     """Nếu sau giờ chốt sổ 21:00 có biến động mới (trả đồ, thu thêm cọc, hóa đơn mới), tự động tính lại và gửi bản cập nhật."""
     try:
-        today_str = datetime.date.today().strftime("%Y-%m-%d")
+        today_str = vn_today().strftime("%Y-%m-%d")
         conn = get_db()
         last_log = conn.execute("""
             SELECT * FROM daily_revenue_logs 
@@ -4661,7 +4684,7 @@ def check_and_trigger_daily_revenue_update():
 @app.post("/api/admin/telegram/send_daily_revenue_report")
 def api_send_daily_revenue_report(date: Optional[str] = None, admin: Dict[str, Any] = Depends(require_admin)):
     """Admin chủ động bấm chốt sổ & bắn báo cáo doanh thu vào Group Telegram ngay lập tức."""
-    target_date = date or datetime.date.today().strftime("%Y-%m-%d")
+    target_date = date or vn_today().strftime("%Y-%m-%d")
     sent, msg = send_daily_revenue_report(target_date, is_update=False)
     return {"success": sent, "message": msg}
 
@@ -4669,7 +4692,7 @@ def api_send_daily_revenue_report(date: Optional[str] = None, admin: Dict[str, A
 @app.get("/api/admin/telegram/daily_revenue_preview")
 def api_get_daily_revenue_preview(date: Optional[str] = None, admin: Dict[str, Any] = Depends(require_admin)):
     """Xem trước số liệu doanh thu, bill và cọc của ngày hôm nay."""
-    target_date = date or datetime.date.today().strftime("%Y-%m-%d")
+    target_date = date or vn_today().strftime("%Y-%m-%d")
     m = calculate_daily_revenue_metrics(target_date)
     return {"success": True, "metrics": m}
 
@@ -4759,7 +4782,7 @@ def test_telegram_notification(req: TelegramTestRequest, admin: Dict[str, Any] =
         f"<b>📸 TIDUBA STORE - TEST KẾT NỐI TELEGRAM BOT</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
         f"{req.message or 'Kiểm tra kết nối thành công!'}\n"
-        f"⏰ <b>Thời gian:</b> {datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n"
+        f"⏰ <b>Thời gian:</b> {vn_now().strftime('%d/%m/%Y %H:%M:%S')}\n"
         f"👑 <b>Admin:</b> {admin['full_name']}\n"
         f"━━━━━━━━━━━━━━━━━━"
     )
@@ -4774,7 +4797,7 @@ def test_telegram_notification(req: TelegramTestRequest, admin: Dict[str, Any] =
         # Tự động lưu cấu hình nếu gửi thành công với thông số override
         if req.chat_id or req.bot_token:
             conn = get_db()
-            now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
             if req.chat_id and req.bot_token:
                 conn.execute("UPDATE telegram_config SET chat_id = ?, bot_token = ?, updated_at = ? WHERE id = 1", (req.chat_id.strip(), req.bot_token.strip(), now_str))
             elif req.chat_id:
@@ -4835,7 +4858,7 @@ def process_return_by_qr(req: ReturnQrRequest, admin: Dict[str, Any] = Depends(r
             "rental": rental_dict
         }
 
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
     cur.execute("""
     UPDATE rentals 
     SET status = 'RETURNED', admin_notes = COALESCE(admin_notes, '') || ' | Đã nhận trả đồ qua QR lúc ' || ?
@@ -5127,7 +5150,7 @@ def admin_save_inspection(rental_id: int, req: AdminInspectionRequest, admin: Di
     """Admin lập biên bản kiểm tra tình trạng thiết bị khi giao/nhận."""
     conn = get_db()
     cur = conn.cursor()
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
 
     rental = cur.execute("SELECT * FROM rentals WHERE id = ?", (rental_id,)).fetchone()
     if not rental:
@@ -5186,7 +5209,7 @@ def background_reminder_worker():
     while True:
         try:
             time.sleep(30)
-            now = datetime.datetime.now()
+            now = vn_now()
             now_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
             conn = get_db()
@@ -5374,7 +5397,7 @@ def telegram_bot_updates_worker():
                                 conn.commit()
                                 sync_items_availability(conn)
 
-                                now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
                                 cur.execute("INSERT INTO print_queue (rental_id, bill_text, status, created_at) VALUES (?, ?, 'PENDING', ?)", (rental_id, f"Bill {rental_code}", now_str))
                                 conn.commit()
 
