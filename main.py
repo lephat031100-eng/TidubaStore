@@ -557,9 +557,9 @@ def init_db():
         ('canon', 'Máy Canon', 'BRAND', 'Canon', 2),
         ('vay', 'Váy Tiệc', 'BRAND', 'Váy', 3),
         ('fuji', 'Máy Fujifilm', 'BRAND', 'Fujifilm', 4),
-        ('t1', 'Áo Khoác', 'BRAND', 'tier1', 5),
-        ('t2', 'Du Lịch - Chụp Ảnh', 'BRAND', 'tier2', 6),
-        ('t3', 'Đồ Đông', 'BRAND', 'tier3', 7),
+        ('t1', 'Áo Khoác', 'CATEGORY', 'Áo Khoác', 5),
+        ('t2', 'Du Lịch - Chụp Ảnh', 'CATEGORY', 'Du Lịch', 6),
+        ('t3', 'Đồ Đông', 'CATEGORY', 'Đồ Đông', 7),
         ('boot', 'Boot', 'BRAND', 'Boot', 9),
         ('aodai', 'Áo Dài Thiết Kế', 'BRAND', 'áo dài', 10),
         ('vaytiec', 'Váy Tiệc', 'BRAND', 'Váy Tiệc', 11),
@@ -569,6 +569,15 @@ def init_db():
         ('túi', 'Túi Xách', 'BRAND', 'Túi', 15),
         ('phukien', 'Phụ Kiện', 'BRAND', 'Phụ Kiện', 16),
     ]
+
+    # Chuẩn hóa filter_value cho các danh mục nhóm đồ
+    try:
+        cur.execute("UPDATE categories_config SET filter_type = 'CATEGORY', filter_value = 'Áo Khoác' WHERE code = 't1'")
+        cur.execute("UPDATE categories_config SET filter_type = 'CATEGORY', filter_value = 'Du Lịch' WHERE code = 't2'")
+        cur.execute("UPDATE categories_config SET filter_type = 'CATEGORY', filter_value = 'Đồ Đông' WHERE code = 't3'")
+        conn.commit()
+    except Exception:
+        pass
     cur.execute("SELECT count(*) as c FROM categories_config")
     if cur.fetchone()["c"] < len(official_cats):
         for c in official_cats:
@@ -2975,6 +2984,144 @@ def get_all_rentals_admin(status: Optional[str] = None, admin: Dict[str, Any] = 
         r["is_overdue"] = diff < 0
 
     return {"rentals": rentals, "count": len(rentals)}
+
+
+@app.get("/api/admin/schedule_calendar")
+def get_admin_schedule_calendar(
+    date: Optional[str] = None,
+    branch_code: Optional[str] = None,
+    category: Optional[str] = None,
+    admin: Dict[str, Any] = Depends(require_admin)
+):
+    """
+    Lịch đặt thuê & bàn giao thiết bị trực quan dành cho Quản Trị Viên:
+    - Xem chi tiết từng món đồ có khách đặt từ ngày nào đến ngày nào, giờ nào đến giờ nào.
+    - Phân loại ca: Nhận hôm nay, Trả hôm nay, Đang thuê qua ngày, Quá hạn.
+    - Danh sách toàn bộ thiết bị kèm thanh timeline bận/rảnh trong ngày.
+    """
+    target_date = (date or vn_today().strftime("%Y-%m-%d")).strip()
+    conn = get_db()
+    sync_items_availability(conn)
+    cur = conn.cursor()
+
+    day_start = f"{target_date} 00:00"
+    day_end = f"{target_date} 23:59"
+    today_str = vn_today().strftime("%Y-%m-%d")
+
+    # Lấy các đơn thuê liên quan đến ngày được chọn (không tính đơn hủy CANCELLED)
+    query = """
+        SELECT r.*, 
+               COALESCE(i.name, c.name, 'Đơn Thuê Nhiều Món') as item_name,
+               COALESCE(i.image_url, c.image_url, '/static/logo.png') as item_image,
+               COALESCE(i.category, 'CAMERA_GEAR') as item_category,
+               COALESCE(i.serial_or_size, 'Món đồ') as serial_or_size,
+               u.full_name as customer_name, u.phone as customer_phone
+        FROM rentals r
+        LEFT JOIN items i ON r.item_id = i.id
+        LEFT JOIN combos c ON r.combo_id = c.id
+        JOIN users u ON r.user_id = u.id
+        WHERE r.status != 'CANCELLED'
+          AND (
+            (r.start_time <= ? AND r.end_time >= ?)
+            OR (r.status = 'ACTIVE' AND r.end_time < ? AND ? = ?)
+          )
+    """
+    params = [day_end, day_start, day_start, target_date, today_str]
+
+    if branch_code and branch_code in STORE_BRANCHES:
+        query += " AND r.branch_code = ?"
+        params.append(branch_code)
+
+    if category and category in ("CAMERA_GEAR", "COSTUME_FASHION"):
+        query += " AND (i.category = ? OR r.item_id IS NULL)"
+        params.append(category)
+
+    query += " ORDER BY r.start_time ASC, r.id ASC"
+    rows = cur.execute(query, params).fetchall()
+
+    timeline_events = []
+    pickup_today = []
+    return_today = []
+    ongoing = []
+    overdue = []
+
+    for r in rows:
+        d = dict(r)
+        st = d.get("start_time") or ""
+        et = d.get("end_time") or ""
+        status = d.get("status") or "ACTIVE"
+
+        st_date = st.split(" ")[0] if " " in st else st
+        et_date = et.split(" ")[0] if " " in et else et
+
+        b_code = d.get("branch_code", "CN1") or "CN1"
+        d["branch_info"] = STORE_BRANCHES.get(b_code, STORE_BRANCHES["CN1"])
+
+        if status == "OVERDUE" or (status == "ACTIVE" and et < day_start):
+            event_type = "OVERDUE"
+            event_label = "🚨 Quá hạn chưa trả"
+            overdue.append(d)
+        elif status == "RETURNED":
+            event_type = "RETURNED"
+            event_label = "✅ Đã trả đồ xong"
+        elif st_date == target_date and et_date == target_date:
+            event_type = "IN_DAY"
+            event_label = f"⚡ Thuê trong ngày ({st.split(' ')[-1]} ➔ {et.split(' ')[-1]})"
+            pickup_today.append(d)
+            return_today.append(d)
+        elif st_date == target_date:
+            event_type = "PICKUP"
+            event_label = f"📥 Khách nhận hôm nay ({st.split(' ')[-1]})"
+            pickup_today.append(d)
+        elif et_date == target_date:
+            event_type = "RETURN"
+            event_label = f"📤 Khách trả hôm nay ({et.split(' ')[-1]})"
+            return_today.append(d)
+        else:
+            event_type = "ONGOING"
+            event_label = "⏳ Đang thuê vắt qua ngày"
+            ongoing.append(d)
+
+        d["event_type"] = event_type
+        d["event_label"] = event_label
+        timeline_events.append(d)
+
+    # Lấy danh sách toàn bộ thiết bị
+    item_query = "SELECT id, name, category, subcategory, brand, serial_or_size, price_24h, image_url, availability, branch_code FROM items WHERE availability != 'UNAVAILABLE'"
+    item_params = []
+    if branch_code and branch_code in STORE_BRANCHES:
+        item_query += " AND (branch_code = ? OR branch_code IS NULL)"
+        item_params.append(branch_code)
+    if category and category in ("CAMERA_GEAR", "COSTUME_FASHION"):
+        item_query += " AND category = ?"
+        item_params.append(category)
+    item_query += " ORDER BY id ASC"
+
+    items_rows = cur.execute(item_query, item_params).fetchall()
+    conn.close()
+
+    items_schedule = []
+    for it in items_rows:
+        it_dict = dict(it)
+        it_id = it_dict["id"]
+        slots = [ev for ev in timeline_events if ev.get("item_id") == it_id]
+        it_dict["booked_slots"] = slots
+        it_dict["is_booked_in_date"] = len(slots) > 0
+        items_schedule.append(it_dict)
+
+    return {
+        "success": True,
+        "selected_date": target_date,
+        "summary": {
+            "total_events": len(timeline_events),
+            "pickup_count": len(pickup_today),
+            "return_count": len(return_today),
+            "ongoing_count": len(ongoing),
+            "overdue_count": len(overdue)
+        },
+        "timeline_events": timeline_events,
+        "items_schedule": items_schedule
+    }
 
 
 class UpdateRentalAdminRequest(BaseModel):

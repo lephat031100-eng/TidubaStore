@@ -33,6 +33,7 @@ client = TestClient(app)
 def ensure_items_available():
     conn = get_db()
     cur = conn.cursor()
+    cur.execute("UPDATE rentals SET status = 'RETURNED' WHERE status IN ('ACTIVE', 'HOLD', 'OVERDUE')")
     cur.execute("UPDATE items SET availability = 'AVAILABLE'")
     conn.commit()
     conn.close()
@@ -616,3 +617,30 @@ def test_kiotviet_config_and_excel_import():
     assert imp_res.status_code == 200
     assert imp_res.json()["success"] is True
     assert imp_res.json()["total"] == 2
+
+
+def test_exact_kiotviet_pricing():
+    """Kiểm tra giá KiotViet giữ nguyên 100%, không bị nhân 10 hay kẹp giá tối thiểu."""
+    from kiotviet_service import parse_kiotviet_price
+    assert parse_kiotviet_price(350000.0) == 350000
+    assert parse_kiotviet_price(350000) == 350000
+    assert parse_kiotviet_price("350000.0") == 350000
+    assert parse_kiotviet_price("350.000") == 350000
+    assert parse_kiotviet_price("350,000 đ") == 350000
+    assert parse_kiotviet_price(25000) == 25000
+    assert parse_kiotviet_price(0) == 0
+
+
+def test_admin_schedule_calendar_api():
+    """Kiểm tra API lịch đặt thuê và điều phối thiết bị theo giờ."""
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    token = login_adm.json()["token"]
+    adm_headers = {"Authorization": f"Bearer {token}"}
+
+    res = client.get("/api/admin/schedule_calendar", headers=adm_headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert "summary" in data
+    assert "timeline_events" in data
+    assert "items_schedule" in data

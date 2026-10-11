@@ -18,6 +18,31 @@ import urllib.error
 from typing import Dict, Any, List, Optional, Tuple
 
 
+def parse_kiotviet_price(val: Any) -> int:
+    """
+    Chuyển đổi giá trị tiền tệ KiotViet sang số nguyên (VNĐ) chuẩn xác 100%:
+    - Xử lý float từ openpyxl: 350000.0 -> 350000 (KHÔNG bị nhân 10 thành 3.500.000)
+    - Xử lý chuỗi định dạng: '350.000 đ' -> 350000, '350,000' -> 350000
+    - Giữ nguyên giá KiotViet, KHÔNG tự ý kẹp giá tối thiểu 50k hay mặc định 100k.
+    """
+    if val is None:
+        return 0
+    if isinstance(val, (int, float)):
+        return max(0, int(round(val)))
+    s = str(val).strip()
+    s = re.sub(r'[đĐ\sVNDvnd]', '', s)
+    if not s:
+        return 0
+    # Chuỗi số thực float từ excel dạng '350000.0' hoặc '350000.00'
+    if s.endswith('.0'):
+        s = s[:-2]
+    elif s.endswith('.00'):
+        s = s[:-3]
+    # Lấy sạch các chữ số nguyên
+    clean = re.sub(r'[^\d]', '', s)
+    return int(clean) if clean else 0
+
+
 def normalize_str(s: str) -> str:
     """Chuẩn hóa chuỗi tìm kiếm không dấu, chữ thường."""
     if not s:
@@ -118,7 +143,11 @@ def classify_product_category(cat_name: str, prod_name: str) -> Tuple[str, str, 
         elif any(k in combined for k in ["mic", "thu am"]):
             subcategory = "Micro Thu Âm"
         else:
-            subcategory = "Body Máy Ảnh"
+            subcategory = cat_name or "Body Máy Ảnh"
+
+    # Nếu trên KiotViet đã có nhóm hàng rõ ràng thì ưu tiên giữ nguyên nhóm hàng KiotViet
+    if cat_name and cat_name.strip():
+        subcategory = cat_name.strip()
 
     return category, subcategory, brand
 
@@ -256,15 +285,20 @@ def sync_kiotviet_to_database(db_conn: sqlite3.Connection, retailer: str, client
             continue
 
         cat_name = p.get("categoryName") or ""
-        base_price = int(p.get("basePrice") or 0)
+        base_price = parse_kiotviet_price(p.get("basePrice"))
         on_hand = int(p.get("onHand") or 0)
         is_active = p.get("isActive", True)
 
         category, subcategory, brand = classify_product_category(cat_name, name)
 
-        price_24h = max(50000, base_price) if base_price > 0 else 100000
-        price_4h = int(price_24h * 0.5)
-        price_8h = int(price_24h * 0.7)
+        # Giữ nguyên giá KiotViet 100%, không kẹp giá tối thiểu 50k
+        price_24h = base_price
+        if category == "COSTUME_FASHION":
+            price_4h = price_24h
+            price_8h = price_24h
+        else:
+            price_4h = int(price_24h * 0.5)
+            price_8h = int(price_24h * 0.7)
 
         # Lấy hình ảnh
         images = p.get("images") or []
@@ -385,10 +419,7 @@ def import_kiotviet_excel_or_csv(db_conn: sqlite3.Connection, file_content: byte
                 
                 price_val = 0
                 if idx_price != -1 and idx_price < len(r) and r[idx_price] is not None:
-                    try:
-                        price_val = int(float(str(r[idx_price]).replace(",", "").replace(".", "").replace("đ", "").strip() or 0))
-                    except Exception:
-                        price_val = 0
+                    price_val = parse_kiotviet_price(r[idx_price])
 
                 stock_val = 1
                 if idx_stock != -1 and idx_stock < len(r) and r[idx_stock] is not None:
@@ -451,7 +482,7 @@ def import_kiotviet_excel_or_csv(db_conn: sqlite3.Connection, file_content: byte
                 if not name_val: continue
                 code_val = r[idx_code].strip() if idx_code != -1 and idx_code < len(r) else ""
                 cat_val = r[idx_cat].strip() if idx_cat != -1 and idx_cat < len(r) else ""
-                price_val = int(re.sub(r'[^\d]', '', r[idx_price]) or 0) if idx_price != -1 and idx_price < len(r) else 0
+                price_val = parse_kiotviet_price(r[idx_price]) if idx_price != -1 and idx_price < len(r) else 0
                 stock_val = int(re.sub(r'[^\d]', '', r[idx_stock]) or 1) if idx_stock != -1 and idx_stock < len(r) else 1
                 img_val = r[idx_img].strip() if idx_img != -1 and idx_img < len(r) else ""
                 desc_val = r[idx_desc].strip() if idx_desc != -1 and idx_desc < len(r) else ""
@@ -487,9 +518,14 @@ def import_kiotviet_excel_or_csv(db_conn: sqlite3.Connection, file_content: byte
         desc = item_row["description"] or f"Sản phẩm từ kho KiotViet ({cat_name})"
 
         category, subcategory, brand = classify_product_category(cat_name, name)
-        price_24h = max(50000, base_price) if base_price > 0 else 100000
-        price_4h = int(price_24h * 0.5)
-        price_8h = int(price_24h * 0.7)
+        # Giữ nguyên giá KiotViet 100%, không tự ý can thiệp giá
+        price_24h = int(base_price)
+        if category == "COSTUME_FASHION":
+            price_4h = price_24h
+            price_8h = price_24h
+        else:
+            price_4h = int(price_24h * 0.5)
+            price_8h = int(price_24h * 0.7)
         serial_or_size = code or f"SP-{int(datetime.datetime.now().timestamp()*1000)%1000000}"
         availability = "AVAILABLE" if on_hand > 0 else "UNAVAILABLE"
 
