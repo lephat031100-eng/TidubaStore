@@ -498,6 +498,9 @@
                     <p class="text-xs text-gray-300 mt-1">Duyệt đơn, chỉnh sửa ngày giờ trả, duyệt gia hạn, lập biên bản kiểm tra thiết bị và cập nhật kho máy ảnh / trang phục.</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="openKiotvietHubModal()" class="bg-gradient-to-r from-teal-600 to-emerald-700 hover:from-teal-500 hover:to-emerald-600 text-white font-black px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-teal-950/80 transition" title="Kết nối trực tiếp kho hàng KiotViet và nạp hàng loạt sản phẩm vào web/app">
+                        <i class="fa-solid fa-boxes-packing text-yellow-300"></i> Kho KiotViet
+                    </button>
                     <button onclick="openSyncDataModal()" class="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white font-black px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-indigo-950/80 transition" title="Đồng bộ trực tiếp danh mục & sản phẩm giữa máy tính và Web Cloud không cần chạm vào code">
                         <i class="fa-solid fa-cloud-arrow-up text-cyan-300"></i> Đồng Bộ Web Cloud
                     </button>
@@ -2305,6 +2308,160 @@
                     <i class="fa-solid fa-download"></i> Tải file sao lưu JSON
                 </button>
                 <button onclick="closeSyncDataModal()" class="text-gray-400 hover:text-white">
+                    Đóng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- KIOTVIET WAREHOUSE INTEGRATION HUB MODAL -->
+    <div id="kiotviet-hub-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-5" style="display: none;">
+        <div class="bg-gray-900 border border-teal-500/60 rounded-3xl max-w-2xl w-full p-5 sm:p-6 space-y-4 shadow-2xl font-sans text-left max-h-[94vh] flex flex-col overflow-hidden">
+            <!-- Header Modal -->
+            <div class="flex items-center justify-between border-b border-gray-800 pb-3 flex-shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-9 h-9 rounded-xl bg-teal-950 text-teal-400 border border-teal-600 flex items-center justify-center text-base font-bold shadow-sm">
+                        <i class="fa-solid fa-boxes-packing text-yellow-300"></i>
+                    </span>
+                    <div>
+                        <h3 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                            <span>Liên Kết Kho Hàng KiotViet</span>
+                            <span class="text-[10px] font-mono bg-teal-950 text-teal-300 border border-teal-600 px-2 py-0.5 rounded-full font-bold">KiotViet API & Excel</span>
+                        </h3>
+                        <p class="text-[11px] text-gray-400 font-mono">Biến KiotViet thành kho lưu trữ duy nhất, tự động đồng bộ Web & App</p>
+                    </div>
+                </div>
+                <button onclick="closeKiotvietHubModal()" class="text-gray-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="flex border-b border-gray-800 text-xs font-mono font-bold flex-shrink-0">
+                <button type="button" onclick="switchKiotvietTab('api')" id="kv-tab-btn-api" class="py-2 px-4 border-b-2 border-teal-500 text-teal-300 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-bolt"></i> 1. Kết Nối KiotViet API (Tự Động)
+                </button>
+                <button type="button" onclick="switchKiotvietTab('file')" id="kv-tab-btn-file" class="py-2 px-4 border-b-2 border-transparent text-gray-400 hover:text-white transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-file-excel text-emerald-400"></i> 2. Nạp Kho Từ File Excel / CSV
+                </button>
+                <button type="button" onclick="switchKiotvietTab('stats')" id="kv-tab-btn-stats" class="py-2 px-4 border-b-2 border-transparent text-gray-400 hover:text-white transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-clock-rotate-left"></i> 3. Lịch Sử & Thống Kê
+                </button>
+            </div>
+
+            <!-- Modal Content (Scrollable) -->
+            <div class="flex-1 overflow-y-auto custom-scroll space-y-4 pr-1 text-xs">
+                <!-- TAB 1: API ONLINE SYNC -->
+                <div id="kv-pane-api" class="space-y-3 font-mono">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-gray-300 font-bold mb-1">Tên gian hàng KiotViet (Retailer) (*):</label>
+                            <input type="text" id="kv-inp-retailer" placeholder="vd: tidubastore (trước .kiotviet.vn)" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2.5 text-white font-mono text-xs focus:border-teal-500">
+                        </div>
+                        <div>
+                            <label class="block text-gray-300 font-bold mb-1">Chi nhánh KiotViet (Nếu có):</label>
+                            <input type="text" id="kv-inp-branch" placeholder="vd: Chi nhánh trung tâm" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2.5 text-white font-mono text-xs focus:border-teal-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-gray-300 font-bold mb-1">Mã kết nối (Client ID) (*):</label>
+                        <input type="text" id="kv-inp-client-id" placeholder="Lấy tại Thiết lập cửa hàng -> Thiết lập tính năng -> Kết nối API" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2.5 text-white font-mono text-xs focus:border-teal-500">
+                    </div>
+                    <div>
+                        <label class="block text-gray-300 font-bold mb-1">Mã bảo mật (Client Secret) (*):</label>
+                        <input type="password" id="kv-inp-client-secret" placeholder="Khóa bí mật Client Secret từ KiotViet" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2.5 text-white font-mono text-xs focus:border-teal-500">
+                    </div>
+
+                    <div class="flex items-center justify-between p-3 bg-gray-950 rounded-xl border border-gray-800">
+                        <div>
+                            <div class="text-white font-bold">Tự động đồng bộ kho định kỳ:</div>
+                            <div class="text-[11px] text-gray-400">Cứ mỗi 30 phút tự động kiểm tra tồn kho KiotViet và cập nhật Web/App</div>
+                        </div>
+                        <input type="checkbox" id="kv-chk-auto-sync" checked class="w-4 h-4 rounded text-teal-600">
+                    </div>
+
+                    <div class="p-3 bg-teal-950/40 border border-teal-700/60 rounded-2xl text-[11px] text-teal-200 font-sans leading-relaxed space-y-1">
+                        <div class="font-bold text-amber-300 flex items-center gap-1 font-mono">
+                            <i class="fa-solid fa-circle-question"></i> Lấy Client ID & Secret ở đâu trên KiotViet?
+                        </div>
+                        <p>1. Đăng nhập KiotViet Quản lý $\rightarrow$ Bấm góc phải <strong>Thiết lập</strong> $\rightarrow$ <strong>Thiết lập cửa hàng</strong>.</p>
+                        <p>2. Chọn <strong>Thiết lập tính năng</strong> $\rightarrow$ Kéo xuống mục <strong>Kết nối API</strong> $\rightarrow$ Bấm <strong>Thêm kết nối</strong> để lấy Client ID và Client Secret.</p>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2 pt-1">
+                        <button type="button" onclick="testKiotvietConnectionNow()" id="btn-kv-test" class="bg-gray-800 hover:bg-gray-700 text-teal-300 border border-gray-700 font-bold py-2.5 px-4 rounded-xl text-xs flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-plug"></i> Thử Kết Nối
+                        </button>
+                        <button type="button" onclick="saveKiotvietConfigNow()" class="bg-gray-800 hover:bg-gray-700 text-amber-300 border border-gray-700 font-bold py-2.5 px-4 rounded-xl text-xs flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-floppy-disk"></i> Lưu Cấu Hình
+                        </button>
+                        <button type="button" onclick="triggerKiotvietSyncNow()" id="btn-kv-sync" class="bg-gradient-to-r from-teal-600 to-emerald-700 hover:from-teal-500 hover:to-emerald-600 text-white font-black py-2.5 px-5 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-teal-950 ml-auto transition">
+                            <i class="fa-solid fa-cloud-arrow-down"></i> Kéo Toàn Bộ Kho KiotViet Về Ngay
+                        </button>
+                    </div>
+                </div>
+
+                <!-- TAB 2: EXCEL / CSV FILE IMPORT -->
+                <div id="kv-pane-file" class="hidden space-y-3 font-sans">
+                    <div class="p-3.5 bg-emerald-950/40 border border-emerald-600/70 rounded-2xl text-xs text-emerald-200 leading-relaxed space-y-1">
+                        <div class="font-bold text-amber-300 flex items-center gap-1 font-mono">
+                            <i class="fa-solid fa-lightbulb"></i> Nhập kho bằng File xuất từ KiotViet (Cực kỳ nhanh & tiện lợi):
+                        </div>
+                        <p>• Trên KiotViet: Vào <strong>Hàng hóa</strong> $\rightarrow$ <strong>Danh mục</strong> $\rightarrow$ Bấm nút <strong>Xuất file</strong> (tải file <code>.xlsx</code> về máy).</p>
+                        <p>• Chọn file bên dưới $\rightarrow$ Hệ thống tự động đọc mã hàng, tên sản phẩm, nhóm hàng, giá bán và tồn kho để nạp vào Web & App trong 2 giây!</p>
+                    </div>
+
+                    <div class="border-2 border-dashed border-teal-500/60 hover:border-teal-400 bg-gray-950 rounded-2xl p-6 text-center space-y-3 transition">
+                        <div class="w-12 h-12 rounded-2xl bg-teal-950/80 text-teal-400 border border-teal-700 flex items-center justify-center text-2xl mx-auto shadow-inner">
+                            <i class="fa-solid fa-file-excel text-emerald-400"></i>
+                        </div>
+                        <div>
+                            <div class="text-sm font-bold text-white">Chọn file Excel (.xlsx) hoặc CSV xuất từ KiotViet</div>
+                            <div class="text-[11px] text-gray-400 mt-0.5" id="kv-file-selected-name">Chưa chọn file nào</div>
+                        </div>
+                        <label class="cursor-pointer inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-md transition">
+                            <i class="fa-solid fa-folder-open"></i> Duyệt Chọn File Trên Máy Tính
+                            <input type="file" id="kv-excel-file-input" accept=".xlsx,.csv" onchange="onKiotvietFileSelected(this)" class="hidden">
+                        </label>
+                    </div>
+
+                    <button type="button" onclick="submitImportKiotvietFile()" id="btn-kv-upload-file" class="w-full bg-gradient-to-r from-teal-600 via-emerald-600 to-green-700 hover:from-teal-500 hover:to-green-600 text-gray-950 font-black py-3 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-teal-950">
+                        <i class="fa-solid fa-upload"></i> NẠP TOÀN BỘ SẢN PHẨM TỪ FILE VÀO KHO WEB & APP
+                    </button>
+                </div>
+
+                <!-- TAB 3: STATS & LOGS -->
+                <div id="kv-pane-stats" class="hidden space-y-3 font-mono">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div class="bg-gray-950 p-3 rounded-xl border border-gray-800">
+                            <div class="text-[10px] text-gray-400">Sản phẩm từ KiotViet:</div>
+                            <div class="text-teal-400 font-bold text-base" id="kv-stat-linked-count">-- món</div>
+                        </div>
+                        <div class="bg-gray-950 p-3 rounded-xl border border-gray-800">
+                            <div class="text-[10px] text-gray-400">Tổng sản phẩm kho Tiduba:</div>
+                            <div class="text-amber-300 font-bold text-base" id="kv-stat-total-count">-- món</div>
+                        </div>
+                        <div class="bg-gray-950 p-3 rounded-xl border border-gray-800 col-span-2 sm:col-span-1">
+                            <div class="text-[10px] text-gray-400">Lần đồng bộ gần nhất:</div>
+                            <div class="text-gray-300 font-bold text-[11px]" id="kv-stat-last-sync">--</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-950 p-3.5 rounded-xl border border-gray-800 space-y-2">
+                        <div class="font-bold text-gray-300 text-xs flex items-center justify-between">
+                            <span>Nhật ký các lần đồng bộ kho KiotViet:</span>
+                            <button onclick="fetchKiotvietConfigModal()" class="text-teal-400 hover:underline text-[11px]">Tải lại</button>
+                        </div>
+                        <div id="kv-sync-logs-list" class="space-y-1 max-h-48 overflow-y-auto custom-scroll text-[11px] text-gray-400 font-mono">
+                            <div class="p-2 bg-gray-900 rounded border border-gray-800">Đang tải nhật ký...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Modal -->
+            <div class="flex justify-end pt-3 border-t border-gray-800 flex-shrink-0">
+                <button onclick="closeKiotvietHubModal()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold py-2 px-5 rounded-xl text-xs">
                     Đóng
                 </button>
             </div>
@@ -7496,6 +7653,230 @@
                 alert("Lỗi kết nối nạp database: " + err);
             } finally {
                 input.value = '';
+            }
+        }
+
+        // ==============================================================
+        // KIOTVIET WAREHOUSE INTEGRATION HUB CONTROLLER (API & EXCEL)
+        // ==============================================================
+        function openKiotvietHubModal() {
+            document.getElementById('kiotviet-hub-modal').style.display = 'flex';
+            fetchKiotvietConfigModal();
+        }
+
+        function closeKiotvietHubModal() {
+            document.getElementById('kiotviet-hub-modal').style.display = 'none';
+        }
+
+        function switchKiotvietTab(tab) {
+            const tabs = ['api', 'file', 'stats'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`kv-tab-btn-${t}`);
+                const pane = document.getElementById(`kv-pane-${t}`);
+                if (btn && pane) {
+                    if (t === tab) {
+                        btn.className = "py-2 px-4 border-b-2 border-teal-500 text-teal-300 font-bold transition flex items-center gap-1.5";
+                        pane.classList.remove('hidden');
+                    } else {
+                        btn.className = "py-2 px-4 border-b-2 border-transparent text-gray-400 hover:text-white transition flex items-center gap-1.5";
+                        pane.classList.add('hidden');
+                    }
+                }
+            });
+        }
+
+        async function fetchKiotvietConfigModal() {
+            const token = localStorage.getItem('tiduba_token');
+            if (!token) return;
+            try {
+                const res = await fetch('/api/admin/kiotviet/config', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success && data.config) {
+                    const cfg = data.config;
+                    if (document.getElementById('kv-inp-retailer')) document.getElementById('kv-inp-retailer').value = cfg.retailer || '';
+                    if (document.getElementById('kv-inp-branch')) document.getElementById('kv-inp-branch').value = cfg.branch_name || '';
+                    if (document.getElementById('kv-inp-client-id')) document.getElementById('kv-inp-client-id').value = cfg.client_id || '';
+                    if (document.getElementById('kv-inp-client-secret')) document.getElementById('kv-inp-client-secret').value = cfg.client_secret || '';
+                    if (document.getElementById('kv-chk-auto-sync')) document.getElementById('kv-chk-auto-sync').checked = cfg.auto_sync === 1;
+
+                    if (document.getElementById('kv-stat-linked-count')) document.getElementById('kv-stat-linked-count').innerText = `${data.kiotviet_items_count || 0} món`;
+                    if (document.getElementById('kv-stat-total-count')) document.getElementById('kv-stat-total-count').innerText = `${data.total_items_count || 0} món`;
+                    if (document.getElementById('kv-stat-last-sync')) document.getElementById('kv-stat-last-sync').innerText = cfg.last_sync_at || 'Chưa đồng bộ';
+
+                    const logBox = document.getElementById('kv-sync-logs-list');
+                    if (logBox && data.recent_logs) {
+                        if (data.recent_logs.length === 0) {
+                            logBox.innerHTML = `<div class="p-2 text-gray-500 text-[10px]">Chưa có lịch sử đồng bộ KiotViet.</div>`;
+                        } else {
+                            logBox.innerHTML = data.recent_logs.map(l => `
+                                <div class="p-2 bg-gray-900 rounded border border-gray-800 text-[10px] space-y-0.5">
+                                    <div class="flex justify-between font-bold">
+                                        <span class="text-teal-400">${l.sync_type}</span>
+                                        <span class="text-gray-400">${l.created_at}</span>
+                                    </div>
+                                    <div class="text-gray-300">${l.detail}</div>
+                                </div>
+                            `).join('');
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Lỗi lấy cấu hình KiotViet:", e);
+            }
+        }
+
+        async function saveKiotvietConfigNow() {
+            const token = localStorage.getItem('tiduba_token');
+            const retailer = document.getElementById('kv-inp-retailer').value.trim();
+            const clientId = document.getElementById('kv-inp-client-id').value.trim();
+            const clientSecret = document.getElementById('kv-inp-client-secret').value.trim();
+            const branch = document.getElementById('kv-inp-branch').value.trim();
+            const autoSync = document.getElementById('kv-chk-auto-sync').checked ? 1 : 0;
+
+            if (!retailer || !clientId || !clientSecret) {
+                alert("Vui lòng điền đầy đủ Tên gian hàng (Retailer), Client ID và Client Secret từ KiotViet!");
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/admin/kiotviet/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({
+                        retailer: retailer,
+                        client_id: clientId,
+                        client_secret: clientSecret,
+                        branch_name: branch,
+                        is_active: 1,
+                        auto_sync: autoSync,
+                        sync_interval_mins: 30
+                    })
+                });
+                const data = await res.json();
+                showToast(data.message || "Đã lưu cấu hình KiotViet!");
+            } catch (e) {
+                alert("Lỗi lưu cấu hình KiotViet: " + e);
+            }
+        }
+
+        async function testKiotvietConnectionNow() {
+            const token = localStorage.getItem('tiduba_token');
+            const clientId = document.getElementById('kv-inp-client-id').value.trim();
+            const clientSecret = document.getElementById('kv-inp-client-secret').value.trim();
+            const btn = document.getElementById('btn-kv-test');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Đang thử...';
+            showToast("Đang kết nối thử tới máy chủ KiotViet...");
+
+            try {
+                const res = await fetch('/api/admin/kiotviet/test_connection', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({
+                        retailer: document.getElementById('kv-inp-retailer').value.trim(),
+                        client_id: clientId,
+                        client_secret: clientSecret
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast("✅ " + data.message);
+                    alert(data.message);
+                } else {
+                    alert(data.message || "Kết nối thất bại!");
+                }
+            } catch (e) {
+                alert("Lỗi kết nối kiểm tra KiotViet: " + e);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-plug"></i> Thử Kết Nối';
+            }
+        }
+
+        async function triggerKiotvietSyncNow() {
+            const token = localStorage.getItem('tiduba_token');
+            const btn = document.getElementById('btn-kv-sync');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Đang kéo kho từ KiotViet...';
+            showToast("Đang đồng bộ toàn bộ sản phẩm và nhóm hàng từ KiotViet...");
+
+            try {
+                const res = await fetch('/api/admin/kiotviet/sync_now', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast("🎉 " + data.message);
+                    alert(data.message);
+                    fetchKiotvietConfigModal();
+                    fetchCatalog();
+                    fetchAdminDashboard();
+                    fetchAdminCategoriesList();
+                } else {
+                    alert(data.message || data.detail || "Đồng bộ KiotViet thất bại!");
+                }
+            } catch (e) {
+                alert("Lỗi kết nối đồng bộ KiotViet: " + e);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i> Kéo Toàn Bộ Kho KiotViet Về Ngay';
+            }
+        }
+
+        let selectedKiotvietFile = null;
+
+        function onKiotvietFileSelected(input) {
+            if (!input.files || input.files.length === 0) return;
+            selectedKiotvietFile = input.files[0];
+            const nameEl = document.getElementById('kv-file-selected-name');
+            if (nameEl) {
+                nameEl.innerHTML = `✓ Đã chọn file: <strong class="text-teal-300">${selectedKiotvietFile.name}</strong> (${(selectedKiotvietFile.size / 1024).toFixed(1)} KB)`;
+            }
+        }
+
+        async function submitImportKiotvietFile() {
+            if (!selectedKiotvietFile) {
+                alert("Vui lòng duyệt chọn file Excel (.xlsx) hoặc CSV xuất từ KiotViet trước!");
+                const fileInp = document.getElementById('kv-excel-file-input');
+                if (fileInp) fileInp.click();
+                return;
+            }
+
+            const token = localStorage.getItem('tiduba_token');
+            const btn = document.getElementById('btn-kv-upload-file');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Đang phân tích và nạp hàng loạt sản phẩm...';
+            showToast("Đang đọc file và nạp sản phẩm vào kho...");
+
+            const formData = new FormData();
+            formData.append('file', selectedKiotvietFile);
+
+            try {
+                const res = await fetch('/api/admin/kiotviet/import_file', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast("🎉 " + data.message);
+                    alert(data.message);
+                    fetchCatalog();
+                    fetchAdminDashboard();
+                    fetchAdminCategoriesList();
+                    fetchKiotvietConfigModal();
+                    closeKiotvietHubModal();
+                } else {
+                    alert(data.message || data.detail || "Nạp file KiotViet thất bại!");
+                }
+            } catch (e) {
+                alert("Lỗi nạp file KiotViet: " + e);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-upload"></i> NẠP TOÀN BỘ SẢN PHẨM TỪ FILE VÀO KHO WEB & APP';
             }
         }
 

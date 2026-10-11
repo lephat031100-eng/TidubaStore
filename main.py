@@ -33,6 +33,11 @@ import shutil
 import csv
 import io
 import uuid
+from kiotviet_service import (
+    get_kiotviet_token,
+    sync_kiotviet_to_database,
+    import_kiotviet_excel_or_csv
+)
 
 # Đảm bảo UTF-8 encoding trên Windows
 if sys.platform.startswith("win"):
@@ -588,6 +593,63 @@ def init_db():
         conn.commit()
     except Exception:
         pass
+
+    # Tự động cập nhật cột kiotviet_id, kiotviet_code, on_hand cho items
+    try:
+        cur.execute("ALTER TABLE items ADD COLUMN kiotviet_id INTEGER DEFAULT 0;")
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        cur.execute("ALTER TABLE items ADD COLUMN kiotviet_code TEXT DEFAULT '';")
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        cur.execute("ALTER TABLE items ADD COLUMN on_hand INTEGER DEFAULT 1;")
+        conn.commit()
+    except Exception:
+        pass
+
+    # Bảng Cấu hình Kết nối Kho KiotViet Open API
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS kiotviet_config (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        retailer TEXT DEFAULT '',
+        client_id TEXT DEFAULT '',
+        client_secret TEXT DEFAULT '',
+        branch_name TEXT DEFAULT '',
+        is_active INTEGER NOT NULL DEFAULT 0,
+        auto_sync INTEGER NOT NULL DEFAULT 1,
+        sync_interval_mins INTEGER NOT NULL DEFAULT 30,
+        last_sync_at TEXT DEFAULT '',
+        last_sync_status TEXT DEFAULT '',
+        updated_at TEXT NOT NULL
+    );
+    """)
+    conn.commit()
+
+    # Bảng Lịch sử đồng bộ Kho KiotViet
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS kiotviet_sync_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sync_type TEXT NOT NULL,
+        items_synced INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'SUCCESS',
+        detail TEXT DEFAULT '',
+        created_at TEXT NOT NULL
+    );
+    """)
+    conn.commit()
+
+    cur.execute("SELECT count(*) as c FROM kiotviet_config")
+    if cur.fetchone()["c"] == 0:
+        now_dt = vn_now().strftime("%Y-%m-%d %H:%M:%S")
+        cur.execute("""
+        INSERT INTO kiotviet_config (retailer, client_id, client_secret, branch_name, is_active, auto_sync, sync_interval_mins, updated_at)
+        VALUES ('', '', '', '', 0, 1, 30, ?)
+        """, (now_dt,))
+        conn.commit()
 
     # Pre-seed Telegram Config nếu chưa có
     cur.execute("SELECT count(*) as c FROM telegram_config")
@@ -3737,6 +3799,116 @@ def get_database_status(admin: Dict[str, Any] = Depends(require_admin)):
 
 
 # =============================================================================
+# 12.2D KIOTVIET WAREHOUSE INTEGRATION HUB (LIÊN KẾT & NHẬP KHO KIOTVIET)
+# =============================================================================
+
+class KiotVietConfigRequest(BaseModel):
+    retailer: str
+    client_id: str
+    client_secret: str
+    branch_name: Optional[str] = ""
+    is_active: Optional[int] = 1
+    auto_sync: Optional[int] = 1
+    sync_interval_mins: Optional[int] = 30
+
+
+@app.get("/api/admin/kiotviet/config")
+def get_kiotviet_config(admin: Dict[str, Any] = Depends(require_admin)):
+    """Lấy cấu hình kết nối KiotViet và thống kê đồng bộ kho."""
+    conn = get_db()
+    cfg = conn.execute("SELECT * FROM kiotviet_config WHERE id = 1").fetchone()
+    logs = conn.execute("SELECT * FROM kiotviet_sync_logs ORDER BY id DESC LIMIT 10").fetchall()
+    kv_items_count = conn.execute("SELECT count(*) as c FROM items WHERE kiotviet_id > 0 OR (kiotviet_code != '' AND kiotviet_code IS NOT NULL)").fetchone()["c"]
+    total_items = conn.execute("SELECT count(*) as c FROM items").fetchone()["c"]
+    conn.close()
+
+    cfg_dict = dict(cfg) if cfg else {}
+    if cfg_dict.get("client_secret"):
+        sec = cfg_dict["client_secret"]
+        cfg_dict["client_secret_masked"] = f"{sec[:4]}****{sec[-4:]}" if len(sec) >= 8 else "****"
+
+    return {
+        "success": True,
+        "config": cfg_dict,
+        "recent_logs": [dict(l) for l in logs],
+        "kiotviet_items_count": kv_items_count,
+        "total_items_count": total_items
+    }
+
+
+@app.post("/api/admin/kiotviet/config")
+def save_kiotviet_config(req: KiotVietConfigRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """Lưu thông tin tài khoản kết nối KiotViet API."""
+    conn = get_db()
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
+    cur = conn.cursor()
+    cur.execute("""
+        UPDATE kiotviet_config
+        SET retailer = ?, client_id = ?, client_secret = ?, branch_name = ?,
+            is_active = ?, auto_sync = ?, sync_interval_mins = ?, updated_at = ?
+        WHERE id = 1
+    """, (req.retailer.strip(), req.client_id.strip(), req.client_secret.strip(), (req.branch_name or "").strip(), req.is_active or 0, req.auto_sync or 0, req.sync_interval_mins or 30, now_str))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "✅ Đã lưu cấu hình kết nối kho KiotViet thành công!"}
+
+
+@app.post("/api/admin/kiotviet/test_connection")
+def test_kiotviet_connection(req: Optional[KiotVietConfigRequest] = None, admin: Dict[str, Any] = Depends(require_admin)):
+    """Kiểm tra thử tài khoản API KiotViet có kết nối thành công không."""
+    conn = get_db()
+    cfg = conn.execute("SELECT * FROM kiotviet_config WHERE id = 1").fetchone()
+    conn.close()
+
+    c_id = (req.client_id if req and req.client_id else (cfg["client_id"] if cfg else "")).strip()
+    c_sec = (req.client_secret if req and req.client_secret else (cfg["client_secret"] if cfg else "")).strip()
+
+    if not c_id or not c_sec:
+        raise HTTPException(status_code=400, detail="Vui lòng cung cấp Client ID và Client Secret của KiotViet!")
+
+    ok, token_or_err = get_kiotviet_token(c_id, c_sec)
+    if ok:
+        return {"success": True, "message": "🎉 Kết nối KiotViet OAuth 2.0 thành công! Tài khoản hợp lệ sẵn sàng đồng bộ kho."}
+    else:
+        return {"success": False, "message": f"❌ Kết nối thất bại: {token_or_err}"}
+
+
+@app.post("/api/admin/kiotviet/sync_now")
+def trigger_kiotviet_sync_now(admin: Dict[str, Any] = Depends(require_admin)):
+    """Kéo toàn bộ kho hàng và nhóm hàng từ KiotViet API nạp vào Tiduba Store ngay lập tức."""
+    conn = get_db()
+    cfg = conn.execute("SELECT * FROM kiotviet_config WHERE id = 1").fetchone()
+
+    if not cfg or not cfg["retailer"] or not cfg["client_id"] or not cfg["client_secret"]:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Chưa cấu hình thông tin KiotViet (Retailer, Client ID, Client Secret)!")
+
+    res = sync_kiotviet_to_database(
+        db_conn=conn,
+        retailer=cfg["retailer"],
+        client_id=cfg["client_id"],
+        client_secret=cfg["client_secret"],
+        branch_name=cfg["branch_name"] or ""
+    )
+    conn.close()
+    return res
+
+
+@app.post("/api/admin/kiotviet/import_file")
+async def import_kiotviet_file_upload(file: UploadFile = File(...), admin: Dict[str, Any] = Depends(require_admin)):
+    """Nhập kho hàng loạt từ file Excel (.xlsx) hoặc CSV xuất từ KiotViet."""
+    fname = file.filename or ""
+    content = await file.read()
+    if len(content) < 50:
+        raise HTTPException(status_code=400, detail="File tải lên bị rỗng hoặc không hợp lệ!")
+
+    conn = get_db()
+    res = import_kiotviet_excel_or_csv(conn, content, fname)
+    conn.close()
+    return res
+
+
+# =============================================================================
 # 12.3 SINH MÃ VIETQR HOÀN CỌC CHO ADMIN QUÉT TRẢ TIỀN 1-CHẠM
 # =============================================================================
 
@@ -5317,6 +5489,35 @@ def background_reminder_worker():
                                 conn.commit()
                     except Exception:
                         pass
+
+            # --- 4. TỰ ĐỘNG ĐỒNG BỘ KHO HÀNG TỪ KIOTVIET ĐỊNH KỲ ---
+            try:
+                kv_cfg = cur.execute("SELECT * FROM kiotviet_config WHERE id = 1 AND is_active = 1 AND auto_sync = 1").fetchone()
+                if kv_cfg and kv_cfg["retailer"] and kv_cfg["client_id"] and kv_cfg["client_secret"]:
+                    interval_secs = max(300, (kv_cfg["sync_interval_mins"] or 30) * 60)
+                    last_sync_str = kv_cfg["last_sync_at"] or ""
+                    need_sync = False
+                    if not last_sync_str:
+                        need_sync = True
+                    else:
+                        try:
+                            last_sync_dt = datetime.datetime.strptime(last_sync_str, "%Y-%m-%d %H:%M:%S")
+                            if (now - last_sync_dt).total_seconds() >= interval_secs:
+                                need_sync = True
+                        except Exception:
+                            need_sync = True
+
+                    if need_sync:
+                        print(f"[KIOTVIET AUTO-SYNC] Đang tự động kéo kho từ gian hàng {kv_cfg['retailer']}...")
+                        sync_kiotviet_to_database(
+                            db_conn=conn,
+                            retailer=kv_cfg["retailer"],
+                            client_id=kv_cfg["client_id"],
+                            client_secret=kv_cfg["client_secret"],
+                            branch_name=kv_cfg["branch_name"] or ""
+                        )
+            except Exception as kv_e:
+                print(f"[KIOTVIET SYNC CHECK ERROR] {kv_e}")
 
             conn.close()
         except Exception:

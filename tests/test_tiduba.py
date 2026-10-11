@@ -573,3 +573,46 @@ def test_database_backup_and_status():
     dl_res = client.get(f"/api/admin/database/download?token={token}")
     assert dl_res.status_code == 200
     assert len(dl_res.content) > 1000
+
+
+def test_kiotviet_config_and_excel_import():
+    """Kiểm tra lưu cấu hình KiotViet và nạp file Excel vào kho."""
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    token = login_adm.json()["token"]
+    adm_headers = {"Authorization": f"Bearer {token}"}
+
+    # 1. Lưu cấu hình
+    cfg_res = client.post("/api/admin/kiotviet/config", json={
+        "retailer": "tidubastore_test",
+        "client_id": "test_client_id",
+        "client_secret": "test_client_secret",
+        "branch_name": "CN1 Pleiku",
+        "is_active": 1,
+        "auto_sync": 1,
+        "sync_interval_mins": 30
+    }, headers=adm_headers)
+    assert cfg_res.status_code == 200
+    assert cfg_res.json()["success"] is True
+
+    # 2. Lấy cấu hình
+    get_cfg = client.get("/api/admin/kiotviet/config", headers=adm_headers)
+    assert get_cfg.status_code == 200
+    assert get_cfg.json()["config"]["retailer"] == "tidubastore_test"
+
+    # 3. Tạo file Excel mẫu KiotViet và test import
+    import openpyxl, io
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Mã hàng", "Tên hàng", "Nhóm hàng", "Giá bán", "Tồn kho"])
+    ws.append(["KV_TEST_01", "Lens Sony 70-200mm f/2.8 GM OSS II", "Ống kính máy ảnh", 300000, 2])
+    ws.append(["KV_TEST_02", "Set Cổ Phục Nhật Bình Hoàng Cung", "Trang phục sự kiện", 200000, 4])
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    imp_res = client.post("/api/admin/kiotviet/import_file", files={
+        "file": ("hang_hoa_kiotviet_test.xlsx", buf.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    }, headers=adm_headers)
+    assert imp_res.status_code == 200
+    assert imp_res.json()["success"] is True
+    assert imp_res.json()["total"] == 2

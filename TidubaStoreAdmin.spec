@@ -47,6 +47,7 @@ a = Analysis(
         'hmac',
         'hashlib',
         'shutil',
+        'openpyxl',
     ],
     hookspath=[],
     hooksconfig={},
