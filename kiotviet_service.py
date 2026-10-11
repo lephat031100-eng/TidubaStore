@@ -264,12 +264,13 @@ def sync_kiotviet_to_database(db_conn: sqlite3.Connection, retailer: str, client
         if not cname:
             continue
         code = f"kv_cat_{cid}"
-        exists = cur.execute("SELECT id FROM categories_config WHERE code = ?", (code,)).fetchone()
+        exists = cur.execute("SELECT id FROM categories_config WHERE LOWER(name) = ? OR LOWER(code) = ?", (cname.lower(), code.lower())).fetchone()
         if not exists:
+            max_order = cur.execute("SELECT MAX(display_order) as m FROM categories_config").fetchone()["m"] or 20
             cur.execute("""
             INSERT INTO categories_config (code, name, filter_type, filter_value, display_order, is_active)
-            VALUES (?, ?, 'CATEGORY', ?, 20, 1)
-            """, (code, cname, cname))
+            VALUES (?, ?, 'CATEGORY', ?, ?, 1)
+            """, (code, cname, cname, max_order + 1))
             cat_synced += 1
 
     # 2. Đồng bộ Products
@@ -529,15 +530,17 @@ def import_kiotviet_excel_or_csv(db_conn: sqlite3.Connection, file_content: byte
         serial_or_size = code or f"SP-{int(datetime.datetime.now().timestamp()*1000)%1000000}"
         availability = "AVAILABLE" if on_hand > 0 else "UNAVAILABLE"
 
-        # Tự động tạo category chip nếu có
-        if cat_name:
-            c_code = normalize_str(cat_name).replace(" ", "_")
-            c_exists = cur.execute("SELECT id FROM categories_config WHERE name = ? OR code = ?", (cat_name, c_code)).fetchone()
+        # Tự động tạo category chip nếu chưa có nhóm hàng này (ví dụ: Bikini, Đồ bơi...)
+        if cat_name and cat_name.strip():
+            clean_cat = cat_name.strip()
+            c_code = normalize_str(clean_cat).replace(" ", "_")
+            c_exists = cur.execute("SELECT id FROM categories_config WHERE LOWER(name) = ? OR LOWER(code) = ?", (clean_cat.lower(), c_code.lower())).fetchone()
             if not c_exists:
+                max_order = cur.execute("SELECT MAX(display_order) as m FROM categories_config").fetchone()["m"] or 20
                 cur.execute("""
                 INSERT INTO categories_config (code, name, filter_type, filter_value, display_order, is_active)
-                VALUES (?, ?, 'CATEGORY', ?, 25, 1)
-                """, (c_code, cat_name, cat_name))
+                VALUES (?, ?, 'CATEGORY', ?, ?, 1)
+                """, (c_code, clean_cat, clean_cat, max_order + 1))
 
         # Kiểm tra sản phẩm đã có chưa
         existing = cur.execute("""

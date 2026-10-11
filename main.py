@@ -651,6 +651,66 @@ def init_db():
     """)
     conn.commit()
 
+    # Bảng Quản Lý 4 Thẻ Nổi Bật (Feature Highlights Cards)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS feature_highlights (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        subtitle TEXT NOT NULL,
+        image_url TEXT NOT NULL,
+        filter_keyword TEXT NOT NULL,
+        display_order INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1
+    );
+    """)
+    conn.commit()
+
+    cur.execute("SELECT count(*) as c FROM feature_highlights")
+    if cur.fetchone()["c"] == 0:
+        default_highlights = [
+            ("Fujifilm Kit", "Combo máy & lens", "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=600&auto=format&fit=crop&q=80", "Fujifilm", 1),
+            ("Concept dress", "Váy tiệc & cổ phục", "https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=600&auto=format&fit=crop&q=80", "Váy", 2),
+            ("DJI Ronin", "Gimbal chống rung", "https://images.unsplash.com/photo-1527011046414-4781f1f94f8c?w=600&auto=format&fit=crop&q=80", "DJI", 3),
+            ("DJI Ronin Gear", "Phụ kiện quay chụp", "https://images.unsplash.com/photo-1508873696983-2df5293cb395?w=600&auto=format&fit=crop&q=80", "DJI", 4),
+        ]
+        for dh in default_highlights:
+            cur.execute("""
+            INSERT INTO feature_highlights (title, subtitle, image_url, filter_keyword, display_order, is_active)
+            VALUES (?, ?, ?, ?, ?, 1)
+            """, dh)
+        conn.commit()
+
+    # Bảng Khách Hàng CRM (KiotViet Style Customer Directory)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS customers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        full_name TEXT NOT NULL,
+        phone TEXT UNIQUE NOT NULL,
+        email TEXT DEFAULT '',
+        address TEXT DEFAULT '',
+        cccd_number TEXT DEFAULT '',
+        notes TEXT DEFAULT '',
+        total_spent INTEGER NOT NULL DEFAULT 0,
+        total_rentals INTEGER NOT NULL DEFAULT 0,
+        loyalty_points INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+    );
+    """)
+    conn.commit()
+
+    # Tự động nạp khách hàng từ bảng users nếu chưa có
+    try:
+        existing_users = cur.execute("SELECT full_name, phone, email, cccd_number, created_at FROM users WHERE phone != ''").fetchall()
+        for u in existing_users:
+            if u["phone"]:
+                cur.execute("""
+                INSERT OR IGNORE INTO customers (full_name, phone, email, address, cccd_number, notes, total_spent, total_rentals, loyalty_points, created_at)
+                VALUES (?, ?, ?, '', ?, '', 0, 0, 0, ?)
+                """, (u["full_name"], u["phone"], u["email"] or "", u["cccd_number"] or "", u["created_at"]))
+        conn.commit()
+    except Exception:
+        pass
+
     cur.execute("SELECT count(*) as c FROM kiotviet_config")
     if cur.fetchone()["c"] == 0:
         now_dt = vn_now().strftime("%Y-%m-%d %H:%M:%S")
@@ -899,13 +959,23 @@ def get_costume_effective_deadline(start_dt: datetime.datetime, rental_days: flo
     return datetime.datetime.combine(end_date, datetime.time(20, 0, 0))
 
 
+def is_camera_body_item(item_category: Optional[str] = None, item_name: Optional[str] = None, subcategory: Optional[str] = None) -> bool:
+    """Chỉ có máy ảnh (body/kit camera) mới có gói thuê ca 4h và 8h. Các mặt hàng khác tính theo ngày."""
+    if item_category == "COSTUME_FASHION":
+        return False
+    combined = f"{item_name or ''} {subcategory or ''}".lower()
+    non_camera = ["lens", "ong kinh", "flycam", "drone", "gimbal", "ronin", "tripod", "den", "flash", "mic", "the nho", "pin", "sac", "balo", "tui", "phu kien", "vay", "dam", "ao", "quan", "boot", "yem", "trang phuc"]
+    if any(k in combined for k in non_camera):
+        return False
+    return True
+
+
 def calculate_rental_metrics(start_iso: str, end_iso: str, price_4h: int, price_8h: int, price_24h: int,
-                              item_category: Optional[str] = None):
+                              item_category: Optional[str] = None, item_name: Optional[str] = None, subcategory: Optional[str] = None):
     """
     Tính toán thời lượng thuê theo ca (4h/8h) hoặc block ngày (24h) và giá tiền.
-    - Máy ảnh (CAMERA_GEAR): tính theo giờ thực tế khách chọn.
-    - Trang phục (COSTUME_FASHION): 
-      Thuê là trả trước 20:00 mới là 1 ngày, qua 20:00 là tính phạt (ví dụ: thuê 10:00 29/9 -> trả trước 20:00 30/9 là 1 ngày; qua 20:01 30/9 là trễ).
+    - Máy ảnh (CAMERA_GEAR body/kit): tính theo ca 4h/8h hoặc ngày.
+    - Các mục khác (trang phục, lens, phụ kiện, gimbal...): chỉ tính theo ngày (tối thiểu 1 ngày).
     """
     try:
         dt_start = datetime.datetime.fromisoformat(start_iso.replace("Z", ""))
@@ -923,15 +993,11 @@ def calculate_rental_metrics(start_iso: str, end_iso: str, price_4h: int, price_
 
     if is_costume:
         # TRANG PHỤC: 1 ngày = nhận hôm nay, trả trước 20:00 ngày hôm sau
-        # Khoảng cách ngày lịch (calendar days)
         calendar_diff = (dt_end.date() - dt_start.date()).days
-        
-        # Nếu ngày trả cùng ngày nhận hoặc ngày hôm sau và trả trước/đúng 20:00 -> tính 1 ngày
         if calendar_diff <= 1:
             days = 1.0
             dt_end_effective = datetime.datetime.combine(dt_start.date() + datetime.timedelta(days=1), datetime.time(20, 0, 0))
         else:
-            # Thuê từ 2 ngày trở lên: hạn trả là 20:00 của ngày trả
             days = float(calendar_diff)
             dt_end_effective = datetime.datetime.combine(dt_start.date() + datetime.timedelta(days=calendar_diff), datetime.time(20, 0, 0))
 
@@ -947,6 +1013,20 @@ def calculate_rental_metrics(start_iso: str, end_iso: str, price_4h: int, price_
 
         total_price = int(days * price_24h * discount_multiplier)
         return rental_type, hours, rental_days, total_price, dt_start, dt_end_effective
+
+    # Nếu không phải máy ảnh (Lens, Gimbal, Phụ kiện, Flycam...): chỉ tính theo ngày
+    if not is_camera_body_item(item_category, item_name, subcategory):
+        days = max(1.0, round(hours / 24.0, 1))
+        rental_type = "24h"
+        rental_days = days
+        if days >= 3.0:
+            discount_multiplier = 0.80
+        elif days >= 2.0:
+            discount_multiplier = 0.85
+        else:
+            discount_multiplier = 1.0
+        total_price = int(days * price_24h * discount_multiplier)
+        return rental_type, hours, rental_days, total_price, dt_start, dt_end
 
     if hours <= 4.0:
         rental_type = "4h"
@@ -969,6 +1049,39 @@ def calculate_rental_metrics(start_iso: str, end_iso: str, price_4h: int, price_
         total_price = int(days * price_24h * discount_multiplier)
 
     return rental_type, hours, rental_days, total_price, dt_start, dt_end
+
+
+def upsert_customer_from_rental(full_name: str, phone: str, email: str = "", cccd_number: str = "", address: str = "", amount: int = 0):
+    """Tự động lưu và cập nhật hồ sơ khách hàng vào danh bạ CRM (như KiotViet)."""
+    if not phone or not phone.strip():
+        return
+    clean_p = phone.strip()
+    clean_name = (full_name or "").strip() or "Khách hàng"
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        c = cur.execute("SELECT id, total_spent, total_rentals FROM customers WHERE phone = ?", (clean_p,)).fetchone()
+        if c:
+            cur.execute("""
+                UPDATE customers 
+                SET total_spent = total_spent + ?,
+                    total_rentals = total_rentals + 1,
+                    full_name = COALESCE(NULLIF(?, ''), full_name),
+                    cccd_number = COALESCE(NULLIF(?, ''), cccd_number),
+                    email = COALESCE(NULLIF(?, ''), email),
+                    address = COALESCE(NULLIF(?, ''), address)
+                WHERE id = ?
+            """, (amount, clean_name, cccd_number or "", email or "", address or "", c["id"]))
+        else:
+            cur.execute("""
+                INSERT INTO customers (full_name, phone, email, address, cccd_number, notes, total_spent, total_rentals, loyalty_points, created_at)
+                VALUES (?, ?, ?, ?, ?, '', ?, 1, 0, ?)
+            """, (clean_name, clean_p, email or "", address or "", cccd_number or "", amount, now_str))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[UPSERT CUSTOMER ERROR] {e}")
 
 
 def sync_items_availability(conn: Optional[sqlite3.Connection] = None):
@@ -2128,7 +2241,10 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
 
     try:
         rental_type, hours, rental_days, total_price, dt_start, dt_end = calculate_rental_metrics(
-            req.start_time, req.end_time, price_4h, price_8h, price_24h, item_category
+            req.start_time, req.end_time, price_4h, price_8h, price_24h,
+            item_category=item_category,
+            item_name=item_name,
+            subcategory=(item["subcategory"] if (req.item_id and item) else None)
         )
     except ValueError as e:
         conn.close()
@@ -2172,6 +2288,15 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
 
     total_payment = total_price
     qr_url = generate_vietqr_url(total_payment, rental_code)
+
+    # Tự động đồng bộ hồ sơ khách hàng vào CRM (như KiotViet)
+    upsert_customer_from_rental(
+        full_name=user["full_name"],
+        phone=user["phone"],
+        email=user.get("email", ""),
+        cccd_number=user.get("cccd_number", ""),
+        amount=total_price
+    )
 
     # Gửi thông báo Telegram khi có đơn thuê mới kèm Lưu ý
     tele_msg = (
@@ -2473,7 +2598,10 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
         # Tính giá theo gói chọn
         try:
             r_type, hours, r_days, it_price, dt_s, dt_e = calculate_rental_metrics(
-                it_start, it_end, price_4h, price_8h, price_24h, cat
+                it_start, it_end, price_4h, price_8h, price_24h,
+                item_category=cat,
+                item_name=name,
+                subcategory=(item["subcategory"] if item else None)
             )
         except Exception:
             # Fallback nếu giờ nhập lỗi
@@ -2485,7 +2613,8 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
             dt_e = dt_s + datetime.timedelta(days=1)
 
         # Nếu là máy ảnh và người dùng chọn gói riêng: 4h, 8h, 1_day, multi_days
-        if cat == "CAMERA_GEAR" and item_req.rental_type:
+        is_cam = is_camera_body_item(cat, name, (item["subcategory"] if item else None))
+        if is_cam and item_req.rental_type:
             if item_req.rental_type == "4h":
                 r_type = "4h"; hours = 4.0; r_days = 0.5; it_price = price_4h
             elif item_req.rental_type == "8h":
@@ -3366,6 +3495,18 @@ def create_item_admin(req: CreateItemAdminRequest, admin: Dict[str, Any] = Depen
     cur = conn.cursor()
     now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
 
+    # Tự động tạo category chip nếu nhóm hàng chưa có
+    if req.subcategory and req.subcategory.strip():
+        sub = req.subcategory.strip()
+        c_code = normalize_str(sub).replace(" ", "_")
+        exists_cat = cur.execute("SELECT id FROM categories_config WHERE LOWER(name) = ? OR LOWER(code) = ?", (sub.lower(), c_code.lower())).fetchone()
+        if not exists_cat:
+            max_order = cur.execute("SELECT MAX(display_order) as m FROM categories_config").fetchone()["m"] or 20
+            cur.execute("""
+            INSERT INTO categories_config (code, name, filter_type, filter_value, display_order, is_active)
+            VALUES (?, ?, 'CATEGORY', ?, ?, 1)
+            """, (c_code, sub, sub, max_order + 1))
+
     cur.execute("""
     INSERT INTO items (name, category, subcategory, brand, serial_or_size, price_4h, price_8h, price_24h, deposit_amount, image_url, gallery_json, description, condition_status, availability, branch_code, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AVAILABLE', ?, ?)
@@ -3465,6 +3606,229 @@ def delete_item_admin(item_id: int, admin: Dict[str, Any] = Depends(require_admi
     conn.commit()
     conn.close()
     return {"success": True, "message": "Đã xóa vĩnh viễn thiết bị khỏi hệ thống!"}
+
+
+class BulkItemsStatusRequest(BaseModel):
+    item_ids: Optional[List[int]] = None
+    action: str  # "ALL_AVAILABLE", "ALL_UNAVAILABLE", "SET_AVAILABLE", "SET_UNAVAILABLE", "DELETE"
+
+
+@app.post("/api/admin/items/bulk_status")
+def bulk_items_status(req: BulkItemsStatusRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """
+    Thực hiện thao tác hàng loạt trên kho hàng:
+    - ALL_AVAILABLE: Mở lại toàn bộ sản phẩm trong kho (chuyển sang AVAILABLE, trừ những món đang RENTED).
+    - ALL_UNAVAILABLE: Hạ toàn bộ sản phẩm trong kho xuống (chuyển sang UNAVAILABLE).
+    - SET_AVAILABLE: Mở lại các sản phẩm được chọn.
+    - SET_UNAVAILABLE: Hạ các sản phẩm được chọn xuống.
+    - DELETE: Xóa các sản phẩm được chọn.
+    """
+    conn = get_db()
+    cur = conn.cursor()
+    action = req.action.upper().strip()
+
+    if action == "ALL_AVAILABLE":
+        cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE availability = 'UNAVAILABLE'")
+        conn.commit()
+        sync_items_availability(conn)
+        conn.close()
+        return {"success": True, "message": "✅ Đã mở lại toàn bộ sản phẩm trong kho sang trạng thái SẴN SÀNG!"}
+
+    elif action == "ALL_UNAVAILABLE":
+        cur.execute("UPDATE items SET availability = 'UNAVAILABLE' WHERE availability != 'RENTED'")
+        conn.commit()
+        conn.close()
+        return {"success": True, "message": "⚠️ Đã hạ toàn bộ sản phẩm trong kho xuống (Tạm Ngưng)!"}
+
+    elif action in ("SET_AVAILABLE", "SET_UNAVAILABLE", "DELETE"):
+        ids = req.item_ids or []
+        if not ids:
+            conn.close()
+            raise HTTPException(status_code=400, detail="Vui lòng chọn ít nhất 1 sản phẩm!")
+        placeholders = ",".join(["?"] * len(ids))
+
+        if action == "SET_AVAILABLE":
+            cur.execute(f"UPDATE items SET availability = 'AVAILABLE' WHERE id IN ({placeholders}) AND availability != 'RENTED'", ids)
+            conn.commit()
+            sync_items_availability(conn)
+            conn.close()
+            return {"success": True, "message": f"✅ Đã mở lại {len(ids)} sản phẩm được chọn sang trạng thái SẴN SÀNG!"}
+
+        elif action == "SET_UNAVAILABLE":
+            cur.execute(f"UPDATE items SET availability = 'UNAVAILABLE' WHERE id IN ({placeholders}) AND availability != 'RENTED'", ids)
+            conn.commit()
+            conn.close()
+            return {"success": True, "message": f"⚠️ Đã hạ {len(ids)} sản phẩm được chọn xuống (Tạm Ngưng)!"}
+
+        elif action == "DELETE":
+            cur.execute(f"DELETE FROM items WHERE id IN ({placeholders})", ids)
+            conn.commit()
+            sync_items_availability(conn)
+            conn.close()
+            return {"success": True, "message": f"🗑️ Đã xóa {len(ids)} sản phẩm được chọn khỏi kho!"}
+
+    conn.close()
+    raise HTTPException(status_code=400, detail="Hành động không hợp lệ!")
+
+
+# =============================================================================
+# FEATURE HIGHLIGHTS (4 THẺ NỔI BẬT ĐẦU TRANG CHO PHÉP ADMIN SỬA/XÓA)
+# =============================================================================
+
+class FeatureHighlightRequest(BaseModel):
+    title: str
+    subtitle: str
+    image_url: str
+    filter_keyword: str
+    display_order: Optional[int] = 0
+    is_active: Optional[int] = 1
+
+
+@app.get("/api/feature_highlights")
+def get_feature_highlights():
+    """Lấy danh sách các thẻ nổi bật hiển thị trên đầu web."""
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM feature_highlights WHERE is_active = 1 ORDER BY display_order ASC, id ASC").fetchall()
+    conn.close()
+    return {"success": True, "highlights": [dict(r) for r in rows]}
+
+
+@app.post("/api/admin/feature_highlights")
+def create_feature_highlight(req: FeatureHighlightRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin thêm thẻ nổi bật mới."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO feature_highlights (title, subtitle, image_url, filter_keyword, display_order, is_active)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (req.title.strip(), req.subtitle.strip(), req.image_url.strip(), req.filter_keyword.strip(), req.display_order or 0, req.is_active or 1))
+    conn.commit()
+    new_id = cur.lastrowid
+    conn.close()
+    return {"success": True, "message": "✅ Đã thêm thẻ nổi bật thành công!", "id": new_id}
+
+
+@app.patch("/api/admin/feature_highlights/{highlight_id}")
+def update_feature_highlight(highlight_id: int, req: FeatureHighlightRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin chỉnh sửa nội dung thẻ nổi bật."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        UPDATE feature_highlights 
+        SET title = ?, subtitle = ?, image_url = ?, filter_keyword = ?, display_order = ?, is_active = ?
+        WHERE id = ?
+    """, (req.title.strip(), req.subtitle.strip(), req.image_url.strip(), req.filter_keyword.strip(), req.display_order or 0, req.is_active or 1, highlight_id))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "✅ Đã cập nhật thẻ nổi bật thành công!"}
+
+
+@app.delete("/api/admin/feature_highlights/{highlight_id}")
+def delete_feature_highlight(highlight_id: int, admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin xóa thẻ nổi bật."""
+    conn = get_db()
+    conn.execute("DELETE FROM feature_highlights WHERE id = ?", (highlight_id,))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "Đã xóa thẻ nổi bật thành công!"}
+
+
+# =============================================================================
+# CUSTOMER MANAGEMENT CRM (QUẢN LÝ KHÁCH HÀNG KIOTVIET CRM)
+# =============================================================================
+
+class CustomerCreateUpdateRequest(BaseModel):
+    full_name: str
+    phone: str
+    email: Optional[str] = ""
+    address: Optional[str] = ""
+    cccd_number: Optional[str] = ""
+    notes: Optional[str] = ""
+
+
+@app.get("/api/admin/customers")
+def get_admin_customers(search: Optional[str] = None, admin: Dict[str, Any] = Depends(require_admin)):
+    """Lấy danh bạ khách hàng CRM (KiotViet style) kèm doanh số thuê và số lần thuê."""
+    conn = get_db()
+    query = "SELECT * FROM customers WHERE 1=1"
+    params = []
+    if search:
+        s = f"%{search.strip().lower()}%"
+        query += " AND (LOWER(full_name) LIKE ? OR phone LIKE ? OR cccd_number LIKE ? OR LOWER(address) LIKE ?)"
+        params.extend([s, s, s, s])
+    query += " ORDER BY id DESC LIMIT 200"
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+    return {"success": True, "customers": [dict(r) for r in rows], "count": len(rows)}
+
+
+@app.post("/api/admin/customers")
+def create_admin_customer(req: CustomerCreateUpdateRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """Thêm khách hàng mới vào danh bạ CRM."""
+    phone = req.phone.strip()
+    if not phone:
+        raise HTTPException(status_code=400, detail="Vui lòng nhập số điện thoại khách hàng!")
+    conn = get_db()
+    cur = conn.cursor()
+    exists = cur.execute("SELECT id FROM customers WHERE phone = ?", (phone,)).fetchone()
+    if exists:
+        conn.close()
+        raise HTTPException(status_code=400, detail=f"Khách hàng với số điện thoại '{phone}' đã tồn tại trong danh bạ!")
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
+    cur.execute("""
+        INSERT INTO customers (full_name, phone, email, address, cccd_number, notes, total_spent, total_rentals, loyalty_points, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, ?)
+    """, (req.full_name.strip(), phone, (req.email or "").strip(), (req.address or "").strip(), (req.cccd_number or "").strip(), (req.notes or "").strip(), now_str))
+    conn.commit()
+    new_id = cur.lastrowid
+    conn.close()
+    return {"success": True, "message": "✅ Đã thêm khách hàng vào danh bạ thành công!", "customer_id": new_id}
+
+
+@app.patch("/api/admin/customers/{customer_id}")
+def update_admin_customer(customer_id: int, req: CustomerCreateUpdateRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """Cập nhật thông tin khách hàng trong danh bạ."""
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        UPDATE customers 
+        SET full_name = ?, phone = ?, email = ?, address = ?, cccd_number = ?, notes = ?
+        WHERE id = ?
+    """, (req.full_name.strip(), req.phone.strip(), (req.email or "").strip(), (req.address or "").strip(), (req.cccd_number or "").strip(), (req.notes or "").strip(), customer_id))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "✅ Đã cập nhật hồ sơ khách hàng thành công!"}
+
+
+@app.delete("/api/admin/customers/{customer_id}")
+def delete_admin_customer(customer_id: int, admin: Dict[str, Any] = Depends(require_admin)):
+    """Xóa khách hàng khỏi danh bạ."""
+    conn = get_db()
+    conn.execute("DELETE FROM customers WHERE id = ?", (customer_id,))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "Đã xóa khách hàng khỏi danh bạ!"}
+
+
+@app.get("/api/admin/customers/{customer_id}/rentals")
+def get_customer_rentals(customer_id: int, admin: Dict[str, Any] = Depends(require_admin)):
+    """Xem toàn bộ lịch sử thuê đồ của khách hàng này."""
+    conn = get_db()
+    c = conn.execute("SELECT * FROM customers WHERE id = ?", (customer_id,)).fetchone()
+    if not c:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Không tìm thấy khách hàng!")
+    rentals = conn.execute("""
+        SELECT r.*, COALESCE(i.name, c.name, 'Đơn nhiều món') as item_name
+        FROM rentals r
+        LEFT JOIN items i ON r.item_id = i.id
+        LEFT JOIN combos c ON r.combo_id = c.id
+        JOIN users u ON r.user_id = u.id
+        WHERE u.phone = ? OR r.customer_notes LIKE ?
+        ORDER BY r.id DESC
+    """, (c["phone"], f"%{c['phone']}%")).fetchall()
+    conn.close()
+    return {"success": True, "customer": dict(c), "rentals": [dict(r) for r in rentals]}
 
 
 # =============================================================================

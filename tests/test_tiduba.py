@@ -644,3 +644,56 @@ def test_admin_schedule_calendar_api():
     assert "summary" in data
     assert "timeline_events" in data
     assert "items_schedule" in data
+
+
+def test_bulk_items_status_and_highlights_and_crm():
+    """Kiểm tra thao tác hàng loạt kho hàng, thẻ nổi bật và danh bạ khách hàng CRM."""
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    token = login_adm.json()["token"]
+    adm_headers = {"Authorization": f"Bearer {token}"}
+
+    # 1. Thao tác hàng loạt: ALL_UNAVAILABLE và ALL_AVAILABLE
+    res_down = client.post("/api/admin/items/bulk_status", json={"action": "ALL_UNAVAILABLE"}, headers=adm_headers)
+    assert res_down.status_code == 200
+
+    res_up = client.post("/api/admin/items/bulk_status", json={"action": "ALL_AVAILABLE"}, headers=adm_headers)
+    assert res_up.status_code == 200
+
+    # 2. Thẻ nổi bật (Feature Highlights)
+    hl_res = client.get("/api/feature_highlights")
+    assert hl_res.status_code == 200
+    assert len(hl_res.json()["highlights"]) >= 4
+
+    add_hl = client.post("/api/admin/feature_highlights", json={
+        "title": "Bikini Summer",
+        "subtitle": "Đồ bơi & Concept biển",
+        "image_url": "https://example.com/bikini.jpg",
+        "filter_keyword": "Bikini",
+        "display_order": 5,
+        "is_active": 1
+    }, headers=adm_headers)
+    assert add_hl.status_code == 200
+    hl_id = add_hl.json()["id"]
+
+    del_hl = client.delete(f"/api/admin/feature_highlights/{hl_id}", headers=adm_headers)
+    assert del_hl.status_code == 200
+
+    # 3. Quản lý khách hàng CRM
+    test_phone = f"097{int(time.time()*1000)%10000000:07d}"
+    add_cus = client.post("/api/admin/customers", json={
+        "full_name": "Trần Thị Khách VIP",
+        "phone": test_phone,
+        "email": "khachvip@example.com",
+        "address": "456 Phan Đình Phùng, Pleiku",
+        "cccd_number": "064310012345",
+        "notes": "Khách quen thuê máy ảnh"
+    }, headers=adm_headers)
+    assert add_cus.status_code == 200
+    cus_id = add_cus.json()["customer_id"]
+
+    get_cus = client.get(f"/api/admin/customers?search={test_phone}", headers=adm_headers)
+    assert get_cus.status_code == 200
+    assert len(get_cus.json()["customers"]) == 1
+
+    del_cus = client.delete(f"/api/admin/customers/{cus_id}", headers=adm_headers)
+    assert del_cus.status_code == 200
