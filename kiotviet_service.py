@@ -116,10 +116,10 @@ def classify_product_category(cat_name: str, prod_name: str) -> Tuple[str, str, 
     ]
 
     is_costume = any(k in combined for k in costume_keywords)
-    is_camera = any(k in combined for k in camera_keywords)
+    is_camera = any(k in combined for k in camera_keywords) or any(k in pn for k in ["r50", "m50", "sony", "canon", "fuji", "fujifilm", "nikon", "lumix", "blackmagic"])
 
     # Ưu tiên nếu tên sản phẩm hoặc nhóm hàng chứa váy/đầm/áo/set/bikini/dịch vụ thì 100% là COSTUME_FASHION
-    if is_costume and not ("may anh" in combined or "camera" in combined or "lens" in combined or "flycam" in combined or "gimbal" in combined):
+    if is_costume and not ("may anh" in combined or "camera" in combined or "lens" in combined or "flycam" in combined or "gimbal" in combined or "r50" in pn or "m50" in pn):
         category = "COSTUME_FASHION"
         if "bikini" in combined or "do boi" in combined:
             subcategory = "Bikini & Đồ Bơi"
@@ -131,14 +131,18 @@ def classify_product_category(cat_name: str, prod_name: str) -> Tuple[str, str, 
             subcategory = "Việt Phục Hoàng Cung"
         elif "yem" in combined:
             subcategory = "Yếm Dân Gian"
-        elif any(k in combined for k in ["vay", "dam"]):
-            subcategory = "Váy Tiệc & Dạ Hội"
-        elif "khoac" in combined:
-            subcategory = "Áo Khoác & Đồ Đông"
-        elif any(k in combined for k in ["boot", "guoc", "giay"]):
-            subcategory = "Boot & Giày Guốc"
+        elif any(k in combined for k in ["vay", "dam", "cvay"]):
+            subcategory = "Váy Tiệc"
+        elif "khoac" in combined or "dong" in combined or "len" in combined or "choang" in combined:
+            subcategory = "Áo Khoác"
+        elif "du lich" in combined or "set" in combined:
+            subcategory = "Du Lịch - Chụp Ảnh"
+        elif any(k in combined for k in ["boot", "bot", "guoc", "giay", "dep"]):
+            subcategory = "Boot"
         elif any(k in combined for k in ["tui", "balo"]):
             subcategory = "Túi Xách"
+        elif any(k in combined for k in ["non", "mu"]):
+            subcategory = "Nón & Mũ"
         else:
             subcategory = cat_name or "Trang Phục Concept"
     elif is_camera:
@@ -147,14 +151,14 @@ def classify_product_category(cat_name: str, prod_name: str) -> Tuple[str, str, 
             subcategory = "Ống Kính (Lens)"
         elif any(k in combined for k in ["flycam", "drone"]):
             subcategory = "Flycam / Drone"
-        elif any(k in combined for k in ["gimbal", "chong rung"]):
+        elif any(k in combined for k in ["gimbal", "chong rung", "ronin"]):
             subcategory = "Gimbal Chống Rung"
         elif any(k in combined for k in ["den flash", "flash", "led"]):
             subcategory = "Đèn Flash & Ánh Sáng"
         elif any(k in combined for k in ["micro", "thu am"]):
             subcategory = "Micro Thu Âm"
         else:
-            subcategory = cat_name or "Body Máy Ảnh"
+            subcategory = "Máy Ảnh"
     else:
         # Mặc định theo nhóm hàng nếu là Dịch vụ hoặc Trang phục
         if any(k in cn for k in ["dich vu", "trang phuc", "thoi trang", "vay", "dam", "ao"]):
@@ -164,8 +168,9 @@ def classify_product_category(cat_name: str, prod_name: str) -> Tuple[str, str, 
             category = "CAMERA_GEAR"
             subcategory = cat_name or "Thiết Bị"
 
-    # Nếu trên KiotViet đã có nhóm hàng rõ ràng thì ưu tiên giữ nguyên nhóm hàng KiotViet
-    if cat_name and cat_name.strip():
+    # Nếu nhóm hàng KiotViet là chung chung như "Dịch vụ" hoặc "Hàng hóa", dùng từ khóa thông minh
+    generic_cats = ["dich vu", "hang hoa", "san pham", "khac", ""]
+    if cat_name and cat_name.strip() and normalize_str(cat_name) not in generic_cats:
         subcategory = cat_name.strip()
 
     return category, subcategory, brand
@@ -417,11 +422,19 @@ def import_kiotviet_excel_or_csv(db_conn: sqlite3.Connection, file_content: byte
             if not header_row:
                 return {"success": False, "message": "Không tìm thấy dòng tiêu đề cột hợp lệ (Mã hàng, Tên hàng...) trong file Excel KiotViet!"}
 
-            # Map index
+            # Map index chính xác theo định dạng KiotViet:
+            # Ưu tiên cột "Nhóm hàng" trước cột "Loại hàng"
             header_norm = [normalize_str(h) for h in header_row]
             idx_code = next((i for i, h in enumerate(header_norm) if any(k in h for k in ["ma hang", "ma vach", "code", "barcode"])), -1)
             idx_name = next((i for i, h in enumerate(header_norm) if any(k in h for k in ["ten hang", "ten san pham", "name"])), -1)
-            idx_cat = next((i for i, h in enumerate(header_norm) if any(k in h for k in ["nhom hang", "loai hang", "category"])), -1)
+            
+            # Ưu tiên "nhom hang" hoặc "nhom hang(3 cap)", KHÔNG lấy cột "loai hang" (chứa Dịch vụ)
+            idx_cat = next((i for i, h in enumerate(header_norm) if "nhom hang" in h), -1)
+            if idx_cat == -1:
+                idx_cat = next((i for i, h in enumerate(header_norm) if any(k in h for k in ["category", "nhom"])), -1)
+            if idx_cat == -1:
+                idx_cat = next((i for i, h in enumerate(header_norm) if "loai hang" in h), -1)
+
             idx_price = next((i for i, h in enumerate(header_norm) if any(k in h for k in ["gia ban", "gia thue", "gia le", "price"])), -1)
             idx_stock = next((i for i, h in enumerate(header_norm) if any(k in h for k in ["ton kho", "so luong", "ton", "onhand", "qty"])), -1)
             idx_img = next((i for i, h in enumerate(header_norm) if any(k in h for k in ["hinh anh", "anh", "image"])), -1)
@@ -490,7 +503,13 @@ def import_kiotviet_excel_or_csv(db_conn: sqlite3.Connection, file_content: byte
             header_norm = [normalize_str(h) for h in header_row]
             idx_code = next((i for i, h in enumerate(header_norm) if any(k in h for k in ["ma hang", "code"])), -1)
             idx_name = next((i for i, h in enumerate(header_norm) if any(k in h for k in ["ten hang", "name"])), -1)
-            idx_cat = next((i for i, h in enumerate(header_norm) if any(k in h for k in ["nhom hang", "category"])), -1)
+            
+            idx_cat = next((i for i, h in enumerate(header_norm) if "nhom hang" in h), -1)
+            if idx_cat == -1:
+                idx_cat = next((i for i, h in enumerate(header_norm) if any(k in h for k in ["category", "nhom"])), -1)
+            if idx_cat == -1:
+                idx_cat = next((i for i, h in enumerate(header_norm) if "loai hang" in h), -1)
+
             idx_price = next((i for i, h in enumerate(header_norm) if any(k in h for k in ["gia ban", "price"])), -1)
             idx_stock = next((i for i, h in enumerate(header_norm) if any(k in h for k in ["ton kho", "onhand"])), -1)
             idx_img = next((i for i, h in enumerate(header_norm) if any(k in h for k in ["hinh anh", "image"])), -1)

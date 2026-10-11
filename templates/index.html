@@ -916,13 +916,16 @@
 
                 <!-- THANH THAO TÁC HÀNG LOẠT (MỞ LẠI HẾT / HẠ XUỐNG HẾT / XỬ LÝ MỤC ĐÃ CHỌN) -->
                 <div class="bg-gray-950 p-3 rounded-xl border border-gray-800 flex flex-wrap items-center justify-between gap-2.5 text-xs font-mono">
-                    <div class="flex items-center gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
                         <span class="text-gray-400 text-[11px] font-bold">Thao tác toàn bộ kho:</span>
                         <button type="button" onclick="adminBulkStatusAction('ALL_AVAILABLE')" class="bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-600 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 transition">
                             <i class="fa-solid fa-arrow-up"></i> Mở Lại Tất Cả
                         </button>
                         <button type="button" onclick="adminBulkStatusAction('ALL_UNAVAILABLE')" class="bg-yellow-950 hover:bg-yellow-900 text-yellow-300 border border-yellow-700 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 transition">
                             <i class="fa-solid fa-arrow-down"></i> Hạ Xuống Tất Cả
+                        </button>
+                        <button type="button" onclick="adminReclassifyAllKiotvietItems()" class="bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-600 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 transition" title="Tự động sửa toàn bộ sản phẩm KiotViet sang đúng nhóm Váy/Áo/Set/Máy ảnh trong 1 giây">
+                            <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> Phân Loại Lại Toàn Kho
                         </button>
                     </div>
 
@@ -3086,9 +3089,16 @@
             }
         }
 
+        function normalizeSearchText(s) {
+            if (!s) return "";
+            return s.toLowerCase().trim()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .replace(/đ/g, "d").replace(/Đ/g, "d");
+        }
+
         function renderCatalog() {
             const grid = document.getElementById('catalog-grid');
-            const searchVal = document.getElementById('catalog-search').value.toLowerCase().trim();
+            const searchVal = normalizeSearchText(document.getElementById('catalog-search').value);
 
             if (currentCategory === 'COMBOS') {
                 renderCombosGrid(grid, searchVal);
@@ -3097,22 +3107,29 @@
 
             let filtered = allItems;
             if (currentCategory !== 'ALL') {
-                const cf = currentCategory.toLowerCase().trim();
-                filtered = filtered.filter(i => 
-                    (i.category && i.category.toLowerCase() === cf) ||
-                    (i.subcategory && i.subcategory.toLowerCase().includes(cf)) ||
-                    (i.brand && i.brand.toLowerCase().includes(cf)) ||
-                    (i.name && i.name.toLowerCase().includes(cf))
-                );
+                const cf = normalizeSearchText(currentCategory);
+                filtered = filtered.filter(i => {
+                    const catNorm = normalizeSearchText(i.category);
+                    const subNorm = normalizeSearchText(i.subcategory);
+                    const brandNorm = normalizeSearchText(i.brand);
+                    const nameNorm = normalizeSearchText(i.name);
+                    return catNorm === cf || subNorm.includes(cf) || cf.includes(subNorm) ||
+                           brandNorm.includes(cf) || cf.includes(brandNorm) ||
+                           nameNorm.includes(cf);
+                });
             }
             if (activeBrandFilter) {
-                const bf = activeBrandFilter.toLowerCase().trim();
-                filtered = filtered.filter(i => 
-                    (i.brand && i.brand.toLowerCase().includes(bf)) ||
-                    (i.name && i.name.toLowerCase().includes(bf)) ||
-                    (i.subcategory && i.subcategory.toLowerCase().includes(bf)) ||
-                    (i.category && i.category.toLowerCase().includes(bf))
-                );
+                const bf = normalizeSearchText(activeBrandFilter);
+                filtered = filtered.filter(i => {
+                    const catNorm = normalizeSearchText(i.category);
+                    const subNorm = normalizeSearchText(i.subcategory);
+                    const brandNorm = normalizeSearchText(i.brand);
+                    const nameNorm = normalizeSearchText(i.name);
+                    return brandNorm.includes(bf) || bf.includes(brandNorm) ||
+                           nameNorm.includes(bf) ||
+                           subNorm.includes(bf) || bf.includes(subNorm) ||
+                           catNorm.includes(bf);
+                });
             }
             if (activePriceFilter) {
                 if (activePriceFilter === 'tier1') {
@@ -3124,11 +3141,12 @@
                 }
             }
             if (searchVal) {
-                filtered = filtered.filter(i => 
-                    i.name.toLowerCase().includes(searchVal) || 
-                    i.subcategory.toLowerCase().includes(searchVal) ||
-                    i.brand.toLowerCase().includes(searchVal)
-                );
+                filtered = filtered.filter(i => {
+                    const nameNorm = normalizeSearchText(i.name);
+                    const subNorm = normalizeSearchText(i.subcategory);
+                    const brandNorm = normalizeSearchText(i.brand);
+                    return nameNorm.includes(searchVal) || subNorm.includes(searchVal) || brandNorm.includes(searchVal);
+                });
             }
 
             document.getElementById('catalog-count-badge').innerText = filtered.length;
@@ -6253,6 +6271,29 @@
                     fetchCatalog();
                 } else {
                     alert(data.detail || data.message || "Thao tác hàng loạt thất bại!");
+                }
+            } catch (err) {
+                alert("Lỗi kết nối: " + err);
+            }
+        }
+
+        async function adminReclassifyAllKiotvietItems() {
+            if (!confirm("Hệ thống sẽ tự động quét lại toàn bộ 1.000+ sản phẩm và xếp chính xác vào nhóm Váy Tiệc, Áo Dài, Áo Khoác, Du Lịch, Boot... theo tên hàng KiotViet. Tiếp tục?")) return;
+            const token = localStorage.getItem('tiduba_token');
+            showToast("Đang chuẩn hóa phân loại toàn bộ kho hàng...");
+            try {
+                const res = await fetch('/api/admin/items/reclassify_all', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast(data.message);
+                    alert(data.message);
+                    fetchCatalog();
+                    fetchAdminDashboard();
+                } else {
+                    alert(data.detail || "Lỗi phân loại!");
                 }
             } catch (err) {
                 alert("Lỗi kết nối: " + err);

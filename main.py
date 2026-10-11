@@ -3810,6 +3810,29 @@ def delete_admin_customer(customer_id: int, admin: Dict[str, Any] = Depends(requ
     return {"success": True, "message": "Đã xóa khách hàng khỏi danh bạ!"}
 
 
+@app.post("/api/admin/items/reclassify_all")
+def api_reclassify_all_items(admin: Dict[str, Any] = Depends(require_admin)):
+    """Tự động chuẩn hóa phân loại 100% kho hàng KiotViet sang đúng danh mục & chip lọc trong 1 giây."""
+    from kiotviet_service import classify_product_category
+    conn = get_db()
+    cur = conn.cursor()
+    items = cur.execute("SELECT id, name, description, category, subcategory, brand FROM items").fetchall()
+    updated = 0
+    for it in items:
+        cat, sub, brand = classify_product_category(it["description"] or "", it["name"])
+        if it["category"] != cat or it["subcategory"] != sub or it["brand"] != brand:
+            cur.execute("""
+                UPDATE items 
+                SET category = ?, subcategory = ?, brand = ?
+                WHERE id = ?
+            """, (cat, sub, brand, it["id"]))
+            updated += 1
+    conn.commit()
+    sync_items_availability(conn)
+    conn.close()
+    return {"success": True, "message": f"🎉 Đã tự động phân loại lại chuẩn xác {updated}/{len(items)} sản phẩm theo kho KiotViet!", "updated_count": updated}
+
+
 @app.get("/api/admin/customers/{customer_id}/rentals")
 def get_customer_rentals(customer_id: int, admin: Dict[str, Any] = Depends(require_admin)):
     """Xem toàn bộ lịch sử thuê đồ của khách hàng này."""
