@@ -443,14 +443,15 @@
         <!-- SECTION 2: ĐƠN THUÊ CỦA TÔI (MY RENTALS & COUNTDOWN)           -->
         <!-- ============================================================== -->
         <section id="sec-my-rentals" class="hidden space-y-6">
-            <div class="flex items-center justify-between border-b border-gray-800 pb-4">
+            <div class="bg-gradient-to-r from-[#1c1917] via-[#292524] to-[#1c1917] p-5 sm:p-6 rounded-2xl border border-amber-500/40 shadow-xl flex items-center justify-between gap-4">
                 <div>
-                    <h3 class="text-xl font-bold text-white flex items-center gap-2">
-                        <i class="fa-solid fa-clock-rotate-left text-cyan-400"></i> Lịch Sử & Đơn Thuê Thiết Bị Của Tôi
+                    <span class="text-[10px] font-mono bg-amber-950 text-amber-300 border border-amber-600 px-2 py-0.5 rounded font-bold uppercase">LỊCH SỬ THUÊ ĐỒ</span>
+                    <h3 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2 mt-1 drop-shadow-sm">
+                        <i class="fa-solid fa-clock-rotate-left text-amber-400"></i> Lịch Sử & Đơn Thuê Thiết Bị Của Tôi
                     </h3>
-                    <p class="text-xs text-gray-400 mt-1">Theo dõi thời gian trả đồ, đếm ngược hạn trả, xin gia hạn và xuất Hợp Đồng Điện Tử Bàn Giao.</p>
+                    <p class="text-xs text-amber-100/80 mt-1">Theo dõi trạng thái duyệt đơn, hạn trả, đếm ngược giờ và hợp đồng điện tử bàn giao.</p>
                 </div>
-                <button onclick="showSection('catalog')" class="bg-gray-800 hover:bg-gray-700 text-gray-200 px-3 py-1.5 rounded-lg text-xs font-bold transition">
+                <button onclick="showSection('catalog')" class="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap shadow-sm">
                     <i class="fa-solid fa-arrow-left"></i> Quay lại Catalog
                 </button>
             </div>
@@ -5982,16 +5983,37 @@
 
             container.innerHTML = rentals.map(r => {
                 const isOverdue = r.status === 'OVERDUE';
-                const statusColor = isOverdue ? 'bg-rose-950 text-rose-300 border-rose-700' :
-                                    r.status === 'ACTIVE' ? 'bg-cyan-950 text-cyan-300 border-cyan-700' :
-                                    r.status === 'RETURNED' ? 'bg-emerald-950 text-emerald-300 border-emerald-700' : 'bg-yellow-950 text-yellow-300 border-yellow-700';
+                const isHold = r.status === 'HOLD';
+                const isActive = r.status === 'ACTIVE';
+                const isReturned = r.status === 'RETURNED';
+                const isCancelled = r.status === 'CANCELLED';
+
+                let statusBadgeText = r.status;
+                let statusBadgeClass = 'bg-yellow-950 text-yellow-300 border-yellow-700';
+
+                if (isHold) {
+                    statusBadgeText = '⏳ Đang Chờ Admin Duyệt Tiền';
+                    statusBadgeClass = 'bg-amber-950 text-amber-300 border-amber-600 font-bold';
+                } else if (isActive) {
+                    statusBadgeText = '✅ Đã Xác Nhận (Đang Thuê)';
+                    statusBadgeClass = 'bg-emerald-950 text-emerald-300 border-emerald-600 font-bold';
+                } else if (isReturned) {
+                    statusBadgeText = '🎉 Đã Trả Đồ Xong';
+                    statusBadgeClass = 'bg-teal-950 text-teal-300 border-teal-600 font-bold';
+                } else if (isOverdue) {
+                    statusBadgeText = '🚨 Đã Quá Hạn Trả';
+                    statusBadgeClass = 'bg-rose-950 text-rose-300 border-rose-600 font-black';
+                } else if (isCancelled) {
+                    statusBadgeText = '❌ Đã Hủy Đơn';
+                    statusBadgeClass = 'bg-gray-800 text-gray-400 border-gray-700 font-bold';
+                }
 
                 return `
-                    <div class="luxury-card rounded-2xl p-5 border ${isOverdue ? 'border-rose-500/60' : 'border-gray-800'} space-y-4">
+                    <div class="luxury-card rounded-2xl p-5 border ${isOverdue ? 'border-rose-500/60' : isHold ? 'border-amber-500/60' : 'border-gray-800'} space-y-4">
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-800 pb-3">
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="text-xs font-mono font-bold text-amber-400">${r.rental_code}</span>
-                                <span class="text-xs font-mono px-2 py-0.5 rounded-full border ${statusColor}">${r.status}</span>
+                                <span class="text-xs font-mono px-2.5 py-0.5 rounded-full border ${statusBadgeClass}">${statusBadgeText}</span>
                                 <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-700">
                                     📍 ${r.branch_code === 'CN2' ? 'CN2: 801 Lê Duẩn, P. An Phú, Pleiku' : 'CN1: 183A Huỳnh Thúc Kháng, Pleiku'}
                                 </span>

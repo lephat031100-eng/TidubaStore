@@ -553,10 +553,9 @@ def init_db():
 
     official_cats = [
         ('all', 'Tất Cả', 'ALL', '', 0),
-        ('sony', 'Máy Sony', 'BRAND', 'Sony', 1),
-        ('canon', 'Máy Canon', 'BRAND', 'Canon', 2),
+        ('mayanh', 'Máy Ảnh', 'CATEGORY', 'Body Máy Ảnh', 1),
+        ('ongkinh', 'Ống Kính', 'CATEGORY', 'Ống Kính', 2),
         ('vay', 'Váy Tiệc', 'BRAND', 'Váy', 3),
-        ('fuji', 'Máy Fujifilm', 'BRAND', 'Fujifilm', 4),
         ('t1', 'Áo Khoác', 'CATEGORY', 'Áo Khoác', 5),
         ('t2', 'Du Lịch - Chụp Ảnh', 'CATEGORY', 'Du Lịch', 6),
         ('t3', 'Đồ Đông', 'CATEGORY', 'Đồ Đông', 7),
@@ -570,8 +569,9 @@ def init_db():
         ('phukien', 'Phụ Kiện', 'BRAND', 'Phụ Kiện', 16),
     ]
 
-    # Chuẩn hóa filter_value cho các danh mục nhóm đồ
+    # Chuẩn hóa filter_value cho các danh mục và dọn dẹp các mục cũ (Máy Sony, Máy Canon, Máy Fuji)
     try:
+        cur.execute("DELETE FROM categories_config WHERE code IN ('sony', 'canon', 'fuji') OR name IN ('Máy Sony', 'Máy Canon', 'Máy Fujifilm')")
         cur.execute("UPDATE categories_config SET filter_type = 'CATEGORY', filter_value = 'Áo Khoác' WHERE code = 't1'")
         cur.execute("UPDATE categories_config SET filter_type = 'CATEGORY', filter_value = 'Du Lịch' WHERE code = 't2'")
         cur.execute("UPDATE categories_config SET filter_type = 'CATEGORY', filter_value = 'Đồ Đông' WHERE code = 't3'")
@@ -4740,16 +4740,20 @@ def submit_customer_payment_proof(req: CustomerPaymentProofRequest, user: Option
     confirm_sig = hmac.new(TOKEN_SECRET.encode(), f"{rental['id']}:{rental['rental_code']}".encode(), hashlib.sha256).hexdigest()
     confirm_url = f"https://tidubastore.onrender.com/api/telegram/quick_confirm?rental_id={rental['id']}&code={rental['rental_code']}&sig={confirm_sig}"
     
-    # Nút bấm Inline: Hỗ trợ cả Callback bấm duyệt thẳng trong Telegram lẫn xem trên web
+    # Nút bấm Inline: Duyệt tiền, Hủy đơn, Hết đồ trực tiếp trong Telegram
     inline_kb = [
         [
-            {"text": "✅ Xác Nhận Đã Nhận Tiền (Duyệt Ngay)", "callback_data": f"confirm_pay:{rental['id']}:{rental['rental_code']}"}
+            {"text": "✅ Xác Nhận Đã Nhận Tiền", "callback_data": f"confirm_pay:{rental['id']}:{rental['rental_code']}"}
+        ],
+        [
+            {"text": "❌ Hủy Đơn Này", "callback_data": f"cancel_order:{rental['id']}:{rental['rental_code']}"},
+            {"text": "🚫 Hết Đồ / Kho Bận", "callback_data": f"out_of_stock:{rental['id']}:{rental['rental_code']}"}
         ],
         [
             {"text": "🔍 Xem Chi Tiết Trên Web", "url": f"https://tidubastore.onrender.com/return-qr?code={rental['rental_code']}"}
         ]
     ]
-    tele_msg += "\n👇 <b>Bấm [Xác Nhận Đã Nhận Tiền] bên dưới để duyệt đơn tức thì (Không cần mở web):</b>"
+    tele_msg += "\n👇 <b>Admin bấm nút bên dưới để thao tác tức thì (Không cần mở web/app):</b>"
 
     _send_telegram_notification(
         message=tele_msg,
@@ -6152,15 +6156,73 @@ def telegram_bot_updates_worker():
                                 try:
                                     urllib.request.urlopen(ans_req, timeout=5)
                                 except Exception: pass
-            # --- 3. TỰ ĐỘNG CHỐT SỔ DOANH THU LÚC 21:00 (9 GIỜ TỐI) VÀO GROUP -1003930707954 ---
-            if now.hour == 21 and now.minute <= 5:
-                today_d = now.strftime("%Y-%m-%d")
-                chk_rep = cur.execute("SELECT id FROM daily_revenue_logs WHERE report_date = ? AND is_updated = 0", (today_d,)).fetchone()
-                if not chk_rep:
-                    print(f"[DAILY REVENUE] Đúng 21:00 -> Tự động chốt sổ doanh thu ngày {today_d}...")
-                    send_daily_revenue_report(today_d, is_update=False)
+                            conn.close()
 
-            conn.close()
+                    elif cq_data.startswith("cancel_order:"):
+                        parts = cq_data.split(":")
+                        if len(parts) >= 3:
+                            rental_id = int(parts[1])
+                            rental_code = parts[2]
+                            conn = get_db()
+                            cur = conn.cursor()
+                            cur.execute("UPDATE rentals SET status = 'CANCELLED' WHERE id = ?", (rental_id,))
+                            conn.commit()
+                            sync_items_availability(conn)
+                            conn.close()
+
+                            ans_url = f"https://api.telegram.org/bot{bot_token}/answerCallbackQuery"
+                            ans_body = json.dumps({
+                                "callback_query_id": cq_id,
+                                "text": f"❌ Đã hủy đơn {rental_code}! Kho hàng đã được nhả lại.",
+                                "show_alert": True
+                            }).encode("utf-8")
+                            try:
+                                urllib.request.urlopen(urllib.request.Request(ans_url, data=ans_body, headers={"Content-Type": "application/json"}, method="POST"), timeout=5)
+                            except Exception: pass
+
+                            notify_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                            notif_body = json.dumps({
+                                "chat_id": chat_id,
+                                "text": f"❌ <b>[ĐÃ HỦY ĐƠN {rental_code}]</b>\n👑 <b>{sender}</b> đã hủy đơn này. Thiết bị đã trở về trạng thái <b>SẴN SÀNG</b>.",
+                                "parse_mode": "HTML",
+                                "reply_to_message_id": msg_id
+                            }).encode("utf-8")
+                            try:
+                                urllib.request.urlopen(urllib.request.Request(notify_url, data=notif_body, headers={"Content-Type": "application/json"}, method="POST"), timeout=5)
+                            except Exception: pass
+
+                    elif cq_data.startswith("out_of_stock:"):
+                        parts = cq_data.split(":")
+                        if len(parts) >= 3:
+                            rental_id = int(parts[1])
+                            rental_code = parts[2]
+                            conn = get_db()
+                            cur = conn.cursor()
+                            cur.execute("UPDATE rentals SET status = 'CANCELLED', customer_notes = COALESCE(customer_notes, '') || ' | Hết đồ' WHERE id = ?", (rental_id,))
+                            conn.commit()
+                            sync_items_availability(conn)
+                            conn.close()
+
+                            ans_url = f"https://api.telegram.org/bot{bot_token}/answerCallbackQuery"
+                            ans_body = json.dumps({
+                                "callback_query_id": cq_id,
+                                "text": f"🚫 Đã báo hết đồ cho đơn {rental_code}!",
+                                "show_alert": True
+                            }).encode("utf-8")
+                            try:
+                                urllib.request.urlopen(urllib.request.Request(ans_url, data=ans_body, headers={"Content-Type": "application/json"}, method="POST"), timeout=5)
+                            except Exception: pass
+
+                            notify_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                            notif_body = json.dumps({
+                                "chat_id": chat_id,
+                                "text": f"🚫 <b>[BÁO HẾT ĐỒ - ĐƠN {rental_code}]</b>\n👑 <b>{sender}</b> đã đánh dấu đơn này là hết đồ / kho bận.",
+                                "parse_mode": "HTML",
+                                "reply_to_message_id": msg_id
+                            }).encode("utf-8")
+                            try:
+                                urllib.request.urlopen(urllib.request.Request(notify_url, data=notif_body, headers={"Content-Type": "application/json"}, method="POST"), timeout=5)
+                            except Exception: pass
         except Exception:
             time.sleep(3)
 

@@ -102,23 +102,30 @@ def classify_product_category(cat_name: str, prod_name: str) -> Tuple[str, str, 
         brand = "Phụ Kiện"
 
     # 2. Phát hiện Category lớn (CAMERA_GEAR vs COSTUME_FASHION)
+    # Từ khóa máy ảnh phải chính xác từ ngữ, KHÔNG bắt từ đơn lẻ như 'den' (màu đen) hay 'sac' (sắc sảo/màu sắc)
     camera_keywords = [
         "may anh", "camera", "body", "lens", "ong kinh", "gimbal", "flycam", "drone",
-        "tripod", "chan may", "mic", "micro", "den", "flash", "the nho", "pin", "sac",
-        "ronin", "dji", "sony", "canon", "fuji", "fujifilm", "nikon"
+        "tripod", "chan may", "chan may anh", "micro", "thu am", "den flash", "the nho", "pin sac",
+        "ronin", "dji", "sony", "canon", "fujifilm", "nikon"
     ]
     costume_keywords = [
         "vay", "dam", "ao", "quan", "set", "trang phuc", "co phuc", "viet phuc",
         "nhat binh", "ao dai", "yem", "vest", "blazer", "khoac", "dong", "len",
-        "du lich", "chup anh", "boot", "non", "khan"
+        "du lich", "chup anh", "boot", "non", "khan", "bikini", "do boi", "suon xam",
+        "dich vu", "phu kien", "tui", "giay", "guoc"
     ]
 
-    is_camera = any(k in combined for k in camera_keywords)
     is_costume = any(k in combined for k in costume_keywords)
+    is_camera = any(k in combined for k in camera_keywords)
 
-    if is_costume and not is_camera:
+    # Ưu tiên nếu tên sản phẩm hoặc nhóm hàng chứa váy/đầm/áo/set/bikini/dịch vụ thì 100% là COSTUME_FASHION
+    if is_costume and not ("may anh" in combined or "camera" in combined or "lens" in combined or "flycam" in combined or "gimbal" in combined):
         category = "COSTUME_FASHION"
-        if "ao dai" in combined:
+        if "bikini" in combined or "do boi" in combined:
+            subcategory = "Bikini & Đồ Bơi"
+        elif "suon xam" in combined:
+            subcategory = "Sườn Xám"
+        elif "ao dai" in combined:
             subcategory = "Áo Dài Thiết Kế"
         elif any(k in combined for k in ["co phuc", "viet phuc", "nhat binh"]):
             subcategory = "Việt Phục Hoàng Cung"
@@ -128,9 +135,13 @@ def classify_product_category(cat_name: str, prod_name: str) -> Tuple[str, str, 
             subcategory = "Váy Tiệc & Dạ Hội"
         elif "khoac" in combined:
             subcategory = "Áo Khoác & Đồ Đông"
+        elif any(k in combined for k in ["boot", "guoc", "giay"]):
+            subcategory = "Boot & Giày Guốc"
+        elif any(k in combined for k in ["tui", "balo"]):
+            subcategory = "Túi Xách"
         else:
             subcategory = cat_name or "Trang Phục Concept"
-    else:
+    elif is_camera:
         category = "CAMERA_GEAR"
         if any(k in combined for k in ["lens", "ong kinh"]):
             subcategory = "Ống Kính (Lens)"
@@ -138,12 +149,20 @@ def classify_product_category(cat_name: str, prod_name: str) -> Tuple[str, str, 
             subcategory = "Flycam / Drone"
         elif any(k in combined for k in ["gimbal", "chong rung"]):
             subcategory = "Gimbal Chống Rung"
-        elif any(k in combined for k in ["den", "flash", "led"]):
+        elif any(k in combined for k in ["den flash", "flash", "led"]):
             subcategory = "Đèn Flash & Ánh Sáng"
-        elif any(k in combined for k in ["mic", "thu am"]):
+        elif any(k in combined for k in ["micro", "thu am"]):
             subcategory = "Micro Thu Âm"
         else:
             subcategory = cat_name or "Body Máy Ảnh"
+    else:
+        # Mặc định theo nhóm hàng nếu là Dịch vụ hoặc Trang phục
+        if any(k in cn for k in ["dich vu", "trang phuc", "thoi trang", "vay", "dam", "ao"]):
+            category = "COSTUME_FASHION"
+            subcategory = cat_name or "Trang Phục Concept"
+        else:
+            category = "CAMERA_GEAR"
+            subcategory = cat_name or "Thiết Bị"
 
     # Nếu trên KiotViet đã có nhóm hàng rõ ràng thì ưu tiên giữ nguyên nhóm hàng KiotViet
     if cat_name and cat_name.strip():
