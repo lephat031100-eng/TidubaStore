@@ -72,6 +72,26 @@ def vn_today() -> datetime.date:
     """Trả về ngày hiện tại chuẩn Việt Nam (GMT+7)."""
     return vn_now().date()
 
+
+def parse_dt_safe(dt_str: Any) -> Optional[datetime.datetime]:
+    """Chuyển đổi chuỗi ngày giờ bất kỳ sang datetime chuẩn xác 100%, không bao giờ văng lỗi."""
+    if not dt_str:
+        return None
+    if isinstance(dt_str, datetime.datetime):
+        return dt_str
+    if isinstance(dt_str, datetime.date):
+        return datetime.datetime.combine(dt_str, datetime.time.min)
+    s = str(dt_str).strip().replace("T", " ")
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d", "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M", "%d/%m/%Y"):
+        try:
+            return datetime.datetime.strptime(s, fmt)
+        except Exception:
+            pass
+    try:
+        return datetime.datetime.fromisoformat(s.replace("Z", ""))
+    except Exception:
+        return None
+
 # Hỗ trợ lưu trữ bền vững (Render Persistent Disk / Custom Volume)
 _env_data_dir = os.environ.get("PERSISTENT_DATA_DIR") or os.environ.get("DATA_DIR")
 if _env_data_dir:
@@ -3854,6 +3874,80 @@ def get_customer_rentals(customer_id: int, admin: Dict[str, Any] = Depends(requi
     return {"success": True, "customer": dict(c), "rentals": [dict(r) for r in rentals]}
 
 
+@app.get("/api/customers/lookup_by_phone/{phone}")
+def lookup_customer_by_phone(phone: str):
+    """Tra cứu nhanh thông tin khách hàng theo số điện thoại để tự động điền form booking / POS."""
+    clean_p = re.sub(r"[^\d]", "", phone.strip())
+    if len(clean_p) < 9:
+        return {"found": False}
+    conn = get_db()
+    c = conn.execute("SELECT * FROM customers WHERE phone = ? LIMIT 1", (clean_p,)).fetchone()
+    conn.close()
+    if c:
+        d = dict(c)
+        return {
+            "found": True,
+            "customer": {
+                "id": d["id"],
+                "full_name": d["full_name"],
+                "phone": d["phone"],
+                "cccd_number": d["cccd_number"] or "",
+                "email": d["email"] or "",
+                "address": d["address"] or "",
+                "notes": d["notes"] or "",
+                "total_spent": d["total_spent"],
+                "total_rentals": d["total_rentals"]
+            }
+        }
+    return {"found": False}
+
+
+@app.get("/api/ping")
+def api_ping():
+    """Endpoint keepalive giữ máy chủ Render luôn thức 24/7."""
+    return {
+        "status": "ok",
+        "time": vn_now().strftime("%Y-%m-%d %H:%M:%S"),
+        "service": "TidubaStore"
+    }
+
+
+@app.get("/api/admin/system/health")
+def api_system_health(admin: Dict[str, Any] = Depends(require_admin)):
+    """Kiểm tra sức khỏe hệ thống, kết nối 3 Group Telegram và trạng thái các luồng ngầm."""
+    conn = get_db()
+    cfg = conn.execute("SELECT * FROM telegram_config WHERE id = 1").fetchone()
+    total_items = conn.execute("SELECT count(*) as c FROM items").fetchone()["c"]
+    total_rentals = conn.execute("SELECT count(*) as c FROM rentals").fetchone()["c"]
+    total_customers = conn.execute("SELECT count(*) as c FROM customers").fetchone()["c"]
+    today_revenue_log = conn.execute("SELECT * FROM daily_revenue_logs WHERE report_date = ? ORDER BY id DESC LIMIT 1", (vn_today().strftime("%Y-%m-%d"),)).fetchone()
+    conn.close()
+
+    thread_names = [t.name for t in threading.enumerate()]
+    return {
+        "success": True,
+        "server_time_vn": vn_now().strftime("%Y-%m-%d %H:%M:%S"),
+        "timezone": "Asia/Ho_Chi_Minh (GMT+7)",
+        "database": {
+            "items_count": total_items,
+            "rentals_count": total_rentals,
+            "customers_count": total_customers
+        },
+        "telegram": {
+            "bot_token_configured": bool(cfg and cfg["bot_token"]),
+            "chat_id_main": cfg["chat_id"] if cfg else "",
+            "chat_id_overdue": cfg["overdue_chat_id"] if (cfg and "overdue_chat_id" in cfg.keys()) else "-1004498214603",
+            "chat_id_revenue": cfg["revenue_chat_id"] if (cfg and "revenue_chat_id" in cfg.keys()) else "-1003930707954",
+            "today_revenue_reported": bool(today_revenue_log)
+        },
+        "background_threads": {
+            "reminder_worker_running": "TidubaReminderWorker" in thread_names,
+            "telegram_bot_worker_running": "TidubaTelegramBotWorker" in thread_names,
+            "keepalive_worker_running": "TidubaKeepAliveWorker" in thread_names
+        }
+    }
+
+
 # =============================================================================
 # ADMIN SITE SETTINGS & CATEGORIES DYNAMIC CONFIG
 # =============================================================================
@@ -5072,12 +5166,18 @@ def _send_telegram_notification(
                     last_err_detail = str(e)
                     print(f"[TELEGRAM] Thử gửi tới {target_chat_id} thất bại: {e}")
 
-            # Nếu gửi thành công bằng ID chuẩn và khác ID ban đầu, tự động lưu lại vào DB
+            # Nếu gửi thành công bằng ID chuẩn và khác ID ban đầu, tự động lưu lại vào DB theo đúng phân loại group
             if sent_successfully and working_chat_id and working_chat_id != active_chat_id:
                 try:
-                    conn.execute("UPDATE telegram_config SET chat_id = ? WHERE id = 1", (working_chat_id,))
-                    conn.commit()
-                    print(f"[TELEGRAM] Đã tự động cập nhật chat_id tối ưu vào DB: {working_chat_id}")
+                    if not override_chat_id:
+                        if event_type in ("OVERDUE", "WARNING_DUE_SOON", "PICKUP_REMINDER"):
+                            conn.execute("UPDATE telegram_config SET overdue_chat_id = ? WHERE id = 1", (working_chat_id,))
+                        elif event_type == "DAILY_REVENUE":
+                            conn.execute("UPDATE telegram_config SET revenue_chat_id = ? WHERE id = 1", (working_chat_id,))
+                        else:
+                            conn.execute("UPDATE telegram_config SET chat_id = ? WHERE id = 1", (working_chat_id,))
+                        conn.commit()
+                        print(f"[TELEGRAM] Đã tự động cập nhật chat_id tối ưu ({event_type}) vào DB: {working_chat_id}")
                 except Exception:
                     pass
 
@@ -5909,22 +6009,26 @@ def free_port_if_stuck(port: int = 9000):
 
 def background_reminder_worker():
     """
-    Vòng lặp chạy ngầm tự động 100%:
+    Vòng lặp chạy ngầm tự động 100% (24/7):
     - Nhắc trước 30 phút để nhân viên chuẩn bị đồ trước khi khách đến nhận.
-    - Nhắc trước 5 phút khi đơn sắp hết hạn để chuẩn bị gọi khách.
-    - Cảnh báo ngay khi đơn quá hạn.
-    - Gửi thẳng vào Group Telegram: -1004498214603 (Thông Báo Giờ).
+    - Nhắc trước 5-10 phút khi đơn sắp hết hạn để chuẩn bị gọi khách.
+    - Cảnh báo ngay khi đơn quá hạn (và nhắc lại mỗi 2 giờ nếu khách chưa trả).
+    - Tự động chốt sổ doanh thu ngày lúc 21:00 vào Group -1003930707954.
+    - Tự động đồng bộ kho KiotViet định kỳ.
     """
-    OVERDUE_GROUP_ID = "-1004498214603"
     while True:
         try:
-            time.sleep(30)
+            time.sleep(20)
             now = vn_now()
             now_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
             conn = get_db()
             cur = conn.cursor()
             sync_items_availability(conn)
+
+            cfg = cur.execute("SELECT * FROM telegram_config WHERE id = 1").fetchone()
+            overdue_chat_id = (cfg["overdue_chat_id"] if cfg and "overdue_chat_id" in cfg.keys() and cfg["overdue_chat_id"] else "-1004498214603").strip()
+            revenue_chat_id = (cfg["revenue_chat_id"] if cfg and "revenue_chat_id" in cfg.keys() and cfg["revenue_chat_id"] else "-1003930707954").strip()
 
             rentals = cur.execute("""
             SELECT r.*, COALESCE(i.name, c.name, 'Đơn Thuê Nhiều Món') as item_name,
@@ -5943,15 +6047,17 @@ def background_reminder_worker():
                 branch_info = STORE_BRANCHES.get(b_code, STORE_BRANCHES["CN1"])
 
                 # --- 1. NHẮC TRƯỚC 30 PHÚT CHUẨN BỊ ĐỒ ---
-                try:
-                    start_dt = datetime.datetime.strptime(r["start_time"], "%Y-%m-%d %H:%M")
+                start_dt = parse_dt_safe(r["start_time"])
+                if start_dt:
                     diff_start_mins = (start_dt - now).total_seconds() / 60.0
-                    if 0 <= diff_start_mins <= 30.0:
+                    # Nhắc nếu còn trong khoảng 30 phút trước giờ nhận (hoặc vừa qua giờ nhận chưa tới 15p)
+                    if -15.0 <= diff_start_mins <= 30.0:
                         chk = cur.execute("SELECT id FROM reminder_logs WHERE rental_id = ? AND event_type = 'PICKUP_30M'", (rid,)).fetchone()
                         if not chk:
-                            mins_left = max(1, int(round(diff_start_mins)))
+                            mins_left = max(0, int(round(diff_start_mins)))
+                            status_desc = f"CÒN ~{mins_left} PHÚT" if mins_left > 0 else "ĐÃ ĐẾN GIỜ NHẬN ĐỒ"
                             msg = (
-                                f"<b>⏰ [NHẮC CHUẨN BỊ ĐỒ] KHÁCH SẮP ĐẾN NHẬN (CÒN ~{mins_left} PHÚT)!</b>\n"
+                                f"<b>⏰ [NHẮC CHUẨN BỊ ĐỒ] KHÁCH SẮP ĐẾN NHẬN ({status_desc})!</b>\n"
                                 f"━━━━━━━━━━━━━━━━━━\n"
                                 f"📋 <b>Mã đơn:</b> <code>{code}</code>\n"
                                 f"👤 <b>Khách hàng:</b> {r['customer_name']} (<code>{r['customer_phone']}</code>)\n"
@@ -5963,20 +6069,18 @@ def background_reminder_worker():
                                 f"💡 <i>Nhân viên vui lòng kiểm tra pin, thẻ nhớ, vệ sinh đồ để sẵn sàng giao khách!</i>\n"
                                 f"━━━━━━━━━━━━━━━━━━"
                             )
-                            _send_telegram_notification(msg, rental_id=rid, event_type="PICKUP_REMINDER", override_chat_id=OVERDUE_GROUP_ID)
+                            _send_telegram_notification(msg, rental_id=rid, event_type="PICKUP_REMINDER", override_chat_id=overdue_chat_id)
                             cur.execute("INSERT INTO reminder_logs (rental_id, event_type, sent_at) VALUES (?, 'PICKUP_30M', ?)", (rid, now_str))
                             conn.commit()
-                except Exception:
-                    pass
 
-                # --- 2. NHẮC SẮP QUÁ HẠN 5 PHÚT & ĐÃ QUÁ HẠN (Áp dụng đơn ACTIVE) ---
+                # --- 2. NHẮC SẮP QUÁ HẠN 5-10 PHÚT & ĐÃ QUÁ HẠN (Áp dụng đơn ACTIVE) ---
                 if r["status"] == "ACTIVE":
-                    try:
-                        end_dt = datetime.datetime.strptime(r["end_time"], "%Y-%m-%d %H:%M")
+                    end_dt = parse_dt_safe(r["end_time"])
+                    if end_dt:
                         diff_end_mins = (end_dt - now).total_seconds() / 60.0
 
-                        if 0 <= diff_end_mins <= 5.0:
-                            # Sắp quá hạn 5 phút
+                        if 0 <= diff_end_mins <= 10.0:
+                            # Sắp quá hạn 5-10 phút
                             chk = cur.execute("SELECT id FROM reminder_logs WHERE rental_id = ? AND event_type = 'OVERDUE_5M'", (rid,)).fetchone()
                             if not chk:
                                 mins_left = max(1, int(round(diff_end_mins)))
@@ -5993,7 +6097,7 @@ def background_reminder_worker():
                                     f"📞 <i>Chuẩn bị gọi khách nhắc trả đồ để tránh phát sinh phí trễ hạn (30.000đ/h)!</i>\n"
                                     f"━━━━━━━━━━━━━━━━━━"
                                 )
-                                _send_telegram_notification(msg, rental_id=rid, event_type="WARNING_DUE_SOON", override_chat_id=OVERDUE_GROUP_ID)
+                                _send_telegram_notification(msg, rental_id=rid, event_type="WARNING_DUE_SOON", override_chat_id=overdue_chat_id)
                                 cur.execute("INSERT INTO reminder_logs (rental_id, event_type, sent_at) VALUES (?, 'OVERDUE_5M', ?)", (rid, now_str))
                                 conn.commit()
                         elif diff_end_mins < 0:
@@ -6003,8 +6107,8 @@ def background_reminder_worker():
                             if not chk:
                                 should_send_overdue = True
                             else:
-                                last_sent = datetime.datetime.strptime(chk["sent_at"], "%Y-%m-%d %H:%M:%S")
-                                if (now - last_sent).total_seconds() >= 7200:
+                                last_sent = parse_dt_safe(chk["sent_at"])
+                                if last_sent and (now - last_sent).total_seconds() >= 7200:
                                     should_send_overdue = True
 
                             if should_send_overdue:
@@ -6022,11 +6126,17 @@ def background_reminder_worker():
                                     f"⚠️ <i>Hệ thống bắt đầu tính phí phạt 30.000đ/giờ!</i>\n"
                                     f"━━━━━━━━━━━━━━━━━━"
                                 )
-                                _send_telegram_notification(msg, rental_id=rid, event_type="OVERDUE", override_chat_id=OVERDUE_GROUP_ID)
+                                _send_telegram_notification(msg, rental_id=rid, event_type="OVERDUE", override_chat_id=overdue_chat_id)
                                 cur.execute("INSERT INTO reminder_logs (rental_id, event_type, sent_at) VALUES (?, 'OVERDUE_EXPIRED', ?)", (rid, now_str))
                                 conn.commit()
-                    except Exception:
-                        pass
+
+            # --- 3. TỰ ĐỘNG CHỐT SỔ DOANH THU TỪ 21:00 VÀO GROUP -1003930707954 ---
+            if now.hour >= 21:
+                today_d = now.strftime("%Y-%m-%d")
+                chk_rep = cur.execute("SELECT id FROM daily_revenue_logs WHERE report_date = ? AND is_updated = 0", (today_d,)).fetchone()
+                if not chk_rep:
+                    print(f"[DAILY REVENUE] Giờ chốt sổ 21:00 -> Tự động chốt sổ doanh thu ngày {today_d}...")
+                    send_daily_revenue_report(today_d, is_update=False)
 
             # --- 4. TỰ ĐỘNG ĐỒNG BỘ KHO HÀNG TỪ KIOTVIET ĐỊNH KỲ ---
             try:
@@ -6038,11 +6148,8 @@ def background_reminder_worker():
                     if not last_sync_str:
                         need_sync = True
                     else:
-                        try:
-                            last_sync_dt = datetime.datetime.strptime(last_sync_str, "%Y-%m-%d %H:%M:%S")
-                            if (now - last_sync_dt).total_seconds() >= interval_secs:
-                                need_sync = True
-                        except Exception:
+                        last_sync_dt = parse_dt_safe(last_sync_str)
+                        if not last_sync_dt or (now - last_sync_dt).total_seconds() >= interval_secs:
                             need_sync = True
 
                     if need_sync:
@@ -6058,8 +6165,9 @@ def background_reminder_worker():
                 print(f"[KIOTVIET SYNC CHECK ERROR] {kv_e}")
 
             conn.close()
-        except Exception:
-            pass
+        except Exception as loop_e:
+            print(f"[BACKGROUND REMINDER WORKER ERROR] {loop_e}")
+            time.sleep(5)
 
 
 def telegram_bot_updates_worker():
@@ -6068,26 +6176,13 @@ def telegram_bot_updates_worker():
     - Khi Admin bấm nút [✅ Xác Nhận Đã Nhận Tiền] ngay trong Telegram:
       -> Tự động duyệt đơn sang ACTIVE
       -> Chuyển thiết bị sang RENTED
-      -> Trả lời alert popup trong Telegram: '✅ Đã duyệt đơn TDB-XXXXXX thành công!'
-      -> Gửi tin nhắn thông báo xác nhận vào group
-      -> Web và App tự động cập nhật trong 4 giây mà không cần Admin phải mở trình duyệt!
+    - Khi Admin bấm nút [❌ Hủy Đơn Này]:
+      -> Tự động hủy đơn, trả thiết bị về SẴN SÀNG
+    - Khi Admin bấm nút [🚫 Hết Đồ / Kho Bận]:
+      -> Tự động đánh dấu hết đồ, hủy đơn và nhả đồ
+    - Web và App tự động cập nhật trong 4 giây mà không cần Admin phải mở trình duyệt!
     """
     last_update_id = 0
-    try:
-        conn = get_db()
-        cfg = conn.execute("SELECT bot_token FROM telegram_config WHERE id = 1").fetchone()
-        conn.close()
-        if cfg and cfg["bot_token"]:
-            init_url = f"https://api.telegram.org/bot{cfg['bot_token'].strip()}/getUpdates?limit=1"
-            req = urllib.request.Request(init_url, headers={"User-Agent": "TidubaStoreBot/1.0"})
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                d = json.loads(resp.read().decode("utf-8"))
-                res_list = d.get("result", [])
-                if res_list:
-                    last_update_id = res_list[-1]["update_id"]
-    except Exception:
-        pass
-
     while True:
         try:
             conn = get_db()
@@ -6130,7 +6225,7 @@ def telegram_bot_updates_worker():
                             # Cập nhật đơn trong Database
                             conn = get_db()
                             cur = conn.cursor()
-                            r = cur.execute("SELECT * FROM rentals WHERE id = ?", (rental_id,)).fetchone()
+                            r = cur.execute("SELECT * FROM rentals WHERE id = ?", (rental_id,)) .fetchone()
                             if r and r["status"] != "ACTIVE":
                                 cur.execute("UPDATE rentals SET status = 'ACTIVE' WHERE id = ?", (rental_id,))
                                 conn.commit()
@@ -6150,9 +6245,8 @@ def telegram_bot_updates_worker():
                                     "text": f"✅ Đã duyệt đơn {rental_code} thành công!",
                                     "show_alert": True
                                 }).encode("utf-8")
-                                ans_req = urllib.request.Request(ans_url, data=ans_body, headers={"Content-Type": "application/json"}, method="POST")
                                 try:
-                                    urllib.request.urlopen(ans_req, timeout=5)
+                                    urllib.request.urlopen(urllib.request.Request(ans_url, data=ans_body, headers={"Content-Type": "application/json"}, method="POST"), timeout=5)
                                 except Exception: pass
 
                                 # 2. Gửi tin nhắn xác nhận vào nhóm
@@ -6163,9 +6257,8 @@ def telegram_bot_updates_worker():
                                     "parse_mode": "HTML",
                                     "reply_to_message_id": msg_id
                                 }).encode("utf-8")
-                                notif_req = urllib.request.Request(notify_url, data=notif_body, headers={"Content-Type": "application/json"}, method="POST")
                                 try:
-                                    urllib.request.urlopen(notif_req, timeout=5)
+                                    urllib.request.urlopen(urllib.request.Request(notify_url, data=notif_body, headers={"Content-Type": "application/json"}, method="POST"), timeout=5)
                                 except Exception: pass
                             else:
                                 st_text = r["status"] if r else "Không tìm thấy"
@@ -6175,9 +6268,8 @@ def telegram_bot_updates_worker():
                                     "text": f"ℹ️ Đơn {rental_code} hiện đang ở trạng thái: {st_text}",
                                     "show_alert": False
                                 }).encode("utf-8")
-                                ans_req = urllib.request.Request(ans_url, data=ans_body, headers={"Content-Type": "application/json"}, method="POST")
                                 try:
-                                    urllib.request.urlopen(ans_req, timeout=5)
+                                    urllib.request.urlopen(urllib.request.Request(ans_url, data=ans_body, headers={"Content-Type": "application/json"}, method="POST"), timeout=5)
                                 except Exception: pass
                             conn.close()
 
@@ -6221,7 +6313,7 @@ def telegram_bot_updates_worker():
                             rental_code = parts[2]
                             conn = get_db()
                             cur = conn.cursor()
-                            cur.execute("UPDATE rentals SET status = 'CANCELLED', customer_notes = COALESCE(customer_notes, '') || ' | Hết đồ' WHERE id = ?", (rental_id,))
+                            cur.execute("UPDATE rentals SET status = 'CANCELLED', customer_notes = COALESCE(customer_notes, '') || ' | Hết đồ / kho bận' WHERE id = ?", (rental_id,))
                             conn.commit()
                             sync_items_availability(conn)
                             conn.close()
@@ -6246,15 +6338,30 @@ def telegram_bot_updates_worker():
                             try:
                                 urllib.request.urlopen(urllib.request.Request(notify_url, data=notif_body, headers={"Content-Type": "application/json"}, method="POST"), timeout=5)
                             except Exception: pass
-        except Exception:
+        except Exception as poller_e:
             time.sleep(3)
+
+
+def keepalive_worker():
+    """Tự động giữ Render luôn thức 24/7 (mỗi 9 phút) để các luồng ngầm chạy tự động liên tục."""
+    while True:
+        try:
+            time.sleep(540) # 9 phút
+            url = "https://tidubastore.onrender.com/api/ping"
+            req = urllib.request.Request(url, headers={"User-Agent": "TidubaKeepAlive/1.0"})
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                pass
+        except Exception:
+            pass
 
 
 # Khởi chạy luồng ngầm tự động:
 # 1. Nhắc hẹn 30 phút & cảnh báo quá hạn 5 phút vào group -1004498214603
 threading.Thread(target=background_reminder_worker, daemon=True, name="TidubaReminderWorker").start()
-# 2. Lắng nghe nút bấm [Xác Nhận Đã Nhận Tiền] trực tiếp từ Telegram Bot
+# 2. Lắng nghe nút bấm [Xác Nhận Đã Nhận Tiền], [Hủy], [Hết Đồ] trực tiếp từ Telegram Bot
 threading.Thread(target=telegram_bot_updates_worker, daemon=True, name="TidubaTelegramBotWorker").start()
+# 3. Tự động keep-alive giữ Render thức 24/7
+threading.Thread(target=keepalive_worker, daemon=True, name="TidubaKeepAliveWorker").start()
 
 
 if __name__ == "__main__":

@@ -697,3 +697,25 @@ def test_bulk_items_status_and_highlights_and_crm():
 
     del_cus = client.delete(f"/api/admin/customers/{cus_id}", headers=adm_headers)
     assert del_cus.status_code == 200
+
+
+def test_system_health_and_ping_and_crm_lookup():
+    """Kiểm tra endpoint keepalive ping, sức khỏe hệ thống và tra cứu CRM auto-fill."""
+    # 1. Ping keepalive
+    ping_res = client.get("/api/ping")
+    assert ping_res.status_code == 200
+    assert ping_res.json()["status"] == "ok"
+
+    # 2. Tra cứu khách hàng theo SĐT
+    lookup_res = client.get("/api/customers/lookup_by_phone/0912345678")
+    assert lookup_res.status_code == 200
+
+    # 3. System health
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    token = login_adm.json()["token"]
+    health_res = client.get("/api/admin/system/health", headers={"Authorization": f"Bearer {token}"})
+    assert health_res.status_code == 200
+    data = health_res.json()
+    assert data["success"] is True
+    assert "server_time_vn" in data
+    assert data["background_threads"]["reminder_worker_running"] is True

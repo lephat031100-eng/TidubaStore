@@ -433,6 +433,38 @@
                 </div>
             </div>
 
+            <!-- Smart Sort & Quick Filter Bar (TÍNH NĂNG MỚI: LỌC NHANH SẴN SÀNG, CHI NHÁNH & SẮP XẾP) -->
+            <div class="bg-[#faf6f0] p-3 sm:p-4 rounded-2xl border border-[#efe8df] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs font-sans shadow-sm">
+                <!-- Left: Filter Pills -->
+                <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                    <button type="button" onclick="setCatalogQuickFilter('all')" id="qf-btn-all" class="px-3 py-1.5 rounded-full font-bold bg-[#c86d51] text-white border border-[#c86d51] shadow-sm transition whitespace-nowrap">
+                        Tất Cả Kho
+                    </button>
+                    <button type="button" onclick="setCatalogQuickFilter('available_only')" id="qf-btn-available_only" class="px-3 py-1.5 rounded-full font-medium bg-white text-[#44403c] border border-[#ded0bf] hover:border-[#c86d51] transition whitespace-nowrap flex items-center gap-1">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Có Sẵn Thuê Ngay
+                    </button>
+                    <button type="button" onclick="setCatalogQuickFilter('branch_CN1')" id="qf-btn-branch_CN1" class="px-3 py-1.5 rounded-full font-medium bg-white text-[#44403c] border border-[#ded0bf] hover:border-[#c86d51] transition whitespace-nowrap">
+                        📍 CN1 (Huỳnh Thúc Kháng)
+                    </button>
+                    <button type="button" onclick="setCatalogQuickFilter('branch_CN2')" id="qf-btn-branch_CN2" class="px-3 py-1.5 rounded-full font-medium bg-white text-[#44403c] border border-[#ded0bf] hover:border-[#c86d51] transition whitespace-nowrap">
+                        📍 CN2 (Lê Duẩn)
+                    </button>
+                </div>
+
+                <!-- Right: Sort Selector -->
+                <div class="flex items-center gap-2 self-end sm:self-auto flex-shrink-0">
+                    <span class="text-[#78716c] font-medium text-[11px] whitespace-nowrap flex items-center gap-1">
+                        <i class="fa-solid fa-arrow-down-wide-short text-[#c86d51]"></i> Sắp xếp:
+                    </span>
+                    <select id="catalog-sort-select" onchange="onCatalogSortChange(this.value)" class="bg-white border border-[#ded0bf] rounded-xl px-3 py-1.5 text-xs text-[#1c1917] font-medium focus:outline-none focus:border-[#c86d51] shadow-sm cursor-pointer">
+                        <option value="default">🌟 Đề Xuất / Phổ Biến</option>
+                        <option value="price_asc">💸 Giá: Thấp đến Cao</option>
+                        <option value="price_desc">💎 Giá: Cao đến Thấp</option>
+                        <option value="newest">🆕 Mới Nhất</option>
+                    </select>
+                </div>
+            </div>
+
             <!-- Items & Combos Grid (Mobile 2 cột mượt mà, Tablet 3 cột, PC 4 cột) -->
             <div id="catalog-grid" class="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 md:gap-5">
                 <!-- Javascript renders product cards or combos here -->
@@ -531,6 +563,92 @@
                 </div>
                 <div id="adm-revenue-bars" class="grid grid-cols-7 gap-2 pt-2 items-end h-28 text-center text-[10px] font-mono">
                     <!-- Javascript renders revenue bars -->
+                </div>
+            </div>
+
+            <!-- LIVE TELEGRAM AUTOMATION HEALTH & DIAGNOSTICS CONSOLE -->
+            <div class="bg-gray-950 rounded-2xl p-5 border border-sky-800/60 space-y-3.5 shadow-xl text-xs font-mono text-white">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-gray-800 pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="w-8 h-8 rounded-xl bg-sky-950 text-sky-400 border border-sky-600 flex items-center justify-center text-sm font-bold">
+                            <i class="fa-brands fa-telegram"></i>
+                        </span>
+                        <div>
+                            <h4 class="text-sm font-bold text-sky-300">TRẠNG THÁI TỰ ĐỘNG TELEGRAM & HỆ THỐNG (LIVE HEALTH CONSOLE)</h4>
+                            <p class="text-[11px] text-gray-400">Giờ máy chủ GMT+7, kết nối 3 Group và luồng ngầm tự động 24/7</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-gray-400 text-[11px]">🕒 Giờ máy chủ:</span>
+                        <strong class="text-amber-300 font-bold text-xs" id="health-server-time">--:--:--</strong>
+                        <button onclick="fetchSystemHealth()" class="text-sky-400 hover:underline text-[11px] ml-1"><i class="fa-solid fa-rotate"></i> Tải lại</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <!-- Card Group 1 -->
+                    <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-800 space-y-2">
+                        <div class="flex justify-between items-center font-bold">
+                            <span class="text-cyan-300">Group 1: Đơn & Tiền</span>
+                            <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">HOẠT ĐỘNG</span>
+                        </div>
+                        <div class="text-[11px] text-gray-400 truncate">ID: <code class="text-white" id="health-chat-id-main">-5368352616</code></div>
+                        <div class="text-[10px] text-gray-400 leading-tight">Nhận thông báo khi khách chuyển khoản, có 3 nút: Duyệt / Hủy / Hết đồ.</div>
+                        <button onclick="testTelegramNotify()" class="w-full bg-gray-800 hover:bg-gray-700 text-cyan-300 py-1.5 rounded-lg text-[11px] font-bold transition">
+                            <i class="fa-solid fa-paper-plane"></i> Gửi Tin Test Group 1
+                        </button>
+                    </div>
+
+                    <!-- Card Group 2 -->
+                    <div class="bg-gray-900/80 p-3 rounded-xl border border-amber-900/60 space-y-2">
+                        <div class="flex justify-between items-center font-bold">
+                            <span class="text-amber-300">Group 2: Nhắc Hẹn & Quá Hạn</span>
+                            <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">HOẠT ĐỘNG</span>
+                        </div>
+                        <div class="text-[11px] text-gray-400 truncate">ID: <code class="text-amber-300" id="health-chat-id-overdue">-1004498214603</code></div>
+                        <div class="text-[10px] text-gray-400 leading-tight">Tự động nhắc trước 30p khách lấy đồ, nhắc trước 5-10p trả đồ và báo quá hạn.</div>
+                        <div class="flex gap-1.5">
+                            <button onclick="triggerOverdueAlertsCheck()" class="flex-1 bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-700 py-1.5 rounded-lg text-[10px] font-bold transition">
+                                <i class="fa-solid fa-bell"></i> Quét Ngay
+                            </button>
+                            <button onclick="testTelegramNotifyGroup2()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-amber-300 py-1.5 rounded-lg text-[10px] font-bold transition">
+                                <i class="fa-solid fa-paper-plane"></i> Test G2
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Card Group 3 -->
+                    <div class="bg-gray-900/80 p-3 rounded-xl border border-emerald-900/60 space-y-2">
+                        <div class="flex justify-between items-center font-bold">
+                            <span class="text-emerald-300">Group 3: Doanh Thu Ngày 21:00</span>
+                            <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">HOẠT ĐỘNG</span>
+                        </div>
+                        <div class="text-[11px] text-gray-400 truncate">ID: <code class="text-emerald-300" id="health-chat-id-revenue">-1003930707954</code></div>
+                        <div class="text-[10px] text-gray-400 leading-tight">Đúng 21:00 tối tự chốt sổ tổng bill, tổng tiền, cọc. Tự cập nhật nếu có trả đồ sau 21h.</div>
+                        <div class="flex gap-1.5">
+                            <button onclick="triggerDailyRevenueReportNow()" class="flex-1 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-700 py-1.5 rounded-lg text-[10px] font-bold transition">
+                                <i class="fa-solid fa-chart-pie"></i> Chốt Ngay
+                            </button>
+                            <button onclick="testTelegramNotifyGroup3()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-emerald-300 py-1.5 rounded-lg text-[10px] font-bold transition">
+                                <i class="fa-solid fa-paper-plane"></i> Test G3
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status of Background Daemon Threads -->
+                <div class="p-2.5 bg-black/60 rounded-xl border border-gray-800 flex flex-wrap items-center justify-between gap-3 text-[11px]">
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                        <span class="text-gray-300 font-bold">Luồng ngầm 24/7:</span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3 text-gray-300">
+                        <span>⏰ Nhắc hẹn: <strong class="text-emerald-400" id="health-th-reminder">Đang chạy</strong></span>
+                        <span>•</span>
+                        <span>🤖 Nút Telegram: <strong class="text-emerald-400" id="health-th-bot">Đang chạy</strong></span>
+                        <span>•</span>
+                        <span>⚡ KeepAlive: <strong class="text-emerald-400" id="health-th-keepalive">Đang chạy</strong></span>
+                    </div>
                 </div>
             </div>
 
@@ -3149,6 +3267,25 @@
                 });
             }
 
+            // Áp dụng bộ lọc nhanh (Sẵn sàng / Chi nhánh)
+            if (catalogQuickFilter === 'available_only') {
+                filtered = filtered.filter(i => i.availability === 'AVAILABLE');
+            } else if (catalogQuickFilter === 'branch_CN1') {
+                filtered = filtered.filter(i => (i.branch_code || 'CN1') === 'CN1');
+            } else if (catalogQuickFilter === 'branch_CN2') {
+                filtered = filtered.filter(i => (i.branch_code || 'CN1') === 'CN2');
+            }
+
+            // Áp dụng sắp xếp
+            filtered = [...filtered];
+            if (catalogSortOrder === 'price_asc') {
+                filtered.sort((a, b) => (Number(a.price_24h) || 0) - (Number(b.price_24h) || 0));
+            } else if (catalogSortOrder === 'price_desc') {
+                filtered.sort((a, b) => (Number(b.price_24h) || 0) - (Number(a.price_24h) || 0));
+            } else if (catalogSortOrder === 'newest') {
+                filtered.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+            }
+
             document.getElementById('catalog-count-badge').innerText = filtered.length;
 
             if (filtered.length === 0) {
@@ -3212,9 +3349,12 @@
                                     </div>
                                 </div>
                                 <div class="flex gap-1.5">
-                                    <button onclick="openCalendarModal(${item.id}, '${encodeURIComponent(item.name)}')" class="bg-[#f5ede3] hover:bg-[#ede2d4] text-[#44403c] border border-[#e5dcd3] p-2 rounded-xl text-xs transition" title="Xem lịch bận">
+                                    <button onclick="openCalendarModal(${item.id}, '${encodeURIComponent(item.name)}')" class="bg-[#f5ede3] hover:bg-[#ede2d4] text-[#44403c] border border-[#e5dcd3] p-2 rounded-xl text-xs transition flex items-center justify-center" title="Xem lịch bận">
                                         <i class="fa-solid fa-calendar-days text-[#c86d51]"></i>
                                     </button>
+                                    <a href="https://zalo.me/0977078981" target="_blank" class="bg-[#f0f9ff] hover:bg-[#e0f2fe] text-[#0284c7] border border-[#bae6fd] p-2 rounded-xl text-xs transition flex items-center justify-center shadow-sm" title="Tư vấn Zalo ngay">
+                                        <i class="fa-solid fa-comment-dots text-sm"></i>
+                                    </a>
                                     ${isUnavail
                                         ? `<span class="flex-1 bg-[#f5f5f4] text-[#78716c] py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 font-sans"><i class="fa-solid fa-ban"></i> Tạm Ngưng</span>`
                                         : `
@@ -5604,6 +5744,7 @@
             }
         }
 
+        let posCustomerLookupTimer = null;
         function posSyncCustomerFields() {
             const activeInv = posInvoices[activePosTabIdx];
             if (!activeInv) return;
@@ -5615,6 +5756,25 @@
 
             document.getElementById('pos-cust-name-disp').innerText = activeInv.customerName;
             document.getElementById('pos-cust-phone-disp').innerText = `(${activeInv.customerPhone})`;
+
+            // Tự động tìm kiếm trong danh bạ khách hàng CRM KiotViet khi gõ số điện thoại
+            clearTimeout(posCustomerLookupTimer);
+            const cleanP = phone.replace(/[^\d]/g, '');
+            if (cleanP.length >= 9 && (!name || name === 'Khách Hàng Lẻ Tại Quầy')) {
+                posCustomerLookupTimer = setTimeout(async () => {
+                    try {
+                        const res = await fetch(`/api/customers/lookup_by_phone/${cleanP}`);
+                        const data = await res.json();
+                        if (data.found && data.customer) {
+                            const c = data.customer;
+                            document.getElementById('pos-cust-name-input').value = c.full_name;
+                            activeInv.customerName = c.full_name;
+                            document.getElementById('pos-cust-name-disp').innerText = c.full_name;
+                            showToast(`👑 Tìm thấy khách quen: ${c.full_name} (${c.total_rentals || 0} lần thuê)`);
+                        }
+                    } catch(e) {}
+                }, 400);
+            }
         }
 
         function posResetCustomer() {
@@ -8856,6 +9016,81 @@
             document.getElementById('customer-history-modal').style.display = 'none';
         }
 
+        // ==============================================================
+        // SYSTEM HEALTH & LIVE TELEGRAM AUTOMATION DIAGNOSTICS
+        // ==============================================================
+        async function fetchSystemHealth() {
+            const token = localStorage.getItem('tiduba_token');
+            if (!currentUser || currentUser.role !== 'admin' || !token) return;
+            try {
+                const res = await fetch('/api/admin/system/health', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (document.getElementById('health-server-time')) document.getElementById('health-server-time').innerText = data.server_time_vn;
+                    if (document.getElementById('health-chat-id-main')) document.getElementById('health-chat-id-main').innerText = data.telegram.chat_id_main || '--';
+                    if (document.getElementById('health-chat-id-overdue')) document.getElementById('health-chat-id-overdue').innerText = data.telegram.chat_id_overdue || '-1004498214603';
+                    if (document.getElementById('health-chat-id-revenue')) document.getElementById('health-chat-id-revenue').innerText = data.telegram.chat_id_revenue || '-1003930707954';
+                    if (document.getElementById('health-th-reminder')) document.getElementById('health-th-reminder').innerText = data.background_threads.reminder_worker_running ? '🟢 Đang chạy' : '🔴 Dừng';
+                    if (document.getElementById('health-th-bot')) document.getElementById('health-th-bot').innerText = data.background_threads.telegram_bot_worker_running ? '🟢 Đang chạy' : '🔴 Dừng';
+                    if (document.getElementById('health-th-keepalive')) document.getElementById('health-th-keepalive').innerText = data.background_threads.keepalive_worker_running ? '🟢 Đang chạy' : '🔴 Dừng';
+                }
+            } catch(e) {}
+        }
+
+        async function testTelegramNotifyGroup2() {
+            const token = localStorage.getItem('tiduba_token');
+            showToast("Đang gửi tin test tới Group Nhắc Hẹn & Quá Hạn...");
+            try {
+                const res = await fetch('/api/admin/telegram/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ message: "🔔 [TEST] Kết nối Group Nhắc Hẹn & Quá Hạn (-1004498214603) tự động 24/7!", chat_id: "-1004498214603" })
+                });
+                const data = await res.json();
+                showToast(data.message || "Đã gửi test Group 2!");
+                fetchTelegramLogs();
+            } catch(e) { alert("Lỗi: " + e); }
+        }
+
+        async function testTelegramNotifyGroup3() {
+            const token = localStorage.getItem('tiduba_token');
+            showToast("Đang gửi tin test tới Group Báo Cáo Doanh Thu...");
+            try {
+                const res = await fetch('/api/admin/telegram/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ message: "📊 [TEST] Kết nối Group Báo Cáo Doanh Thu 21:00 (-1003930707954) tự động 24/7!", chat_id: "-1003930707954" })
+                });
+                const data = await res.json();
+                showToast(data.message || "Đã gửi test Group 3!");
+                fetchTelegramLogs();
+            } catch(e) { alert("Lỗi: " + e); }
+        }
+
+        let catalogQuickFilter = 'all';
+        let catalogSortOrder = 'default';
+
+        function setCatalogQuickFilter(filter) {
+            catalogQuickFilter = filter;
+            ['all', 'available_only', 'branch_CN1', 'branch_CN2'].forEach(f => {
+                const btn = document.getElementById(`qf-btn-${f}`);
+                if (!btn) return;
+                if (f === filter) {
+                    btn.className = "px-3 py-1.5 rounded-full font-bold bg-[#c86d51] text-white border border-[#c86d51] shadow-sm transition whitespace-nowrap flex items-center gap-1";
+                } else {
+                    btn.className = "px-3 py-1.5 rounded-full font-medium bg-white text-[#44403c] border border-[#ded0bf] hover:border-[#c86d51] transition whitespace-nowrap flex items-center gap-1";
+                }
+            });
+            renderCatalog();
+        }
+
+        function onCatalogSortChange(val) {
+            catalogSortOrder = val;
+            renderCatalog();
+        }
+
         fetchCatalog();
         checkAuthSession();
         fetchTelegramConfig();
@@ -8865,6 +9100,7 @@
         fetchDatabaseStorageStatus();
         fetchFeatureHighlights();
         fetchAdminCustomers();
+        fetchSystemHealth();
     </script>
 </body>
 </html>
