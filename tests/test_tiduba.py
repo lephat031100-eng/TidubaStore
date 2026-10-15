@@ -154,12 +154,12 @@ def test_booking_workflow_and_vietqr():
 
     item = avail[0]
 
-    now = datetime.datetime.now()
-    tomorrow = now + datetime.timedelta(days=1)
+    start_t = (datetime.datetime.now() + datetime.timedelta(days=1)).replace(hour=10, minute=0, second=0)
+    end_t = (start_t + datetime.timedelta(days=1)).replace(hour=10, minute=0, second=0)
     booking_payload = {
         "item_id": item["id"],
-        "start_time": now.strftime("%Y-%m-%d %H:%M"),
-        "end_time": tomorrow.strftime("%Y-%m-%d %H:%M"),
+        "start_time": start_t.strftime("%Y-%m-%d %H:%M"),
+        "end_time": end_t.strftime("%Y-%m-%d %H:%M"),
         "customer_notes": "Test booking camera",
         "deposit_type": "ESCROW_100"
     }
@@ -337,16 +337,16 @@ def test_custom_deposit_and_admin_confirm_payment_and_zalo():
     cus_headers = {"Authorization": f"Bearer {login_cus.json()['token']}"}
 
     # 2. Đặt đơn với tiền cọc TỰ NHẬP (VD: 1.500.000đ)
-    now = datetime.datetime.now()
-    tomorrow = now + datetime.timedelta(days=1)
+    start_t = (datetime.datetime.now() + datetime.timedelta(days=1)).replace(hour=10, minute=0, second=0)
+    end_t = (start_t + datetime.timedelta(days=1)).replace(hour=10, minute=0, second=0)
     items_res = client.get("/api/items")
     avail = [i for i in items_res.json()["items"] if i["availability"] == "AVAILABLE"]
     item_id = avail[0]["id"]
 
     booking_payload = {
         "item_id": item_id,
-        "start_time": now.strftime("%Y-%m-%d %H:%M"),
-        "end_time": tomorrow.strftime("%Y-%m-%d %H:%M"),
+        "start_time": start_t.strftime("%Y-%m-%d %H:%M"),
+        "end_time": end_t.strftime("%Y-%m-%d %H:%M"),
         "custom_deposit_amount": 1500000,
         "customer_notes": "Test tự nhập cọc 1.5tr"
     }
@@ -406,8 +406,10 @@ def test_idor_rental_contract_deny():
     headers_b = {"Authorization": f"Bearer {token_b}"}
     
     # 3. User B tạo 1 rental
+    start_t = (datetime.datetime.now() + datetime.timedelta(days=1)).replace(hour=10, minute=0, second=0)
+    end_t = (start_t + datetime.timedelta(days=1)).replace(hour=10, minute=0, second=0)
     book_res = client.post("/api/rentals/book", json={
-        "item_id": 1, "start_time": "2026-10-10 10:00", "end_time": "2026-10-11 10:00"
+        "item_id": 1, "start_time": start_t.strftime("%Y-%m-%d %H:%M"), "end_time": end_t.strftime("%Y-%m-%d %H:%M")
     }, headers=headers_b)
     rental_id = book_res.json()["rental_id"]
     
@@ -753,3 +755,69 @@ def test_qr_bill_lookup_preview():
     assert "rental" in data
     assert data["rental"]["rental_code"] == code
     assert "status" in data["rental"]
+
+
+def test_qr_image_and_reschedule_and_cancel_penalty_and_deposit_update():
+    """Kiểm tra sinh ảnh QR nội bộ, dời lịch miễn phí, hủy lịch phạt 50% và admin chọn cọc khi quét QR."""
+    # 1. Sinh ảnh QR backend (Same-origin cho mobile tải ảnh không lỗi)
+    qr_res = client.get("/api/qr_image?data=http://localhost:9000/return-qr?code=TDB-TEST")
+    assert qr_res.status_code == 200
+    assert qr_res.headers["content-type"] == "image/png"
+    assert len(qr_res.content) > 100
+
+    # 2. Đăng nhập khách hàng
+    login_cus = client.post("/api/auth/login", json={"username": "khachhang", "password": "123456"})
+    cus_token = login_cus.json()["token"]
+    cus_headers = {"Authorization": f"Bearer {cus_token}"}
+
+    # 3. Tạo đơn thuê
+    start_t = (datetime.datetime.now() + datetime.timedelta(days=1)).replace(hour=10, minute=0, second=0)
+    end_t = (start_t + datetime.timedelta(days=1)).replace(hour=10, minute=0, second=0)
+    book_res = client.post("/api/rentals/book", json={
+        "item_id": 1,
+        "start_time": start_t.strftime("%Y-%m-%d %H:%M"),
+        "end_time": end_t.strftime("%Y-%m-%d %H:%M")
+    }, headers=cus_headers)
+    assert book_res.status_code == 200
+    rental_id = book_res.json()["rental_id"]
+
+    # 4. Khách dời lịch thuê (Miễn phí 100%)
+    new_start = (datetime.datetime.now() + datetime.timedelta(days=2)).replace(hour=9, minute=0, second=0)
+    new_end = (new_start + datetime.timedelta(days=1)).replace(hour=9, minute=0, second=0)
+    resched_res = client.post(f"/api/rentals/{rental_id}/reschedule", json={
+        "new_start_time": new_start.strftime("%Y-%m-%d %H:%M"),
+        "new_end_time": new_end.strftime("%Y-%m-%d %H:%M")
+    }, headers=cus_headers)
+    assert resched_res.status_code == 200
+    assert resched_res.json()["success"] is True
+
+    # 5. Admin cập nhật phương thức cọc khi soi bill / quét QR
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    adm_token = login_adm.json()["token"]
+    adm_headers = {"Authorization": f"Bearer {adm_token}"}
+
+    dep_res = client.post(f"/api/admin/rentals/{rental_id}/update_deposit", json={
+        "deposit_type": "ASSET",
+        "deposit_paid": 500000,
+        "deposit_asset_desc": "iPhone 13 Pro Max"
+    }, headers=adm_headers)
+    assert dep_res.status_code == 200
+    assert dep_res.json()["success"] is True
+
+    # 6. Khách hủy lịch thuê (Mất 50% phí theo quy định)
+    cancel_res = client.post(f"/api/rentals/{rental_id}/cancel_with_penalty", headers=cus_headers)
+    assert cancel_res.status_code == 200
+    assert cancel_res.json()["success"] is True
+    assert "penalty_amount" in cancel_res.json()
+
+    # 7. Thao tác ẩn / hiện sản phẩm (HIDDEN)
+    hide_res = client.post("/api/admin/items/bulk_status", json={"item_ids": [1], "action": "SET_HIDDEN"}, headers=adm_headers)
+    assert hide_res.status_code == 200
+
+    # Khách không thấy món bị ẩn
+    items_cus = client.get("/api/items")
+    assert not any(i["id"] == 1 for i in items_cus.json()["items"])
+
+    # Hiện lại
+    unhide_res = client.post("/api/admin/items/bulk_status", json={"item_ids": [1], "action": "SET_UNHIDDEN"}, headers=adm_headers)
+    assert unhide_res.status_code == 200

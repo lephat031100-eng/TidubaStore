@@ -174,10 +174,56 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 # =============================================================================
 
 def get_db():
-    conn = sqlite3.connect(str(DB_PATH), timeout=30.0)
+    conn = sqlite3.connect(str(DB_PATH), timeout=60.0, check_same_thread=False)
     conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA synchronous=NORMAL;")
+    conn.execute("PRAGMA cache_size=10000;")
+    conn.execute("PRAGMA temp_store=MEMORY;")
+    conn.execute("PRAGMA busy_timeout=15000;")
     conn.row_factory = sqlite3.Row
     return conn
+
+
+DISPOSABLE_DOMAINS = {
+    "tempmail.com", "10minutemail.com", "guerrillamail.com", "mailinator.com",
+    "throwawaymail.com", "sharklasers.com", "yopmail.com", "trashmail.com",
+    "getnada.com", "dispostable.com", "crazymailing.com", "mohmal.com",
+    "fakeinbox.com", "mytemp.email", "generator.email", "temp-mail.org",
+    "tmpmail.net", "tmpmail.org", "bupmail.com", "inboxkitten.com"
+}
+
+
+def validate_real_vietnamese_phone(phone: Optional[str]) -> Tuple[bool, str]:
+    """
+    Xác minh số điện thoại thật của các nhà mạng Việt Nam:
+    - Bắt buộc đúng 10 chữ số, bắt đầu bằng 0 và đầu số di động chuẩn (Viettel, Vina, Mobi, Vietnamobile...).
+    - Chặn các dãy số giả, số spam, số lặp rác (ví dụ: 0999999999, 0123456789...).
+    """
+    if not phone or not str(phone).strip():
+        return False, "Vui lòng nhập số điện thoại liên hệ!"
+    clean = re.sub(r"[^\d]", "", str(phone).strip())
+    if not re.match(r"^0(3[2-9]|5[25689]|7[06-9]|8[1-9]|9[0-9])\d{7}$", clean):
+        return False, "Số điện thoại không đúng định dạng nhà mạng Việt Nam (03x, 05x, 07x, 08x, 09x gồm 10 số)!"
+    if len(set(clean)) <= 2:
+        return False, "Số điện thoại không hợp lệ (dãy số lặp spam)!"
+    if clean in ("0123456789", "0987654321", "0900000000", "0911111111", "0999999999", "0988888888", "0977777777"):
+        return False, "Vui lòng nhập số điện thoại thật của bạn, không dùng số giả lập!"
+    return True, clean
+
+
+def validate_real_email(email: Optional[str]) -> Tuple[bool, str]:
+    """
+    Xác minh định dạng email và chặn các email rác ảo tạm thời (disposable email).
+    """
+    if not email or not str(email).strip():
+        return True, ""
+    e = str(email).strip().lower()
+    if not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", e):
+        return False, "Định dạng email không hợp lệ (ví dụ: yourname@gmail.com)!"
+    domain = e.split("@")[-1]
+    if domain in DISPOSABLE_DOMAINS or "tempmail" in domain or "disposable" in domain or "mailinator" in domain:
+        return False, "Hệ thống không chấp nhận email rác tạm thời! Vui lòng dùng Gmail, Yahoo, Outlook..."
+    return True, e
 
 
 def hash_password(password: str) -> str:
@@ -1167,19 +1213,19 @@ def sync_items_availability(conn: Optional[sqlite3.Connection] = None):
             cur.execute(f"""
                 UPDATE items 
                 SET availability = 'RENTED' 
-                WHERE id IN ({placeholders}) AND availability != 'UNAVAILABLE'
+                WHERE id IN ({placeholders}) AND availability NOT IN ('UNAVAILABLE', 'HIDDEN')
             """, list(rented_ids))
 
             cur.execute(f"""
                 UPDATE items 
                 SET availability = 'AVAILABLE' 
-                WHERE id NOT IN ({placeholders}) AND availability != 'UNAVAILABLE'
+                WHERE id NOT IN ({placeholders}) AND availability NOT IN ('UNAVAILABLE', 'HIDDEN')
             """, list(rented_ids))
         else:
             cur.execute("""
                 UPDATE items 
                 SET availability = 'AVAILABLE' 
-                WHERE availability != 'UNAVAILABLE'
+                WHERE availability NOT IN ('UNAVAILABLE', 'HIDDEN')
             """)
 
         conn.commit()
@@ -1333,6 +1379,20 @@ def register(req: RegisterRequest):
         raise HTTPException(status_code=400, detail="Vui lòng nhập tên đăng nhập!")
     if not password or len(password) < 6:
         raise HTTPException(status_code=400, detail="Mật khẩu phải có ít nhất 6 ký tự!")
+
+    # Xác minh số điện thoại thật của Việt Nam nếu người dùng nhập
+    if req.phone and req.phone.strip():
+        ok_p, phone_err_or_clean = validate_real_vietnamese_phone(req.phone)
+        if not ok_p:
+            raise HTTPException(status_code=400, detail=phone_err_or_clean)
+        phone = phone_err_or_clean
+
+    # Xác minh email thật nếu người dùng nhập
+    if user_email:
+        ok_e, email_err_or_clean = validate_real_email(user_email)
+        if not ok_e:
+            raise HTTPException(status_code=400, detail=email_err_or_clean)
+        user_email = email_err_or_clean
 
     conn = get_db()
     cur = conn.cursor()
@@ -2105,13 +2165,21 @@ def get_items(
     search: Optional[str] = None,
     branch_code: Optional[str] = None,
     start_time: Optional[str] = None,
-    end_time: Optional[str] = None
+    end_time: Optional[str] = None,
+    include_hidden: bool = False,
+    authorization: Optional[str] = Header(None)
 ):
     """Lấy danh mục sản phẩm, có bộ lọc theo khoảng ngày nhận/trả trực tiếp và theo chi nhánh."""
     conn = get_db()
     sync_items_availability(conn)
     query = "SELECT * FROM items WHERE 1=1"
     params = []
+
+    # Ẩn hoàn toàn các món có availability = 'HIDDEN' khỏi khách hàng, chỉ hiện nếu Admin yêu cầu
+    user = get_current_user(authorization) if authorization else None
+    is_admin = user and user.get("role") == "admin"
+    if not (is_admin and include_hidden):
+        query += " AND availability != 'HIDDEN'"
     if category:
         query += " AND category = ?"
         params.append(category)
@@ -2290,6 +2358,19 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
     deposit_amount = 0
     dep_type = req.deposit_type or "CCCD"
     asset_desc = req.deposit_asset_desc or "Để lại giấy tờ hoặc cọc thêm tiền (Hoàn lại khi trả đồ)"
+
+    # Khóa khung giờ 08:00 - 20:00 và chặn ngày giờ quá khứ (Yêu cầu 2 & 6)
+    st_val = parse_dt_safe(req.start_time)
+    et_val = parse_dt_safe(req.end_time)
+    if st_val and et_val:
+        now = vn_now()
+        is_admin_user = user and user.get("role") == "admin"
+        if st_val < now - datetime.timedelta(minutes=30) and not is_admin_user:
+            conn.close()
+            raise HTTPException(status_code=400, detail="Không thể chọn ngày giờ trong quá khứ! Vui lòng chọn thời gian từ hiện tại trở đi.")
+        if (st_val.hour < 8 or st_val.hour > 20 or et_val.hour < 8 or et_val.hour > 20) and not is_admin_user:
+            conn.close()
+            raise HTTPException(status_code=400, detail="Cửa hàng hoạt động từ 08:00 đến 20:00 hàng ngày. Vui lòng chọn giờ nhận và trả đồ trong khung giờ 08:00 - 20:00!")
 
     if req.custom_deposit_amount is not None and req.custom_deposit_amount > 0:
         deposit_amount = req.custom_deposit_amount
@@ -2610,6 +2691,18 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
     if bl:
         conn.close()
         raise HTTPException(status_code=403, detail=f"Tài khoản/SĐT bị tạm ngưng giao dịch ({bl['reason']}).")
+
+    # Khóa khung giờ 08:00 - 20:00 và chặn ngày giờ quá khứ
+    st_val = parse_dt_safe(req.start_time)
+    et_val = parse_dt_safe(req.end_time)
+    if st_val and et_val:
+        now = vn_now()
+        if st_val < now - datetime.timedelta(minutes=30) and not is_admin_mode:
+            conn.close()
+            raise HTTPException(status_code=400, detail="Không thể chọn ngày giờ trong quá khứ! Vui lòng chọn thời gian từ hiện tại trở đi.")
+        if (st_val.hour < 8 or st_val.hour > 20 or et_val.hour < 8 or et_val.hour > 20) and not is_admin_mode:
+            conn.close()
+            raise HTTPException(status_code=400, detail="Cửa hàng hoạt động từ 08:00 đến 20:00 hàng ngày. Vui lòng chọn giờ nhận và trả đồ trong khung giờ 08:00 - 20:00!")
 
     processed_items = []
     total_rental_price = 0
@@ -3175,26 +3268,37 @@ def get_all_rentals_admin(status: Optional[str] = None, admin: Dict[str, Any] = 
 @app.get("/api/admin/schedule_calendar")
 def get_admin_schedule_calendar(
     date: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     branch_code: Optional[str] = None,
     category: Optional[str] = None,
     admin: Dict[str, Any] = Depends(require_admin)
 ):
     """
-    Lịch đặt thuê & bàn giao thiết bị trực quan dành cho Quản Trị Viên:
+    Lịch đặt thuê & bàn giao thiết bị trực quan phong cách Salon / KiotViet cao cấp:
+    - Hỗ trợ xem theo Tuần (7 ngày lưới từ Thứ 2 đến Chủ Nhật) và theo Ngày.
     - Xem chi tiết từng món đồ có khách đặt từ ngày nào đến ngày nào, giờ nào đến giờ nào.
-    - Phân loại ca: Nhận hôm nay, Trả hôm nay, Đang thuê qua ngày, Quá hạn.
+    - Phân loại ca: Nhận trong ngày, Trả trong ngày, Đang thuê qua ngày, Quá hạn.
     - Danh sách toàn bộ thiết bị kèm thanh timeline bận/rảnh trong ngày.
     """
-    target_date = (date or vn_today().strftime("%Y-%m-%d")).strip()
+    if start_date and end_date:
+        range_start = start_date.strip()
+        range_end = end_date.strip()
+        target_date = range_start
+    else:
+        target_date = (date or vn_today().strftime("%Y-%m-%d")).strip()
+        range_start = target_date
+        range_end = target_date
+
     conn = get_db()
     sync_items_availability(conn)
     cur = conn.cursor()
 
-    day_start = f"{target_date} 00:00"
-    day_end = f"{target_date} 23:59"
+    day_start = f"{range_start} 00:00"
+    day_end = f"{range_end} 23:59"
     today_str = vn_today().strftime("%Y-%m-%d")
 
-    # Lấy các đơn thuê liên quan đến ngày được chọn (không tính đơn hủy CANCELLED)
+    # Lấy các đơn thuê liên quan đến ngày/khoảng ngày được chọn (không tính đơn hủy CANCELLED)
     query = """
         SELECT r.*, 
                COALESCE(i.name, c.name, 'Đơn Thuê Nhiều Món') as item_name,
@@ -3209,10 +3313,10 @@ def get_admin_schedule_calendar(
         WHERE r.status != 'CANCELLED'
           AND (
             (r.start_time <= ? AND r.end_time >= ?)
-            OR (r.status = 'ACTIVE' AND r.end_time < ? AND ? = ?)
+            OR (r.status = 'ACTIVE' AND r.end_time < ? AND ? >= ?)
           )
     """
-    params = [day_end, day_start, day_start, target_date, today_str]
+    params = [day_end, day_start, day_start, range_end, today_str]
 
     if branch_code and branch_code in STORE_BRANCHES:
         query += " AND r.branch_code = ?"
@@ -3243,25 +3347,25 @@ def get_admin_schedule_calendar(
         b_code = d.get("branch_code", "CN1") or "CN1"
         d["branch_info"] = STORE_BRANCHES.get(b_code, STORE_BRANCHES["CN1"])
 
-        if status == "OVERDUE" or (status == "ACTIVE" and et < day_start):
+        if status == "OVERDUE" or (status == "ACTIVE" and et < f"{today_str} 00:00"):
             event_type = "OVERDUE"
             event_label = "🚨 Quá hạn chưa trả"
             overdue.append(d)
         elif status == "RETURNED":
             event_type = "RETURNED"
             event_label = "✅ Đã trả đồ xong"
-        elif st_date == target_date and et_date == target_date:
+        elif st_date == et_date and range_start <= st_date <= range_end:
             event_type = "IN_DAY"
             event_label = f"⚡ Thuê trong ngày ({st.split(' ')[-1]} ➔ {et.split(' ')[-1]})"
             pickup_today.append(d)
             return_today.append(d)
-        elif st_date == target_date:
+        elif range_start <= st_date <= range_end:
             event_type = "PICKUP"
-            event_label = f"📥 Khách nhận hôm nay ({st.split(' ')[-1]})"
+            event_label = f"📥 Khách nhận ({st.split(' ')[-1]})"
             pickup_today.append(d)
-        elif et_date == target_date:
+        elif range_start <= et_date <= range_end:
             event_type = "RETURN"
-            event_label = f"📤 Khách trả hôm nay ({et.split(' ')[-1]})"
+            event_label = f"📤 Khách trả ({et.split(' ')[-1]})"
             return_today.append(d)
         else:
             event_type = "ONGOING"
@@ -3273,7 +3377,7 @@ def get_admin_schedule_calendar(
         timeline_events.append(d)
 
     # Lấy danh sách toàn bộ thiết bị
-    item_query = "SELECT id, name, category, subcategory, brand, serial_or_size, price_24h, image_url, availability, branch_code FROM items WHERE availability != 'UNAVAILABLE'"
+    item_query = "SELECT id, name, category, subcategory, brand, serial_or_size, price_24h, image_url, availability, branch_code FROM items WHERE availability NOT IN ('UNAVAILABLE', 'HIDDEN')"
     item_params = []
     if branch_code and branch_code in STORE_BRANCHES:
         item_query += " AND (branch_code = ? OR branch_code IS NULL)"
@@ -3298,6 +3402,8 @@ def get_admin_schedule_calendar(
     return {
         "success": True,
         "selected_date": target_date,
+        "range_start": range_start,
+        "range_end": range_end,
         "summary": {
             "total_events": len(timeline_events),
             "pickup_count": len(pickup_today),
@@ -3417,6 +3523,8 @@ def admin_delete_rental(rental_id: int, admin: Dict[str, Any] = Depends(require_
     cur.execute("DELETE FROM damage_penalties WHERE rental_id = ?", (rental_id,))
     cur.execute("DELETE FROM zns_logs WHERE rental_id = ?", (rental_id,))
     cur.execute("DELETE FROM telegram_logs WHERE rental_id = ?", (rental_id,))
+    cur.execute("DELETE FROM reminder_logs WHERE rental_id = ?", (rental_id,))
+    cur.execute("DELETE FROM print_queue WHERE rental_id = ?", (rental_id,))
     cur.execute("DELETE FROM rentals WHERE id = ?", (rental_id,))
     conn.commit()
     sync_items_availability(conn)
@@ -3429,14 +3537,17 @@ def admin_clear_all_rentals(admin: Dict[str, Any] = Depends(require_admin)):
     """Xóa toàn bộ danh sách đơn thuê và làm sạch lịch sử hóa đơn toàn hệ thống (Chỉ Admin)."""
     conn = get_db()
     cur = conn.cursor()
-    # Trả toàn bộ thiết bị về AVAILABLE
-    cur.execute("UPDATE items SET availability = 'AVAILABLE'")
+    # Trả toàn bộ thiết bị về AVAILABLE (trừ những món đang bị HIDDEN hoặc UNAVAILABLE)
+    cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE availability NOT IN ('HIDDEN', 'UNAVAILABLE')")
     cur.execute("DELETE FROM rental_items")
     cur.execute("DELETE FROM alerts")
     cur.execute("DELETE FROM handover_protocols")
     cur.execute("DELETE FROM damage_penalties")
     cur.execute("DELETE FROM zns_logs")
     cur.execute("DELETE FROM telegram_logs")
+    cur.execute("DELETE FROM reminder_logs")
+    cur.execute("DELETE FROM print_queue")
+    cur.execute("DELETE FROM daily_revenue_logs")
     cur.execute("DELETE FROM rentals")
     conn.commit()
     conn.close()
@@ -3460,6 +3571,171 @@ def approve_extension(rental_id: int, req: ApproveExtensionRequest, admin: Dict[
     conn.commit()
     conn.close()
     return {"success": True, "message": f"Đã duyệt gia hạn đơn thuê tới {req.new_end_time}!"}
+
+
+@app.get("/api/qr_image")
+def get_qr_image(data: str):
+    """Sinh ảnh mã QR đen trắng chuẩn xác trực tiếp từ backend (Same-Origin 100%, không dính lỗi CORS/tainted canvas)."""
+    try:
+        import qrcode
+        qr = qrcode.QRCode(version=1, box_size=8, border=2)
+        qr.add_data(data)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        return Response(content=buf.getvalue(), media_type="image/png")
+    except Exception as e:
+        return Response(content=b"", media_type="image/png", status_code=500)
+
+
+class RescheduleRentalRequest(BaseModel):
+    new_start_time: str
+    new_end_time: str
+    reason: Optional[str] = "Khách dời lịch"
+
+
+@app.post("/api/rentals/{rental_id}/reschedule")
+def customer_reschedule_rental(rental_id: int, req: RescheduleRentalRequest, user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+    """Dời lịch thuê miễn phí không mất tiền."""
+    if not user:
+        raise HTTPException(status_code=401, detail="Vui lòng đăng nhập để dời lịch!")
+    conn = get_db()
+    cur = conn.cursor()
+    r = cur.execute("SELECT * FROM rentals WHERE id = ?", (rental_id,)).fetchone()
+    if not r:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê!")
+    if user.get("role") != "admin" and r["user_id"] != user["id"]:
+        conn.close()
+        raise HTTPException(status_code=403, detail="Bạn không có quyền dời lịch cho đơn này!")
+    if r["status"] in ("RETURNED", "CANCELLED"):
+        conn.close()
+        raise HTTPException(status_code=400, detail="Đơn hàng đã hoàn tất hoặc đã hủy, không thể dời lịch!")
+
+    st = parse_dt_safe(req.new_start_time)
+    et = parse_dt_safe(req.new_end_time)
+    if not st or not et or et <= st:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Thời gian nhận/trả mới không hợp lệ!")
+
+    # Cửa hàng mở cửa từ 08:00 đến 20:00 hàng ngày
+    if st.hour < 8 or st.hour > 20 or et.hour < 8 or et.hour > 20:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Cửa hàng chỉ nhận và trả đồ trong khung giờ 08:00 - 20:00 hàng ngày!")
+
+    now = vn_now()
+    if st < now:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Thời gian nhận mới phải ở tương lai, không thể chọn thời gian trong quá khứ!")
+
+    old_st = r["start_time"]
+    old_et = r["end_time"]
+    cur.execute("""
+        UPDATE rentals 
+        SET start_time = ?, end_time = ?, customer_notes = COALESCE(customer_notes, '') || ?
+        WHERE id = ?
+    """, (req.new_start_time, req.new_end_time, f" | Dời lịch từ ({old_st} - {old_et}) sang ({req.new_start_time} - {req.new_end_time}) [MIỄN PHÍ]", rental_id))
+    conn.commit()
+    sync_items_availability(conn)
+    conn.close()
+
+    # Bắn thông báo Telegram
+    b_code = r["branch_code"] if ("branch_code" in r.keys() and r["branch_code"]) else "CN1"
+    b_info = STORE_BRANCHES.get(b_code, STORE_BRANCHES["CN1"])
+    msg = (
+        f"<b>🔄 [DỜI LỊCH THUÊ] KHÁCH ĐÃ ĐỔI GIỜ THÀNH CÔNG (MIỄN PHÍ)!</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"📋 <b>Mã đơn:</b> <code>{r['rental_code']}</code>\n"
+        f"👤 <b>Khách:</b> {user['full_name']} (<code>{user.get('phone', '')}</code>)\n"
+        f"⏰ <b>Lịch cũ:</b> {old_st} ➔ {old_et}\n"
+        f"✨ <b>LỊCH MỚI:</b> <b>{req.new_start_time}</b> ➔ <b>{req.new_end_time}</b>\n"
+        f"📍 <b>Chi nhánh:</b> {b_info['name']}\n"
+        f"━━━━━━━━━━━━━━━━━━"
+    )
+    _send_telegram_notification(msg, rental_id=rental_id, event_type="NOTIFY")
+
+    return {"success": True, "message": f"🎉 Đã dời lịch sang {req.new_start_time} ➔ {req.new_end_time} hoàn toàn MIỄN PHÍ!"}
+
+
+@app.post("/api/rentals/{rental_id}/cancel_with_penalty")
+def customer_cancel_with_penalty(rental_id: int, user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+    """Khách hủy lịch thuê - Giữ lại 50% số tiền cọc/thuê theo quy định, hoàn lại 50%."""
+    if not user:
+        raise HTTPException(status_code=401, detail="Vui lòng đăng nhập để hủy lịch!")
+    conn = get_db()
+    cur = conn.cursor()
+    r = cur.execute("SELECT * FROM rentals WHERE id = ?", (rental_id,)).fetchone()
+    if not r:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê!")
+    if user.get("role") != "admin" and r["user_id"] != user["id"]:
+        conn.close()
+        raise HTTPException(status_code=403, detail="Bạn không có quyền hủy đơn này!")
+    if r["status"] in ("RETURNED", "CANCELLED"):
+        conn.close()
+        raise HTTPException(status_code=400, detail="Đơn hàng đã hoàn tất hoặc đã được hủy trước đó!")
+
+    total_amount = (r["total_price"] or 0) + (r["deposit_paid"] or 0)
+    penalty_50 = int(round(total_amount * 0.5))
+    refund_50 = total_amount - penalty_50
+
+    note = f" | Khách hủy lịch: Giữ lại 50% phí ({penalty_50:,}đ), hoàn 50% ({refund_50:,}đ)"
+    cur.execute("""
+        UPDATE rentals 
+        SET status = 'CANCELLED', customer_notes = COALESCE(customer_notes, '') || ?
+        WHERE id = ?
+    """, (note, rental_id))
+    conn.commit()
+    sync_items_availability(conn)
+    conn.close()
+
+    msg = (
+        f"<b>⚠️ [HỦY LỊCH THUÊ] KHÁCH ĐÃ HỦY ĐƠN (PHẠT 50%)!</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"📋 <b>Mã đơn:</b> <code>{r['rental_code']}</code>\n"
+        f"👤 <b>Khách:</b> {user['full_name']} (<code>{user.get('phone', '')}</code>)\n"
+        f"💵 <b>Tổng tiền đơn:</b> {total_amount:,}đ\n"
+        f"💸 <b>Phí phạt giữ lại (50%):</b> <b>{penalty_50:,}đ</b>\n"
+        f"💰 <b>Số tiền hoàn lại cho khách (50%):</b> <b>{refund_50:,}đ</b>\n"
+        f"🔓 <i>Thiết bị đã được tự động nhả về trạng thái SẴN SÀNG cho khách khác thuê.</i>\n"
+        f"━━━━━━━━━━━━━━━━━━"
+    )
+    _send_telegram_notification(msg, rental_id=rental_id, event_type="NOTIFY")
+
+    return {
+        "success": True,
+        "message": f"Đã hủy đơn thành công! Theo quy định, cửa hàng giữ lại 50% phí ({penalty_50:,}đ) và hoàn lại 50% ({refund_50:,}đ) cho bạn.",
+        "penalty_amount": penalty_50,
+        "refund_amount": refund_50
+    }
+
+
+class AdminUpdateDepositRequest(BaseModel):
+    deposit_type: str # "CCCD", "ASSET", "CASH", "NONE"
+    deposit_paid: int = 0
+    deposit_asset_desc: Optional[str] = ""
+
+
+@app.post("/api/admin/rentals/{rental_id}/update_deposit")
+def admin_update_rental_deposit(rental_id: int, req: AdminUpdateDepositRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin cập nhật hình thức cọc và tiền cọc cho đơn khi kiểm tra bill / quét QR."""
+    conn = get_db()
+    cur = conn.cursor()
+    r = cur.execute("SELECT id, rental_code FROM rentals WHERE id = ?", (rental_id,)).fetchone()
+    if not r:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê!")
+
+    cur.execute("""
+        UPDATE rentals 
+        SET deposit_type = ?, deposit_paid = ?, deposit_asset_desc = ?
+        WHERE id = ?
+    """, (req.deposit_type, req.deposit_paid, req.deposit_asset_desc or "", rental_id))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": f"✅ Đã cập nhật phương thức cọc cho đơn #{r['rental_code']} thành công!"}
 
 
 class CreateItemAdminRequest(BaseModel):
@@ -3667,7 +3943,7 @@ def delete_item_admin(item_id: int, admin: Dict[str, Any] = Depends(require_admi
 
 class BulkItemsStatusRequest(BaseModel):
     item_ids: Optional[List[int]] = None
-    action: str  # "ALL_AVAILABLE", "ALL_UNAVAILABLE", "SET_AVAILABLE", "SET_UNAVAILABLE", "DELETE"
+    action: str  # "ALL_AVAILABLE", "ALL_UNAVAILABLE", "SET_AVAILABLE", "SET_UNAVAILABLE", "SET_HIDDEN", "SET_UNHIDDEN", "DELETE"
 
 
 @app.post("/api/admin/items/bulk_status")
@@ -3678,6 +3954,8 @@ def bulk_items_status(req: BulkItemsStatusRequest, admin: Dict[str, Any] = Depen
     - ALL_UNAVAILABLE: Hạ toàn bộ sản phẩm trong kho xuống (chuyển sang UNAVAILABLE).
     - SET_AVAILABLE: Mở lại các sản phẩm được chọn.
     - SET_UNAVAILABLE: Hạ các sản phẩm được chọn xuống.
+    - SET_HIDDEN: Ẩn hoàn toàn các sản phẩm được chọn khỏi web khách.
+    - SET_UNHIDDEN: Hiện lại các sản phẩm đã ẩn.
     - DELETE: Xóa các sản phẩm được chọn.
     """
     conn = get_db()
@@ -3697,7 +3975,7 @@ def bulk_items_status(req: BulkItemsStatusRequest, admin: Dict[str, Any] = Depen
         conn.close()
         return {"success": True, "message": "⚠️ Đã hạ toàn bộ sản phẩm trong kho xuống (Tạm Ngưng)!"}
 
-    elif action in ("SET_AVAILABLE", "SET_UNAVAILABLE", "DELETE"):
+    elif action in ("SET_AVAILABLE", "SET_UNAVAILABLE", "SET_HIDDEN", "SET_UNHIDDEN", "DELETE"):
         ids = req.item_ids or []
         if not ids:
             conn.close()
@@ -3717,8 +3995,25 @@ def bulk_items_status(req: BulkItemsStatusRequest, admin: Dict[str, Any] = Depen
             conn.close()
             return {"success": True, "message": f"⚠️ Đã hạ {len(ids)} sản phẩm được chọn xuống (Tạm Ngưng)!"}
 
+        elif action == "SET_HIDDEN":
+            cur.execute(f"UPDATE items SET availability = 'HIDDEN' WHERE id IN ({placeholders})", ids)
+            conn.commit()
+            conn.close()
+            return {"success": True, "message": f"🔒 Đã ẩn hoàn toàn {len(ids)} sản phẩm được chọn khỏi trang web!"}
+
+        elif action == "SET_UNHIDDEN":
+            cur.execute(f"UPDATE items SET availability = 'AVAILABLE' WHERE id IN ({placeholders})", ids)
+            conn.commit()
+            sync_items_availability(conn)
+            conn.close()
+            return {"success": True, "message": f"👁️ Đã hiển thị lại {len(ids)} sản phẩm lên trang web!"}
+
         elif action == "DELETE":
             cur.execute(f"DELETE FROM items WHERE id IN ({placeholders})", ids)
+            conn.commit()
+            sync_items_availability(conn)
+            conn.close()
+            return {"success": True, "message": f"🗑️ Đã xóa {len(ids)} sản phẩm được chọn khỏi kho!"}
             conn.commit()
             sync_items_availability(conn)
             conn.close()
