@@ -1307,37 +1307,74 @@ def update_and_check_rental_alerts():
 
 class RegisterRequest(BaseModel):
     username: str
-    email: str
     password: str
-    full_name: str
-    phone: str
+    full_name: Optional[str] = "Khách Hàng"
+    phone: Optional[str] = None
+    email: Optional[str] = None
 
 
 @app.post("/api/auth/register")
 def register(req: RegisterRequest):
+    """
+    Đăng ký tài khoản khách hàng mới:
+    - Bắt buộc: Tên đăng nhập và Mật khẩu (tối thiểu 6 ký tự).
+    - Email: nếu không điền thì tự động gán '{username}@customer.tiduba' để đảm bảo tính duy nhất và không bị lỗi SQLite.
+    - SĐT: nếu để trống thì mặc định '0900000000'.
+    - Báo lỗi rõ ràng bằng tiếng Việt nếu tên đăng nhập đã tồn tại.
+    """
+    username = (req.username or "").strip()
+    password = (req.password or "").strip()
+    full_name = (req.full_name or "").strip() or username
+    phone = (req.phone or "").strip() or "0900000000"
+    user_email = (req.email or "").strip().lower()
+    email = user_email if user_email else f"{username.lower()}@customer.tiduba"
+
+    if not username:
+        raise HTTPException(status_code=400, detail="Vui lòng nhập tên đăng nhập!")
+    if not password or len(password) < 6:
+        raise HTTPException(status_code=400, detail="Mật khẩu phải có ít nhất 6 ký tự!")
+
     conn = get_db()
     cur = conn.cursor()
     try:
+        # Kiểm tra trùng tên đăng nhập
+        exist_u = cur.execute("SELECT id FROM users WHERE LOWER(username) = LOWER(?)", (username,)).fetchone()
+        if exist_u:
+            raise HTTPException(status_code=400, detail=f"Tên đăng nhập '{username}' đã có người sử dụng. Vui lòng chọn tên khác!")
+
+        # Kiểm tra trùng email nếu người dùng tự nhập email thật
+        if user_email:
+            exist_e = cur.execute("SELECT id FROM users WHERE LOWER(email) = LOWER(?)", (user_email,)).fetchone()
+            if exist_e:
+                raise HTTPException(status_code=400, detail=f"Email '{user_email}' đã được sử dụng. Vui lòng dùng email khác!")
+
         now = vn_now().strftime("%Y-%m-%d %H:%M:%S")
         cur.execute("""
         INSERT INTO users (username, email, password_hash, full_name, phone, role, loyalty_points, created_at)
         VALUES (?, ?, ?, ?, ?, 'customer', 50000, ?)
-        """, (req.username.strip(), req.email.strip().lower(), hash_password(req.password), req.full_name.strip(), req.phone.strip(), now))
+        """, (username, email, hash_password(password), full_name, phone, now))
         conn.commit()
         user_id = cur.lastrowid
-        token = create_token(user_id, req.username, "customer")
+        token = create_token(user_id, username, "customer")
+
+        # Tự động đồng bộ hồ sơ khách hàng vào danh bạ CRM
+        if phone and phone != "0900000000":
+            upsert_customer_from_rental(full_name=full_name, phone=phone, email=user_email or "")
+
         return {
             "success": True,
             "message": "Đăng ký thành công! Bạn nhận được 50.000đ điểm thưởng VIP.",
             "token": token,
             "user": {
                 "id": user_id,
-                "username": req.username,
-                "full_name": req.full_name,
+                "username": username,
+                "full_name": full_name,
                 "role": "customer",
                 "loyalty_points": 50000
             }
         }
+    except HTTPException:
+        raise
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=400, detail="Tên đăng nhập hoặc Email đã tồn tại!")
     finally:

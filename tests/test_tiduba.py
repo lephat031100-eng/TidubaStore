@@ -719,3 +719,37 @@ def test_system_health_and_ping_and_crm_lookup():
     assert data["success"] is True
     assert "server_time_vn" in data
     assert data["background_threads"]["reminder_worker_running"] is True
+
+
+def test_flexible_registration_on_phone():
+    """Kiểm tra đăng ký tài khoản trên điện thoại không bị lỗi rỗng email/phone/unique."""
+    uname = f"mobile_user_{int(time.time()*1000)}"
+    res = client.post("/api/auth/register", json={
+        "username": uname,
+        "password": "password123",
+        "full_name": "Khách Mobile",
+        "phone": "0987111222",
+        "email": "" # Rỗng email
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert "token" in data
+    assert data["user"]["username"] == uname
+
+
+def test_qr_bill_lookup_preview():
+    """Kiểm tra tính năng quét/nhập mã QR để xem trước thông tin và trạng thái bill."""
+    # Lấy 1 đơn bất kỳ
+    conn = get_db()
+    r = conn.execute("SELECT rental_code, status FROM rentals LIMIT 1").fetchone()
+    conn.close()
+
+    code = r["rental_code"]
+    res = client.get(f"/api/rentals/track/{code}")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert "rental" in data
+    assert data["rental"]["rental_code"] == code
+    assert "status" in data["rental"]

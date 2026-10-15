@@ -2220,7 +2220,7 @@
                     <label class="block text-gray-300 font-mono mb-1">Mật khẩu:</label>
                     <input type="password" id="reg-pass" placeholder="••••••••" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2 text-white font-mono">
                 </div>
-                <button onclick="submitRegister()" class="w-full bg-gradient-to-r from-amber-500 to-yellow-400 text-gray-950 font-black py-2.5 rounded-xl text-xs transition">
+                <button type="button" onclick="submitRegister()" id="btn-submit-reg" class="w-full bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-gray-950 font-black py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-md">
                     Đăng Ký Tài Khoản
                 </button>
             </div>
@@ -2467,12 +2467,15 @@
                         <i class="fa-solid fa-trash-can"></i> Xóa Bill
                     </button>
                 </div>
-                <div class="flex gap-2 ml-auto">
-                    <button onclick="closeK80Modal()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg font-bold">
+                <div class="flex items-center gap-2 ml-auto">
+                    <button type="button" onclick="copyK80Bill()" class="bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1">
+                        <i class="fa-regular fa-copy"></i> Sao Chép
+                    </button>
+                    <button type="button" onclick="closeK80Modal()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg font-bold">
                         Đóng
                     </button>
-                    <button onclick="printK80Bill()" class="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold px-4 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5 shadow-lg shadow-cyan-600/30">
-                        <i class="fa-solid fa-print"></i> In Hóa Đơn K80
+                    <button type="button" onclick="printK80Bill()" class="bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-gray-950 font-black px-4 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5 shadow-lg shadow-amber-500/20">
+                        <i class="fa-solid fa-print"></i> In / Lưu Hóa Đơn PDF
                     </button>
                 </div>
             </div>
@@ -2900,11 +2903,11 @@
             <!-- MANUAL INPUT -->
             <div class="space-y-3 pt-2 border-t border-gray-800">
                 <div>
-                    <label class="block text-xs font-mono text-gray-300 font-bold mb-1">Hoặc Nhập / Dán Mã Đơn Hàng (hoặc máy quét mã vạch):</label>
+                    <label class="block text-xs font-mono text-gray-300 font-bold mb-1">Hoặc Nhập / Dán Mã Đơn Hàng (Quét soi thông tin bill & trạng thái):</label>
                     <div class="flex gap-2">
-                        <input type="text" id="qr-return-input" placeholder="TDB-XXXXXX hoặc dán link QR" class="flex-1 bg-gray-950 border border-emerald-500/60 rounded-xl px-3.5 py-2.5 text-white font-mono uppercase text-sm focus:outline-none focus:border-emerald-400" onkeydown="if(event.key==='Enter') submitQrReturn();">
-                        <button onclick="submitQrReturn()" id="btn-submit-qr-return" class="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-gray-950 font-black px-4 py-2.5 rounded-xl text-xs font-mono whitespace-nowrap shadow-lg shadow-emerald-500/20">
-                            <i class="fa-solid fa-check"></i> Nhận Trả
+                        <input type="text" id="qr-return-input" placeholder="TDB-XXXXXX hoặc dán link QR" class="flex-1 bg-gray-950 border border-emerald-500/60 rounded-xl px-3.5 py-2.5 text-white font-mono uppercase text-sm focus:outline-none focus:border-emerald-400" onkeydown="if(event.key==='Enter') previewQrBill();">
+                        <button type="button" onclick="previewQrBill()" id="btn-submit-qr-return" class="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black px-4 py-2.5 rounded-xl text-xs font-mono whitespace-nowrap shadow-lg shadow-cyan-600/20">
+                            <i class="fa-solid fa-magnifying-glass"></i> Xem Bill
                         </button>
                     </div>
                 </div>
@@ -3214,7 +3217,18 @@
                 .replace(/đ/g, "d").replace(/Đ/g, "d");
         }
 
-        function renderCatalog() {
+        let catalogCurrentLimit = 24;
+        const CATALOG_PAGE_STEP = 24;
+
+        function loadMoreCatalogItems() {
+            catalogCurrentLimit += CATALOG_PAGE_STEP;
+            renderCatalog(false);
+        }
+
+        function renderCatalog(resetLimit = true) {
+            if (resetLimit) {
+                catalogCurrentLimit = 24;
+            }
             const grid = document.getElementById('catalog-grid');
             const searchVal = normalizeSearchText(document.getElementById('catalog-search').value);
 
@@ -3293,7 +3307,10 @@
                 return;
             }
 
-            grid.innerHTML = filtered.map(item => {
+            // Phân trang tối ưu di động: Chỉ render visibleItems để loại bỏ 100% lag
+            const visibleItems = filtered.slice(0, catalogCurrentLimit);
+
+            let cardsHtml = visibleItems.map(item => {
                 const isAvail = item.availability === 'AVAILABLE';
                 const isUnavail = item.availability === 'UNAVAILABLE';
                 const isRented = item.availability === 'RENTED';
@@ -3307,7 +3324,7 @@
                 return `
                     <div class="bg-white rounded-2xl overflow-hidden border border-[#eee7de] shadow-sm hover:shadow-md transition duration-300 flex flex-col justify-between group ${isUnavail ? 'opacity-60' : ''}">
                         <div onclick="openProductGalleryModal(${item.id})" class="cursor-pointer relative overflow-hidden aspect-[4/3] bg-[#f5ede3]" title="Bấm để xem album ảnh phóng to">
-                            <img src="${item.image_url}" alt="${item.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                            <img src="${item.image_url}" alt="${item.name}" loading="lazy" decoding="async" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
                             <span class="absolute top-2.5 left-2.5 text-[10px] font-sans font-bold px-2.5 py-0.5 rounded-full ${item.category === 'CAMERA_GEAR' ? 'bg-[#f0f9ff] text-[#0369a1] border border-[#bae6fd]' : 'bg-[#fdf2f8] text-[#be185d] border border-[#fbcfe8]'}">
                                 ${item.subcategory}
                             </span>
@@ -3375,11 +3392,11 @@
                                             <i class="fa-solid fa-pen-to-square"></i> Sửa Món
                                         </button>
                                         <div class="flex items-center gap-1">
-                                            <button onclick="adminToggleItemAvailability(${item.id})" class="px-2 py-0.5 rounded-lg font-bold border transition ${isUnavail ? 'bg-[#ecfdf5] text-[#047857] border-[#a7f3d0]' : 'bg-[#fff1f2] text-[#be123c] border-[#fecdd3]'}">
+                                            <button onclick="adminToggleItemAvailability(${item.id})" class="text-[10px] font-bold px-2 py-0.5 rounded border ${isUnavail ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-rose-50 text-rose-700 border-rose-300'}">
                                                 ${isUnavail ? 'Mở Lại' : 'Hạ Xuống'}
                                             </button>
-                                            <button onclick="adminPermanentDeleteItem(${item.id}, '${item.name.replace(/'/g, '')}')" class="px-2 py-0.5 rounded-lg font-bold bg-rose-900 text-rose-200 hover:bg-rose-800 transition" title="Xóa vĩnh viễn khỏi kho">
-                                                Xóa
+                                            <button onclick="adminPermanentDeleteItem(${item.id}, '${item.name.replace(/'/g, '')}')" class="text-rose-600 hover:text-rose-800 px-1 py-0.5" title="Xóa món này">
+                                                <i class="fa-solid fa-trash-can"></i>
                                             </button>
                                         </div>
                                     </div>
@@ -3389,6 +3406,23 @@
                     </div>
                 `;
             }).join('');
+
+            // Nút Xem thêm khi còn sản phẩm
+            if (visibleItems.length < filtered.length) {
+                const remaining = filtered.length - visibleItems.length;
+                cardsHtml += `
+                    <div class="col-span-full py-6 flex flex-col items-center justify-center gap-2">
+                        <div class="text-xs text-[#78716c] font-medium font-sans">
+                            Đang hiển thị <strong class="text-[#c86d51] font-bold">${visibleItems.length}</strong> / ${filtered.length} sản phẩm
+                        </div>
+                        <button type="button" onclick="loadMoreCatalogItems()" class="bg-[#c86d51] hover:bg-[#b55d42] text-white font-bold px-7 py-2.5 rounded-full text-xs shadow-md transition flex items-center gap-2 hover:scale-105">
+                            <i class="fa-solid fa-angles-down"></i> Xem Thêm ${Math.min(CATALOG_PAGE_STEP, remaining)} Sản Phẩm
+                        </button>
+                    </div>
+                `;
+            }
+
+            grid.innerHTML = cardsHtml;
         }
 
         function renderCombosGrid(grid, searchVal) {
@@ -3866,12 +3900,29 @@
         // ==============================================================
         let currentK80Code = '';
 
-        function openK80BillModal(code, item, price, deposit, customer, phone, start, end, depType, depDescEncoded, status, itemsArray = null) {
-            if (!currentUser || currentUser.role !== 'admin') {
-                showToast("Chỉ Quản Lý Tiduba Store mới có quyền xem & in hóa đơn K80!");
-                return;
-            }
+        async function openK80BillModal(code, item, price, deposit, customer, phone, start, end, depType, depDescEncoded, status, itemsArray = null) {
             currentK80Code = code;
+
+            // Nếu thiếu thông tin chi tiết (ví dụ khách mở chỉ với mã code), tự động tải từ API track
+            if (!item || price === undefined || price === null) {
+                try {
+                    const tr = await fetch(`/api/rentals/track/${encodeURIComponent(code)}`);
+                    const td = await tr.json();
+                    if (td.success && td.rental) {
+                        const r = td.rental;
+                        item = r.item_name;
+                        price = r.total_price;
+                        deposit = r.deposit_paid || 0;
+                        customer = r.customer_name;
+                        phone = r.customer_phone;
+                        start = r.start_time;
+                        end = r.end_time;
+                        status = r.status;
+                        itemsArray = r.items || null;
+                    }
+                } catch(e) {}
+            }
+
             const subtotal = Number(price) || 0;
             const depAmt = Number(deposit) || 0;
             const total = subtotal + depAmt;
@@ -3889,13 +3940,13 @@
 
             // 2. Điền thông tin khách hàng & nhân viên
             const cusEl = document.getElementById('k80-disp-customer');
-            if (cusEl) cusEl.innerText = (customer || 'KHÁCH HÀNG').toUpperCase();
+            if (cusEl) cusEl.innerText = (customer || (currentUser ? currentUser.full_name : 'KHÁCH HÀNG')).toUpperCase();
 
             const phoneEl = document.getElementById('k80-disp-phone');
-            if (phoneEl) phoneEl.innerText = phone || 'Chưa xác định';
+            if (phoneEl) phoneEl.innerText = phone || (currentUser ? currentUser.phone : 'Chưa xác định');
 
             const staffEl = document.getElementById('k80-disp-staff');
-            if (staffEl) staffEl.innerText = (currentUser && currentUser.full_name) ? currentUser.full_name : 'Admin';
+            if (staffEl) staffEl.innerText = (currentUser && currentUser.role === 'admin' && currentUser.full_name) ? currentUser.full_name : 'Quản Lý Tiduba Store';
 
             // 3. Render danh sách sản phẩm (chuẩn đơn giá - SL - thành tiền)
             let parsedItems = itemsArray;
@@ -3987,10 +4038,6 @@
         }
 
         function printK80Bill() {
-            if (!currentUser || currentUser.role !== 'admin') {
-                alert("Chỉ Quản Lý (Admin) mới có quyền in hóa đơn!");
-                return;
-            }
             window.print();
         }
 
@@ -4171,7 +4218,7 @@
                     document.getElementById('qr-return-input').value = cleanCode;
                     playPosSuccessSound();
                     showToast(`📸 Nhận diện thành công: ${cleanCode}`);
-                    submitQrReturn();
+                    previewQrBill(cleanCode);
                 } else {
                     alert("Không nhận diện được mã QR trong ảnh. Vui lòng chụp rõ mã QR hoặc nhập mã đơn bên dưới!");
                 }
@@ -4236,7 +4283,7 @@
                                 document.getElementById('qr-return-input').value = cleanCode;
                                 playPosSuccessSound();
                                 showToast(`📸 Nhận diện mã: ${cleanCode}`);
-                                submitQrReturn();
+                                previewQrBill(cleanCode);
                                 return;
                             }
                         }
@@ -4271,79 +4318,165 @@
             if (video) video.srcObject = null;
         }
 
-        async function submitQrReturn() {
-            if (!currentUser || currentUser.role !== 'admin') {
-                alert("Chỉ Quản Lý (Admin) mới có quyền nhận trả đồ!");
-                return;
-            }
-
-            const rawVal = document.getElementById('qr-return-input').value.trim();
+        async function previewQrBill(rawCode = null) {
+            const rawVal = rawCode || document.getElementById('qr-return-input').value.trim();
             if (!rawVal) {
                 alert("Vui lòng nhập hoặc quét mã đơn hàng!");
                 return;
             }
 
-            // Trích xuất mã TDB-XXXXXX nếu đầu vào là URL
-            let code = rawVal;
-            const match = rawVal.match(/TDB-[A-Za-z0-9_-]+/i);
-            if (match) {
-                code = match[0].toUpperCase();
-            }
+            const code = extractQrCodeString(rawVal);
+            document.getElementById('qr-return-input').value = code;
 
-            const btn = document.getElementById('btn-submit-qr-return');
+            const resBox = document.getElementById('qr-return-result');
+            resBox.classList.remove('hidden');
+            resBox.innerHTML = `
+                <div class="p-4 bg-gray-950 rounded-2xl border border-gray-800 text-center text-xs font-mono text-gray-400">
+                    <i class="fa-solid fa-spinner animate-spin text-cyan-400 text-sm mb-1 block"></i>
+                    Đang tra cứu thông tin hóa đơn #${code}...
+                </div>
+            `;
+
+            try {
+                const res = await fetch(`/api/rentals/track/${encodeURIComponent(code)}`);
+                const data = await res.json();
+
+                if (!res.ok || !data.success || !data.rental) {
+                    resBox.innerHTML = `
+                        <div class="p-4 bg-rose-950/80 border border-rose-600 rounded-2xl text-xs font-mono text-rose-300 space-y-1">
+                            <div class="font-bold">❌ Không tìm thấy hóa đơn!</div>
+                            <div>${data.detail || 'Mã đơn không tồn tại hoặc đã bị xóa.'}</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const r = data.rental;
+                const isReturned = r.status === 'RETURNED';
+                const isHold = r.status === 'HOLD';
+                const isActive = r.status === 'ACTIVE';
+                const isOverdue = r.status === 'OVERDUE';
+                const isCancelled = r.status === 'CANCELLED';
+                const isAdmin = currentUser && currentUser.role === 'admin';
+
+                let statusText = r.status;
+                let statusBadgeClass = 'bg-cyan-950 text-cyan-300 border-cyan-700';
+
+                if (isHold) {
+                    statusText = '⏳ Đang Chờ Duyệt Tiền (HOLD)';
+                    statusBadgeClass = 'bg-amber-950 text-amber-300 border-amber-600 font-bold';
+                } else if (isActive) {
+                    statusText = '✅ Đang Cho Thuê (ACTIVE)';
+                    statusBadgeClass = 'bg-emerald-950 text-emerald-300 border-emerald-600 font-bold';
+                } else if (isReturned) {
+                    statusText = '🎉 ĐÃ TRẢ ĐỒ XONG (RETURNED)';
+                    statusBadgeClass = 'bg-teal-950 text-teal-300 border-teal-600 font-bold';
+                } else if (isOverdue) {
+                    statusText = '🚨 ĐÃ QUÁ HẠN TRẢ (OVERDUE)';
+                    statusBadgeClass = 'bg-rose-950 text-rose-300 border-rose-600 font-black animate-pulse';
+                } else if (isCancelled) {
+                    statusText = '❌ ĐÃ HỦY ĐƠN (CANCELLED)';
+                    statusBadgeClass = 'bg-gray-800 text-gray-400 border-gray-700 font-bold';
+                }
+
+                const b = r.branch_info || { name: 'Chi nhánh 1 (Pleiku, Gia Lai)', phone: '0977.078.981' };
+
+                resBox.innerHTML = `
+                    <div class="bg-gray-950 p-4 rounded-2xl border border-gray-800 space-y-3 text-xs font-mono text-left">
+                        <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                            <span class="text-gray-400">Mã đơn hàng:</span>
+                            <strong class="text-amber-400 font-bold text-sm">${r.rental_code}</strong>
+                        </div>
+                        <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                            <span class="text-gray-400">Trạng thái hiện tại:</span>
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold border ${statusBadgeClass}">
+                                ${statusText}
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                            <span class="text-gray-400">Khách hàng:</span>
+                            <strong class="text-white">${r.customer_name}</strong>
+                        </div>
+                        <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                            <span class="text-gray-400">Thiết bị / Trang phục:</span>
+                            <strong class="text-white text-right">${r.item_name}</strong>
+                        </div>
+                        <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                            <span class="text-gray-400">Khung giờ thuê:</span>
+                            <span class="text-amber-300 text-right font-bold">${r.start_time} ➔ ${r.end_time}</span>
+                        </div>
+                        <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                            <span class="text-gray-400">Tổng tiền thanh toán:</span>
+                            <strong class="text-emerald-400 font-bold text-sm">${Number(r.total_price).toLocaleString()}đ</strong>
+                        </div>
+                        <div class="flex items-center justify-between text-gray-400 pb-1">
+                            <span>Chi nhánh:</span>
+                            <span class="text-gray-300">${b.name} (${b.phone})</span>
+                        </div>
+
+                        <!-- Các nút hành động: Xem bill K80 & Xác nhận trả đồ -->
+                        <div class="pt-2 border-t border-gray-800 flex flex-wrap gap-2">
+                            <button type="button" onclick="openK80BillModal('${r.rental_code}')" class="flex-1 bg-gray-800 hover:bg-gray-700 text-yellow-300 border border-gray-700 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition">
+                                <i class="fa-solid fa-receipt text-yellow-400"></i> Xem Hóa Đơn K80
+                            </button>
+                            ${(!isReturned && !isCancelled && isAdmin) ? `
+                                <button type="button" onclick="executeConfirmReturn('${r.rental_code}')" id="btn-exec-return-${r.rental_code}" class="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-gray-950 font-black py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 transition">
+                                    <i class="fa-solid fa-check-double"></i> Xác Nhận Nhận Trả Đồ
+                                </button>
+                            ` : ''}
+                        </div>
+                        ${isReturned ? `
+                            <div class="p-2.5 bg-teal-950/60 border border-teal-700 rounded-xl text-center text-teal-300 text-[11px] font-sans">
+                                🎉 Đơn hàng này đã hoàn tất nhận trả đồ về kho!
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            } catch(err) {
+                resBox.innerHTML = `<div class="p-3 bg-rose-950/80 border border-rose-600 rounded-xl text-xs font-mono text-rose-300">Lỗi kết nối tra cứu: ${err}</div>`;
+            }
+        }
+
+        async function executeConfirmReturn(code) {
+            if (!confirm(`Xác nhận Admin đã nhận đủ thiết bị / trang phục và thanh lý cọc cho đơn ${code}? Thiết bị sẽ được trả về trạng thái SẴN SÀNG.`)) return;
+            const token = localStorage.getItem('tiduba_token') || '';
+            const btn = document.getElementById(`btn-exec-return-${code}`);
             if (btn) {
                 btn.disabled = true;
-                btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Đang xử lý...';
+                btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Đang nhận trả...';
             }
 
             try {
-                const token = localStorage.getItem('tiduba_token') || '';
-                const headers = { 'Content-Type': 'application/json' };
-                if (token) headers['Authorization'] = 'Bearer ' + token;
-
                 const res = await fetch('/api/rentals/return_by_qr', {
                     method: 'POST',
-                    headers: headers,
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
                     body: JSON.stringify({ rental_code: code })
                 });
                 const data = await res.json();
-                const resBox = document.getElementById('qr-return-result');
-                resBox.classList.remove('hidden');
-
-                if (!res.ok) {
-                    resBox.innerHTML = `
-                        <div class="p-3 bg-rose-950/80 border border-rose-600 rounded-xl text-xs font-mono text-rose-300">
-                            ❌ ${data.detail || 'Không tìm thấy đơn!'}
-                        </div>
-                    `;
-                } else if (data.already_returned) {
-                    resBox.innerHTML = `
-                        <div class="p-3 bg-yellow-950/80 border border-yellow-600 rounded-xl text-xs font-mono text-yellow-300 space-y-1">
-                            <div>⚠️ <strong>${data.message}</strong></div>
-                            <div>Thiết bị: ${data.rental.item_name}</div>
-                        </div>
-                    `;
-                } else {
-                    resBox.innerHTML = `
-                        <div class="p-3 bg-emerald-950/80 border border-emerald-500 rounded-xl text-xs font-mono text-emerald-300 space-y-1">
-                            <div class="font-bold text-sm">✅ NHẬN TRẢ ĐỒ THÀNH CÔNG!</div>
-                            <div>Mã đơn: <strong>${code}</strong></div>
-                            <div>Khách hàng: ${data.rental.customer_name} (${data.rental.customer_phone})</div>
-                            <div>Thiết bị: ${data.rental.item_name}</div>
-                            <div class="text-[11px] text-cyan-300">Đã cập nhật trạng thái RETURNED & nhả kho thiết bị.</div>
-                        </div>
-                    `;
-                    showToast(`✅ Đã nhận trả đơn ${code}!`);
+                if (res.ok) {
+                    showToast(`✅ Đã nhận trả đơn ${code} thành công!`);
+                    previewQrBill(code); // Tải lại để cập nhật trạng thái RETURNED ngay trên màn hình
                     fetchAdminDashboard();
+                    fetchCatalog();
+                } else {
+                    alert(data.detail || "Lỗi khi nhận trả đồ!");
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fa-solid fa-check-double"></i> Xác Nhận Nhận Trả Đồ';
+                    }
                 }
-            } catch (err) {
-                alert("Lỗi khi xử lý: " + err);
-            } finally {
+            } catch(err) {
+                alert("Lỗi: " + err);
                 if (btn) {
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-check"></i> Nhận Trả';
+                    btn.innerHTML = '<i class="fa-solid fa-check-double"></i> Xác Nhận Nhận Trả Đồ';
                 }
             }
+        }
+
+        // Alias submitQrReturn -> previewQrBill để tương thích
+        function submitQrReturn() {
+            previewQrBill();
         }
 
         async function quickReturnByCode(code) {
@@ -4936,11 +5069,17 @@
                 }
 
                 showToast("✅ Đã gửi ảnh biên lai sang Telegram cho Quản lý!");
-                alert("✅ Đã gửi biên lai thành công!\nQuản lý đã nhận được ảnh minh chứng qua Telegram và sẽ duyệt đơn của bạn trong ít phút.");
+                const savedCode = currentActiveCodeRaw;
                 currentActiveRentalId = null; // Tránh cancel_unpaid khi đóng modal
                 document.getElementById('qr-modal').style.display = 'none';
                 showSection('my-rentals');
                 fetchMyRentals();
+
+                // Tự động mở ngay Hóa Đơn K80 để khách xem và lưu lại
+                if (savedCode) {
+                    openK80BillModal(savedCode);
+                }
+                alert("🎉 ĐÃ GỬI BIÊN LAI THÀNH CÔNG!\nQuản lý đã nhận được ảnh minh chứng qua Telegram và sẽ duyệt đơn của bạn trong ít phút.\n\nHóa đơn thuê đồ của bạn đã hiển thị trên màn hình, bạn có thể bấm nút [In / Lưu Hóa Đơn K80] hoặc chụp màn hình để lưu lại!");
             } catch (err) {
                 alert("Lỗi kết nối: " + err);
             } finally {
@@ -6226,11 +6365,9 @@
                                 ` : `
                                     <span class="text-xs font-mono text-emerald-400 bg-emerald-950/80 px-2 py-1 rounded border border-emerald-700 flex items-center gap-1"><i class="fa-solid fa-check"></i> Đã Ký OTP</span>
                                 `}
-                                ${isAdminView ? `
-                                    <button onclick="openK80BillModal('${r.rental_code}', '${r.item_name.replace(/'/g, '')}', ${r.total_price}, ${r.deposit_paid || 0}, '${currentUser ? currentUser.full_name : ''}', '${currentUser ? currentUser.phone : ''}', '${r.start_time}', '${r.end_time}', '${r.deposit_type || 'CCCD'}', '${encodeURIComponent(r.deposit_asset_desc || '')}', '${r.status}', '${encodeURIComponent(r.items_json || '')}')" class="bg-gray-900 hover:bg-gray-800 text-yellow-300 border border-gray-700 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition">
-                                        <i class="fa-solid fa-qrcode text-yellow-400"></i> Bill & QR Trả Đồ
-                                    </button>
-                                ` : ''}
+                                <button onclick="openK80BillModal('${r.rental_code}')" class="bg-amber-950/80 hover:bg-amber-900 text-yellow-300 border border-amber-600 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition font-bold" title="Xem hóa đơn và lưu về máy">
+                                    <i class="fa-solid fa-receipt text-yellow-400"></i> Xem & Lưu Bill K80
+                                </button>
                             </div>
                             ${r.status === 'ACTIVE' || isOverdue ? `
                                 <button onclick="openExtendModal(${r.id})" class="bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-700 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition">
@@ -7328,12 +7465,45 @@
         }
 
         async function submitRegister() {
+            const user = document.getElementById('reg-user').value.trim();
+            const name = document.getElementById('reg-name').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+            const phone = document.getElementById('reg-phone').value.trim();
+            const pass = document.getElementById('reg-pass').value.trim();
+
+            if (!user) {
+                alert("Vui lòng nhập tên đăng nhập!");
+                document.getElementById('reg-user').focus();
+                return;
+            }
+            if (!name) {
+                alert("Vui lòng nhập họ và tên của bạn!");
+                document.getElementById('reg-name').focus();
+                return;
+            }
+            if (!phone) {
+                alert("Vui lòng nhập số điện thoại liên hệ!");
+                document.getElementById('reg-phone').focus();
+                return;
+            }
+            if (!pass || pass.length < 6) {
+                alert("Vui lòng nhập mật khẩu (tối thiểu 6 ký tự)!");
+                document.getElementById('reg-pass').focus();
+                return;
+            }
+
+            const btn = document.getElementById('btn-submit-reg');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Đang đăng ký tài khoản...';
+            }
+
             const payload = {
-                username: document.getElementById('reg-user').value.trim(),
-                full_name: document.getElementById('reg-name').value.trim(),
-                email: document.getElementById('reg-email').value.trim(),
-                phone: document.getElementById('reg-phone').value.trim(),
-                password: document.getElementById('reg-pass').value.trim()
+                username: user,
+                full_name: name,
+                email: email || null,
+                phone: phone,
+                password: pass
             };
 
             try {
@@ -7344,7 +7514,7 @@
                 });
                 const data = await res.json();
                 if (!res.ok) {
-                    alert(data.detail || "Lỗi đăng ký");
+                    alert(data.detail || "Lỗi đăng ký tài khoản!");
                     return;
                 }
 
@@ -7353,10 +7523,16 @@
                 updateAuthUI();
                 renderCatalog();
                 closeAuthModal();
-                showToast("Đăng ký tài khoản thành công!");
+                showToast("🎉 Đăng ký tài khoản thành công! Tặng bạn 50.000đ điểm VIP.");
                 showSection('catalog');
             } catch (err) {
-                alert("Lỗi đăng ký: " + err);
+                console.error("Register error:", err);
+                alert("Không thể kết nối tới máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại sau vài giây!");
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = 'Đăng Ký Tài Khoản';
+                }
             }
         }
 
