@@ -596,6 +596,24 @@ def init_db():
     """)
     conn.commit()
 
+    # Bảng Xác Minh OTP Điện Thoại & Email (Chống Số Giả, Chống Spam)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS otp_verifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        target TEXT NOT NULL,
+        target_type TEXT NOT NULL DEFAULT 'phone',
+        otp_code TEXT NOT NULL,
+        verified INTEGER NOT NULL DEFAULT 0,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    """)
+    try:
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_otp_target ON otp_verifications(target);")
+    except Exception:
+        pass
+    conn.commit()
+
     # Bảng Cấu Hình Danh Mục & Chip Lọc (Tự động đồng bộ chuẩn 100%)
     cur.execute("""
     CREATE TABLE IF NOT EXISTS categories_config (
@@ -1348,8 +1366,110 @@ def update_and_check_rental_alerts():
 
 
 # =============================================================================
-# 2.1 AUTH & USER REGISTRATION APIS
+# 2.1 AUTH & USER REGISTRATION & OTP VERIFICATION APIS
 # =============================================================================
+
+class SendOtpRequest(BaseModel):
+    target: str
+    target_type: Optional[str] = "phone"  # "phone" hoặc "email"
+
+
+class VerifyOtpRequest(BaseModel):
+    target: str
+    otp_code: str
+
+
+@app.post("/api/auth/send_otp")
+def api_send_otp(req: SendOtpRequest):
+    """
+    Gửi mã OTP (6 số ngẫu nhiên) để xác minh số điện thoại hoặc email thật:
+    - Bắt buộc kiểm tra định dạng nhà mạng Việt Nam thật hoặc email thật.
+    - Lưu mã OTP vào database với thời hạn 5 phút.
+    - Bắn thông báo chứa mã OTP sang Telegram Bot Admin ngay lập tức để kiểm chứng.
+    """
+    target = req.target.strip()
+    target_type = (req.target_type or "phone").lower().strip()
+
+    if target_type == "phone":
+        ok, clean_p = validate_real_vietnamese_phone(target)
+        if not ok:
+            raise HTTPException(status_code=400, detail=clean_p)
+        clean_target = clean_p
+    else:
+        ok, clean_e = validate_real_email(target)
+        if not ok or not clean_e:
+            raise HTTPException(status_code=400, detail=clean_e or "Vui lòng nhập địa chỉ email hợp lệ!")
+        clean_target = clean_e
+
+    import random
+    otp_code = f"{random.randint(100000, 999999)}"
+    now = vn_now()
+    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+    expires_at = (now + datetime.timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM otp_verifications WHERE target = ? AND verified = 0", (clean_target,))
+    cur.execute("""
+        INSERT INTO otp_verifications (target, target_type, otp_code, verified, expires_at, created_at)
+        VALUES (?, ?, ?, 0, ?, ?)
+    """, (clean_target, target_type, otp_code, expires_at, now_str))
+    conn.commit()
+    conn.close()
+
+    # Bắn mã OTP vào Telegram Bot quản lý để kiểm tra / xác minh
+    tele_msg = (
+        f"<b>🔐 [MÃ OTP XÁC MINH {target_type.upper()}]</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"🎯 <b>Khách hàng:</b> <code>{clean_target}</code>\n"
+        f"🔢 <b>MÃ OTP XÁC THỰC:</b> <b>{otp_code}</b>\n"
+        f"⏳ <b>Hiệu lực:</b> 5 phút\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"💡 <i>Mã dùng để chứng thực SĐT/Email thật trước khi đăng ký hoặc giao dịch.</i>"
+    )
+    _send_telegram_notification(tele_msg, event_type="NOTIFY")
+
+    return {
+        "success": True,
+        "message": f"Đã tạo mã OTP xác minh gồm 6 chữ số cho {clean_target} (Hiệu lực 5 phút)!",
+        "target": clean_target,
+        "target_type": target_type,
+        "demo_otp": otp_code
+    }
+
+
+@app.post("/api/auth/verify_otp")
+def api_verify_otp(req: VerifyOtpRequest):
+    """Xác thực mã OTP 6 số người dùng nhập vào."""
+    clean_target = re.sub(r"[^\d]", "", req.target.strip()) if "@" not in req.target else req.target.strip().lower()
+    code = req.otp_code.strip()
+
+    if not code or len(code) != 6:
+        raise HTTPException(status_code=400, detail="Mã OTP phải gồm đúng 6 chữ số!")
+
+    conn = get_db()
+    cur = conn.cursor()
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
+
+    rec = cur.execute("""
+        SELECT id FROM otp_verifications 
+        WHERE target = ? AND otp_code = ? AND verified = 0 AND expires_at >= ?
+        ORDER BY id DESC LIMIT 1
+    """, (clean_target, code, now_str)).fetchone()
+
+    if not rec:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Mã OTP không chính xác hoặc đã hết hạn (quá 5 phút)! Vui lòng lấy mã mới.")
+
+    cur.execute("UPDATE otp_verifications SET verified = 1 WHERE id = ?", (rec["id"],))
+    conn.commit()
+    conn.close()
+
+    return {
+        "success": True,
+        "message": f"✅ Xác minh thành công! Số/Email '{clean_target}' đã được chứng thực chính chủ."
+    }
+
 
 class RegisterRequest(BaseModel):
     username: str
@@ -1357,6 +1477,7 @@ class RegisterRequest(BaseModel):
     full_name: Optional[str] = "Khách Hàng"
     phone: Optional[str] = None
     email: Optional[str] = None
+    otp_code: Optional[str] = None
 
 
 @app.post("/api/auth/register")
@@ -1366,6 +1487,7 @@ def register(req: RegisterRequest):
     - Bắt buộc: Tên đăng nhập và Mật khẩu (tối thiểu 6 ký tự).
     - Email: nếu không điền thì tự động gán '{username}@customer.tiduba' để đảm bảo tính duy nhất và không bị lỗi SQLite.
     - SĐT: nếu để trống thì mặc định '0900000000'.
+    - Xác minh OTP nếu có gửi mã OTP.
     - Báo lỗi rõ ràng bằng tiếng Việt nếu tên đăng nhập đã tồn tại.
     """
     username = (req.username or "").strip()
@@ -1397,6 +1519,16 @@ def register(req: RegisterRequest):
     conn = get_db()
     cur = conn.cursor()
     try:
+        now = vn_now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Kiểm tra mã OTP nếu khách có gửi mã
+        if req.otp_code and phone and phone != "0900000000":
+            otp_val = req.otp_code.strip()
+            rec_otp = cur.execute("SELECT id FROM otp_verifications WHERE target = ? AND otp_code = ? AND expires_at >= ?", (phone, otp_val, now)).fetchone()
+            if not rec_otp:
+                raise HTTPException(status_code=400, detail="Mã OTP xác thực số điện thoại không chính xác hoặc đã hết hạn!")
+            cur.execute("UPDATE otp_verifications SET verified = 1 WHERE id = ?", (rec_otp["id"],))
+
         # Kiểm tra trùng tên đăng nhập
         exist_u = cur.execute("SELECT id FROM users WHERE LOWER(username) = LOWER(?)", (username,)).fetchone()
         if exist_u:

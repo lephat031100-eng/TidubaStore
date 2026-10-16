@@ -821,3 +821,32 @@ def test_qr_image_and_reschedule_and_cancel_penalty_and_deposit_update():
     # Hiện lại
     unhide_res = client.post("/api/admin/items/bulk_status", json={"item_ids": [1], "action": "SET_UNHIDDEN"}, headers=adm_headers)
     assert unhide_res.status_code == 200
+
+
+def test_otp_send_and_verification():
+    """Kiểm tra gửi và xác thực OTP 6 số bảo vệ đăng ký & chống số giả."""
+    # 1. Gửi OTP đến số điện thoại thật
+    send_res = client.post("/api/auth/send_otp", json={
+        "target": "0977078981",
+        "target_type": "phone"
+    })
+    assert send_res.status_code == 200
+    data = send_res.json()
+    assert data["success"] is True
+    otp = data["demo_otp"]
+    assert len(otp) == 6
+
+    # 2. Xác thực OTP thành công
+    verify_res = client.post("/api/auth/verify_otp", json={
+        "target": "0977078981",
+        "otp_code": otp
+    })
+    assert verify_res.status_code == 200
+    assert verify_res.json()["success"] is True
+
+    # 3. Thử với số giả/sai định dạng -> Phải từ chối 400
+    fake_res = client.post("/api/auth/send_otp", json={
+        "target": "0999999999",
+        "target_type": "phone"
+    })
+    assert fake_res.status_code == 400
