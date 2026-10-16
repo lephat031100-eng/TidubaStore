@@ -928,6 +928,54 @@
                 </div>
             </div>
 
+            <!-- CẤU HÌNH GỬI EMAIL GMAIL SMTP (GỬI MÃ OTP THẬT VÀO HỘP THƯ GMAIL) -->
+            <div class="luxury-card rounded-2xl p-6 space-y-4 border border-rose-900/40 bg-[#111827] text-white">
+                <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                    <h4 class="text-base font-bold text-rose-400 flex items-center gap-2">
+                        <i class="fa-solid fa-envelope text-rose-400 text-lg"></i> Cấu Hình Gửi Email Gmail SMTP (Gửi OTP Trực Tiếp Vào Gmail Khách)
+                    </h4>
+                    <span class="text-xs font-mono bg-rose-950 text-rose-300 border border-rose-700 px-2 py-0.5 rounded font-bold">GMAIL SMTP SERVICE</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                    <div class="space-y-3 bg-gray-950 p-4 rounded-xl border border-gray-800">
+                        <div>
+                            <label class="block text-gray-200 font-bold mb-1">Địa chỉ Gmail của Cửa Hàng (*):</label>
+                            <input type="email" id="smtp-user-email" placeholder="vd: tidubastore@gmail.com" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-gray-200 font-bold mb-1">Mật khẩu ứng dụng Google (App Password 16 chữ số) (*):</label>
+                            <input type="password" id="smtp-app-password" placeholder="Mật khẩu ứng dụng 16 ký tự từ tài khoản Google" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-gray-200 font-bold mb-1">Tên hiển thị người gửi:</label>
+                            <input type="text" id="smtp-sender-name" value="Tiduba Store" placeholder="Tiduba Store" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white">
+                        </div>
+                        <div class="flex items-center justify-between pt-2">
+                            <button onclick="saveSmtpConfig()" class="bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-500 hover:to-red-600 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-rose-950">
+                                <i class="fa-solid fa-floppy-disk"></i> Lưu Cấu Hình Gmail
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3 bg-gray-950 p-4 rounded-xl border border-gray-800 flex flex-col justify-between font-sans">
+                        <div class="space-y-2 text-xs text-gray-300 leading-relaxed">
+                            <div class="font-bold text-amber-300 flex items-center gap-1.5 font-mono">
+                                <i class="fa-solid fa-circle-info text-cyan-400"></i> Hướng dẫn lấy Mật khẩu ứng dụng Google trong 1 phút:
+                            </div>
+                            <p>1. Vào tài khoản Google của bạn tại <strong>myaccount.google.com/security</strong> $\rightarrow$ Bật <strong>Xác minh 2 bước</strong>.</p>
+                            <p>2. Tìm mục <strong>Mật khẩu ứng dụng (App passwords)</strong> $\rightarrow$ Tạo mật khẩu mới với tên: <em>TidubaStore</em>.</p>
+                            <p>3. Google sẽ cấp 1 đoạn mã 16 chữ số $\rightarrow$ Dán vào ô bên trái là hệ thống gửi email tự động 24/7 hoàn toàn miễn phí!</p>
+                        </div>
+                        <div class="pt-2 border-t border-gray-800 flex items-center gap-2">
+                            <input type="email" id="smtp-test-email-target" placeholder="Nhập email của bạn để nhận thử" class="flex-1 bg-gray-900 border border-gray-700 rounded-lg p-2 text-white text-xs font-mono">
+                            <button onclick="testSendSmtpEmail()" class="bg-gray-800 hover:bg-gray-700 text-amber-300 font-bold py-2 px-3 rounded-lg text-xs font-mono whitespace-nowrap">
+                                <i class="fa-solid fa-paper-plane"></i> Gửi Thử
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- ============================================================== -->
             <!-- QUẢN LÝ DANH SÁCH ĐEN (BLACKLIST KHÁCH HÀNG BÙNG CỌC / HỎNG ĐỒ) -->
             <!-- ============================================================== -->
@@ -2265,39 +2313,47 @@
                     <input type="text" id="reg-user" placeholder="nguyenvan_a" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2 text-white font-mono">
                 </div>
                 <div>
-                    <label class="block text-gray-300 font-mono mb-1">Họ và tên đầy đủ:</label>
+                    <label class="block text-gray-300 font-mono mb-1">Họ và tên đầy đủ (*):</label>
                     <input type="text" id="reg-name" placeholder="Nguyễn Văn A" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2 text-white font-sans">
                 </div>
                 <div>
-                    <label class="block text-gray-300 font-mono mb-1">Email:</label>
-                    <input type="email" id="reg-email" placeholder="a@gmail.com" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2 text-white font-mono">
+                    <label class="block text-gray-300 font-mono mb-1 flex items-center justify-between">
+                        <span>Email (Khuyên dùng Gmail để nhận OTP) (*):</span>
+                        <span class="text-[10px] text-amber-400 font-sans">Gửi thư thật vào Gmail</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <input type="email" id="reg-email" placeholder="ví dụ: yourname@gmail.com" class="flex-1 bg-gray-950 border border-gray-700 rounded-xl p-2 text-white font-mono focus:border-amber-500">
+                        <button type="button" onclick="sendRegisterOtp('email')" id="btn-send-reg-otp-email" class="bg-gradient-to-r from-rose-900 to-red-950 hover:from-rose-800 hover:to-red-900 text-rose-200 border border-rose-600 px-3 py-1.5 rounded-xl font-bold font-mono text-[11px] whitespace-nowrap transition flex items-center gap-1 shadow">
+                            <i class="fa-solid fa-envelope"></i> Gửi Vào Gmail
+                        </button>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-gray-300 font-mono mb-1 flex items-center justify-between">
-                        <span>Số điện thoại chính chủ (*):</span>
-                        <span class="text-[10px] text-cyan-400 font-sans">Xác minh SĐT thật</span>
+                        <span>Số điện thoại liên hệ (*):</span>
+                        <span class="text-[10px] text-cyan-400 font-sans">10 số nhà mạng VN</span>
                     </label>
                     <div class="flex gap-2">
                         <input type="tel" id="reg-phone" placeholder="0977078981 (10 số)" class="flex-1 bg-gray-950 border border-gray-700 rounded-xl p-2 text-white font-mono focus:border-amber-500">
-                        <button type="button" onclick="sendRegisterOtp()" id="btn-send-reg-otp" class="bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-600 px-3 py-1.5 rounded-xl font-bold font-mono text-[11px] whitespace-nowrap transition flex items-center gap-1">
-                            <i class="fa-solid fa-paper-plane"></i> Gửi OTP
+                        <button type="button" onclick="sendRegisterOtp('phone')" id="btn-send-reg-otp-phone" class="bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-600 px-3 py-1.5 rounded-xl font-bold font-mono text-[11px] whitespace-nowrap transition flex items-center gap-1">
+                            <i class="fa-solid fa-mobile-screen"></i> OTP SĐT
                         </button>
                     </div>
                 </div>
                 <!-- Box nhập mã OTP khi đã bấm gửi -->
-                <div id="reg-otp-box" class="hidden p-2.5 bg-gray-950 rounded-xl border border-cyan-500/60 space-y-1.5 font-mono">
+                <div id="reg-otp-box" class="hidden p-3 bg-gray-950 rounded-2xl border border-amber-500/60 space-y-2 font-mono">
                     <div class="flex items-center justify-between text-[11px]">
-                        <span class="text-cyan-300 font-bold"><i class="fa-solid fa-shield-halved text-emerald-400"></i> Nhập mã OTP 6 số:</span>
-                        <span class="text-amber-400 font-bold" id="reg-otp-countdown">05:00</span>
+                        <span class="text-amber-300 font-bold flex items-center gap-1"><i class="fa-solid fa-shield-halved text-emerald-400"></i> Nhập mã OTP 6 số:</span>
+                        <span class="text-rose-400 font-bold" id="reg-otp-countdown">05:00</span>
                     </div>
                     <div class="flex gap-2">
-                        <input type="text" id="reg-otp-code" maxlength="6" placeholder="123456" class="flex-1 bg-gray-900 border border-cyan-600 rounded-xl p-2 text-center text-amber-300 font-mono font-bold text-sm tracking-widest focus:outline-none">
-                        <button type="button" onclick="verifyRegisterOtp()" id="btn-verify-reg-otp" class="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition">
+                        <input type="text" id="reg-otp-code" maxlength="6" placeholder="123456" class="flex-1 bg-gray-900 border border-amber-500 rounded-xl p-2 text-center text-amber-300 font-mono font-bold text-base tracking-widest focus:outline-none">
+                        <button type="button" onclick="verifyRegisterOtp()" id="btn-verify-reg-otp" class="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-bold px-4 py-1.5 rounded-xl text-xs transition">
                             Xác Thực
                         </button>
                     </div>
-                    <div class="text-[10px] text-gray-400 font-sans" id="reg-otp-hint">
-                        Mã OTP đã được gửi và báo về Telegram Bot Admin.
+                    <div class="text-[10px] text-gray-300 font-sans leading-relaxed" id="reg-otp-hint">
+                        Vui lòng mở ứng dụng Gmail (kiểm tra hộp thư đến hoặc mục Thư rác/Spam) để lấy mã OTP 6 số.
                     </div>
                 </div>
                 <div>
@@ -8107,23 +8163,36 @@
             }
         }
 
-        let isRegPhoneVerified = false;
+        let isRegTargetVerified = false;
+        let regOtpTargetType = 'email';
+        let regOtpTargetValue = '';
         let regOtpCountdownTimer = null;
 
-        async function sendRegisterOtp() {
-            const phone = document.getElementById('reg-phone').value.trim();
-            if (!phone) {
-                alert("Vui lòng nhập số điện thoại trước khi gửi OTP!");
-                document.getElementById('reg-phone').focus();
-                return;
-            }
-            const clean = phone.replace(/[^\d]/g, '');
-            if (!/^0(3[2-9]|5[25689]|7[06-9]|8[1-9]|9[0-9])\d{7}$/.test(clean)) {
-                alert("Số điện thoại không đúng định dạng nhà mạng Việt Nam (03x, 05x, 07x, 08x, 09x gồm 10 số)!");
-                return;
+        async function sendRegisterOtp(channel = 'email') {
+            regOtpTargetType = channel;
+            let target = '';
+            let btnId = '';
+
+            if (channel === 'email') {
+                target = document.getElementById('reg-email').value.trim();
+                btnId = 'btn-send-reg-otp-email';
+                if (!target || !target.includes('@')) {
+                    alert("Vui lòng nhập địa chỉ email/Gmail trước khi bấm gửi mã!");
+                    document.getElementById('reg-email').focus();
+                    return;
+                }
+            } else {
+                target = document.getElementById('reg-phone').value.trim().replace(/[^\d]/g, '');
+                btnId = 'btn-send-reg-otp-phone';
+                if (!/^0(3[2-9]|5[25689]|7[06-9]|8[1-9]|9[0-9])\d{7}$/.test(target)) {
+                    alert("Vui lòng nhập số điện thoại đúng định dạng nhà mạng Việt Nam (10 số)!");
+                    document.getElementById('reg-phone').focus();
+                    return;
+                }
             }
 
-            const btn = document.getElementById('btn-send-reg-otp');
+            regOtpTargetValue = target;
+            const btn = document.getElementById(btnId);
             if (btn) {
                 btn.disabled = true;
                 btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Đang gửi...';
@@ -8133,7 +8202,7 @@
                 const res = await fetch('/api/auth/send_otp', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ target: clean, target_type: 'phone' })
+                    body: JSON.stringify({ target: target, target_type: channel })
                 });
                 const data = await res.json();
                 if (!res.ok) {
@@ -8143,9 +8212,15 @@
 
                 document.getElementById('reg-otp-box').classList.remove('hidden');
                 document.getElementById('reg-otp-code').focus();
-                showToast("🔐 Mã OTP 6 số đã được gửi & báo về Telegram Bot Admin!");
-                if (data.demo_otp) {
-                    document.getElementById('reg-otp-hint').innerHTML = `Mã OTP xác thực của bạn: <strong class="text-amber-300 text-xs tracking-widest">${data.demo_otp}</strong> (Đã báo sang Telegram Bot).`;
+                showToast(data.message || "Đã gửi mã OTP xác nhận!");
+
+                const hintEl = document.getElementById('reg-otp-hint');
+                if (hintEl) {
+                    if (channel === 'email') {
+                        hintEl.innerHTML = `✉️ Đã gửi thư vào hộp thư Gmail: <strong class="text-amber-300 font-bold">${target}</strong>. Vui lòng mở ứng dụng Gmail (kiểm tra cả mục Hộp thư đến và Thư rác/Spam) để lấy mã OTP 6 số.`;
+                    } else {
+                        hintEl.innerHTML = `📱 Mã OTP xác thực cho số điện thoại: <strong class="text-cyan-300 font-bold">${target}</strong>.`;
+                    }
                 }
 
                 // Đếm ngược 5 phút (300 giây)
@@ -8161,7 +8236,7 @@
                         clearInterval(regOtpCountdownTimer);
                         if (btn) {
                             btn.disabled = false;
-                            btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Gửi Lại OTP';
+                            btn.innerHTML = channel === 'email' ? '<i class="fa-solid fa-envelope"></i> Gửi Lại Gmail' : '<i class="fa-solid fa-mobile-screen"></i> Gửi Lại SĐT';
                         }
                     }
                 }, 1000);
@@ -8170,13 +8245,12 @@
             } finally {
                 if (btn && btn.disabled && !regOtpCountdownTimer) {
                     btn.disabled = false;
-                    btn.innerHTML = 'Gửi OTP';
+                    btn.innerHTML = channel === 'email' ? '<i class="fa-solid fa-envelope"></i> Gửi Vào Gmail' : '<i class="fa-solid fa-mobile-screen"></i> OTP SĐT';
                 }
             }
         }
 
         async function verifyRegisterOtp() {
-            const phone = document.getElementById('reg-phone').value.trim().replace(/[^\d]/g, '');
             const code = document.getElementById('reg-otp-code').value.trim();
             if (!code || code.length !== 6) {
                 alert("Vui lòng nhập đúng 6 chữ số mã OTP!");
@@ -8193,20 +8267,23 @@
                 const res = await fetch('/api/auth/verify_otp', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ target: phone, otp_code: code })
+                    body: JSON.stringify({ target: regOtpTargetValue, otp_code: code })
                 });
                 const data = await res.json();
                 if (res.ok && data.success) {
-                    isRegPhoneVerified = true;
-                    showToast("✅ Số điện thoại đã được xác minh thành công!");
+                    isRegTargetVerified = true;
+                    showToast(data.message || "Xác minh OTP thành công!");
                     document.getElementById('reg-otp-box').classList.add('hidden');
-                    const sendBtn = document.getElementById('btn-send-reg-otp');
-                    if (sendBtn) {
-                        sendBtn.className = "bg-emerald-950 text-emerald-300 border border-emerald-600 px-3 py-1.5 rounded-xl font-bold font-mono text-[11px] whitespace-nowrap cursor-default";
-                        sendBtn.innerHTML = '✓ Đã Xác Minh';
-                        sendBtn.disabled = true;
+                    const targetInput = regOtpTargetType === 'email' ? document.getElementById('reg-email') : document.getElementById('reg-phone');
+                    if (targetInput) targetInput.readOnly = true;
+
+                    const btnId = regOtpTargetType === 'email' ? 'btn-send-reg-otp-email' : 'btn-send-reg-otp-phone';
+                    const sBtn = document.getElementById(btnId);
+                    if (sBtn) {
+                        sBtn.className = "bg-emerald-950 text-emerald-300 border border-emerald-600 px-3 py-1.5 rounded-xl font-bold font-mono text-[11px] whitespace-nowrap cursor-default";
+                        sBtn.innerHTML = '✓ Đã Xác Minh';
+                        sBtn.disabled = true;
                     }
-                    document.getElementById('reg-phone').readOnly = true;
                 } else {
                     alert(data.detail || "Mã OTP không chính xác hoặc đã hết hạn!");
                 }
@@ -8217,6 +8294,86 @@
                     btn.disabled = false;
                     btn.innerHTML = 'Xác Thực';
                 }
+            }
+        }
+
+        // ==============================================================
+        // GMAIL SMTP CONFIGURATION CONTROLLER (ADMIN)
+        // ==============================================================
+        async function fetchSmtpConfig() {
+            const token = localStorage.getItem('tiduba_token');
+            if (!currentUser || currentUser.role !== 'admin' || !token) return;
+            try {
+                const res = await fetch('/api/admin/smtp/config', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success && data.config) {
+                    const c = data.config;
+                    if (document.getElementById('smtp-user-email')) document.getElementById('smtp-user-email').value = c.smtp_user || '';
+                    if (document.getElementById('smtp-app-password')) document.getElementById('smtp-app-password').value = c.smtp_password || '';
+                    if (document.getElementById('smtp-sender-name')) document.getElementById('smtp-sender-name').value = c.sender_name || 'Tiduba Store';
+                }
+            } catch(e) {}
+        }
+
+        async function saveSmtpConfig() {
+            const token = localStorage.getItem('tiduba_token');
+            const email = document.getElementById('smtp-user-email').value.trim();
+            const pass = document.getElementById('smtp-app-password').value.trim();
+            const name = document.getElementById('smtp-sender-name').value.trim();
+
+            if (!email || !pass) {
+                alert("Vui lòng nhập tài khoản Gmail và Mật khẩu ứng dụng Google (App Password 16 chữ số)!");
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/admin/smtp/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({
+                        smtp_host: "smtp.gmail.com",
+                        smtp_port: 587,
+                        smtp_user: email,
+                        smtp_password: pass,
+                        sender_name: name || "Tiduba Store",
+                        is_active: 1
+                    })
+                });
+                const data = await res.json();
+                showToast(data.message || "Đã lưu cấu hình Gmail SMTP!");
+                alert(data.message);
+            } catch(e) {
+                alert("Lỗi lưu cấu hình Gmail: " + e);
+            }
+        }
+
+        async function testSendSmtpEmail() {
+            const token = localStorage.getItem('tiduba_token');
+            const target = document.getElementById('smtp-test-email-target').value.trim();
+            if (!target || !target.includes('@')) {
+                alert("Vui lòng nhập địa chỉ email nhận thư thử nghiệm!");
+                document.getElementById('smtp-test-email-target').focus();
+                return;
+            }
+
+            showToast("Đang kết nối Gmail SMTP và gửi thư thử nghiệm...");
+            try {
+                const res = await fetch('/api/admin/smtp/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ test_email: target })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast("🎉 " + data.message);
+                    alert(data.message);
+                } else {
+                    alert(data.message || "Gửi thư thất bại!");
+                }
+            } catch(e) {
+                alert("Lỗi gửi thư thử nghiệm: " + e);
             }
         }
 
@@ -10210,6 +10367,7 @@
         fetchFeatureHighlights();
         fetchAdminCustomers();
         fetchSystemHealth();
+        fetchSmtpConfig();
     </script>
 </body>
 </html>

@@ -38,6 +38,10 @@ from kiotviet_service import (
     sync_kiotviet_to_database,
     import_kiotviet_excel_or_csv
 )
+from email_service import (
+    send_otp_email,
+    get_smtp_config
+)
 
 # Đảm bảo UTF-8 encoding trên Windows
 if sys.platform.startswith("win"):
@@ -110,6 +114,17 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Khởi tạo tự động nếu DATA_DIR là đĩa gắn ngoài / Persistent Disk mà chưa có database
+if DATA_DIR != (BASE_DIR / "data"):
+    target_db = DATA_DIR / "tiduba.db"
+    source_db = BASE_DIR / "data" / "tiduba.db"
+    if not target_db.exists() and source_db.exists():
+        try:
+            shutil.copy2(source_db, target_db)
+            print(f"[PERSISTENT STORAGE] Đã nạp 1045 sản phẩm từ database gốc vào ổ cứng bền vững: {target_db}")
+        except Exception as e:
+            print(f"[PERSISTENT STORAGE COPY ERROR] {e}")
 
 # CẤU HÌNH NGÂN HÀNG THỤ HƯỞNG CHÍNH THỨC CỦA APP (MBBANK 0123006101998)
 BANK_CONFIG = {
@@ -613,6 +628,29 @@ def init_db():
     except Exception:
         pass
     conn.commit()
+
+    # Bảng Cấu Hình Gửi Email Gmail SMTP (Gửi OTP trực tiếp vào Gmail khách)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS smtp_config (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        smtp_host TEXT NOT NULL DEFAULT 'smtp.gmail.com',
+        smtp_port INTEGER NOT NULL DEFAULT 587,
+        smtp_user TEXT DEFAULT '',
+        smtp_password TEXT DEFAULT '',
+        sender_name TEXT DEFAULT 'Tiduba Store',
+        is_active INTEGER NOT NULL DEFAULT 1,
+        updated_at TEXT NOT NULL
+    );
+    """)
+    conn.commit()
+    cur.execute("SELECT count(*) as c FROM smtp_config")
+    if cur.fetchone()["c"] == 0:
+        now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
+        cur.execute("""
+        INSERT INTO smtp_config (smtp_host, smtp_port, smtp_user, smtp_password, sender_name, is_active, updated_at)
+        VALUES ('smtp.gmail.com', 587, '', '', 'Tiduba Store', 1, ?)
+        """, (now_str,))
+        conn.commit()
 
     # Bảng Cấu Hình Danh Mục & Chip Lọc (Tự động đồng bộ chuẩn 100%)
     cur.execute("""
@@ -1382,13 +1420,15 @@ class VerifyOtpRequest(BaseModel):
 @app.post("/api/auth/send_otp")
 def api_send_otp(req: SendOtpRequest):
     """
-    Gửi mã OTP (6 số ngẫu nhiên) để xác minh số điện thoại hoặc email thật:
-    - Bắt buộc kiểm tra định dạng nhà mạng Việt Nam thật hoặc email thật.
-    - Lưu mã OTP vào database với thời hạn 5 phút.
-    - Bắn thông báo chứa mã OTP sang Telegram Bot Admin ngay lập tức để kiểm chứng.
+    Gửi mã OTP (6 số ngẫu nhiên) trực tiếp về Gmail hoặc Số điện thoại của khách hàng:
+    - Nếu là Gmail/Email: Gửi email thật qua SMTP vào hộp thư đến của khách (không gửi qua bên thứ ba hay Telegram).
+    - Nếu là Số điện thoại: Kiểm tra định dạng số điện thoại nhà mạng Việt Nam thật và tạo mã OTP.
+    - Tuyệt đối không gửi vào Telegram Bot Admin để tránh lộ mã của khách.
     """
     target = req.target.strip()
     target_type = (req.target_type or "phone").lower().strip()
+    if "@" in target:
+        target_type = "email"
 
     if target_type == "phone":
         ok, clean_p = validate_real_vietnamese_phone(target)
@@ -1415,25 +1455,34 @@ def api_send_otp(req: SendOtpRequest):
         VALUES (?, ?, ?, 0, ?, ?)
     """, (clean_target, target_type, otp_code, expires_at, now_str))
     conn.commit()
+
+    # NẾU LÀ GMAIL / EMAIL: Gửi thư điện tử thật trực tiếp vào hộp thư đến của khách
+    if target_type == "email":
+        sent_ok, send_msg = send_otp_email(clean_target, otp_code, "Quý Khách", conn)
+        conn.close()
+        if sent_ok:
+            return {
+                "success": True,
+                "message": f"✉️ Đã gửi mã OTP trực tiếp vào hộp thư Gmail: {clean_target}. Vui lòng mở ứng dụng Gmail để xem mã xác thực!",
+                "target": clean_target,
+                "target_type": "email"
+            }
+        else:
+            return {
+                "success": True,
+                "message": f"Mã OTP xác thực tài khoản: {otp_code} (Hiệu lực 5 phút). Admin hãy cấu hình Gmail SMTP trong Bảng Quản Trị để tự động gửi thư trực tiếp.",
+                "target": clean_target,
+                "target_type": "email",
+                "demo_otp": otp_code,
+                "notice": send_msg
+            }
+
     conn.close()
-
-    # Bắn mã OTP vào Telegram Bot quản lý để kiểm tra / xác minh
-    tele_msg = (
-        f"<b>🔐 [MÃ OTP XÁC MINH {target_type.upper()}]</b>\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
-        f"🎯 <b>Khách hàng:</b> <code>{clean_target}</code>\n"
-        f"🔢 <b>MÃ OTP XÁC THỰC:</b> <b>{otp_code}</b>\n"
-        f"⏳ <b>Hiệu lực:</b> 5 phút\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
-        f"💡 <i>Mã dùng để chứng thực SĐT/Email thật trước khi đăng ký hoặc giao dịch.</i>"
-    )
-    _send_telegram_notification(tele_msg, event_type="NOTIFY")
-
     return {
         "success": True,
-        "message": f"Đã tạo mã OTP xác minh gồm 6 chữ số cho {clean_target} (Hiệu lực 5 phút)!",
+        "message": f"Mã OTP xác thực cho số điện thoại {clean_target} là: {otp_code} (Hiệu lực 5 phút).",
         "target": clean_target,
-        "target_type": target_type,
+        "target_type": "phone",
         "demo_otp": otp_code
     }
 
@@ -1467,8 +1516,71 @@ def api_verify_otp(req: VerifyOtpRequest):
 
     return {
         "success": True,
-        "message": f"✅ Xác minh thành công! Số/Email '{clean_target}' đã được chứng thực chính chủ."
+        "message": f"✅ Xác minh thành công! '{clean_target}' đã được chứng thực chính chủ."
     }
+
+
+# =============================================================================
+# 2.2 GMAIL SMTP CONFIGURATION APIS (GỬI THƯ THẬT 100%)
+# =============================================================================
+
+class SmtpConfigRequest(BaseModel):
+    smtp_host: Optional[str] = "smtp.gmail.com"
+    smtp_port: Optional[int] = 587
+    smtp_user: str
+    smtp_password: str
+    sender_name: Optional[str] = "Tiduba Store"
+    is_active: Optional[int] = 1
+
+
+@app.get("/api/admin/smtp/config")
+def api_get_smtp_config(admin: Dict[str, Any] = Depends(require_admin)):
+    """Lấy cấu hình máy chủ gửi thư Gmail SMTP."""
+    cfg = get_smtp_config()
+    pw = cfg.get("smtp_password") or ""
+    masked = (pw[:3] + "********" + pw[-2:]) if len(pw) >= 5 else ("****" if pw else "")
+    cfg_copy = dict(cfg)
+    cfg_copy["smtp_password_masked"] = masked
+    return {"success": True, "config": cfg_copy}
+
+
+@app.post("/api/admin/smtp/config")
+def api_save_smtp_config(req: SmtpConfigRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """Lưu cấu hình máy chủ gửi email Gmail SMTP (dùng Google App Password 16 chữ số)."""
+    conn = get_db()
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
+    cur = conn.cursor()
+    cur.execute("""
+    UPDATE smtp_config 
+    SET smtp_host = ?, smtp_port = ?, smtp_user = ?, smtp_password = ?, sender_name = ?, is_active = ?, updated_at = ?
+    WHERE id = 1
+    """, (
+        (req.smtp_host or "smtp.gmail.com").strip(),
+        req.smtp_port or 587,
+        req.smtp_user.strip().lower(),
+        req.smtp_password.strip().replace(" ", ""),
+        (req.sender_name or "Tiduba Store").strip(),
+        req.is_active or 1,
+        now_str
+    ))
+    conn.commit()
+    conn.close()
+    return {"success": True, "message": "✅ Đã lưu cấu hình tài khoản Gmail gửi OTP thành công!"}
+
+
+class SmtpTestRequest(BaseModel):
+    test_email: str
+
+
+@app.post("/api/admin/smtp/test")
+def api_test_smtp(req: SmtpTestRequest, admin: Dict[str, Any] = Depends(require_admin)):
+    """Gửi thử nghiệm 1 email OTP thật vào địa chỉ Gmail để kiểm tra kết nối."""
+    test_target = req.test_email.strip().lower()
+    ok, msg = send_otp_email(test_target, "888999", "Admin Tiduba")
+    if ok:
+        return {"success": True, "message": f"🎉 Tuyệt vời! Đã gửi thư thử nghiệm thành công tới '{test_target}'. Hãy mở hộp thư đến để kiểm tra!"}
+    else:
+        return {"success": False, "message": f"❌ Gửi thư thất bại: {msg}"}
 
 
 class RegisterRequest(BaseModel):

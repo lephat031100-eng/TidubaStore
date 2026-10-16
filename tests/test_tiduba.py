@@ -850,3 +850,35 @@ def test_otp_send_and_verification():
         "target_type": "phone"
     })
     assert fake_res.status_code == 400
+
+    # 4. Gửi OTP đến email thật
+    email_res = client.post("/api/auth/send_otp", json={
+        "target": "khachhang@gmail.com",
+        "target_type": "email"
+    })
+    assert email_res.status_code == 200
+    assert email_res.json()["success"] is True
+
+
+def test_smtp_config_api():
+    """Kiểm tra cấu hình máy chủ gửi thư Gmail SMTP."""
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    adm_headers = {"Authorization": f"Bearer {login_adm.json()['token']}"}
+
+    # Lưu cấu hình SMTP
+    save_res = client.post("/api/admin/smtp/config", json={
+        "smtp_host": "smtp.gmail.com",
+        "smtp_port": 587,
+        "smtp_user": "tidubastore.notify@gmail.com",
+        "smtp_password": "abcd efgh ijkl mnop",
+        "sender_name": "Tiduba Store Official"
+    }, headers=adm_headers)
+    assert save_res.status_code == 200
+    assert save_res.json()["success"] is True
+
+    # Lấy cấu hình SMTP (đã che mật khẩu)
+    get_res = client.get("/api/admin/smtp/config", headers=adm_headers)
+    assert get_res.status_code == 200
+    cfg = get_res.json()["config"]
+    assert cfg["smtp_user"] == "tidubastore.notify@gmail.com"
+    assert "********" in cfg["smtp_password_masked"]

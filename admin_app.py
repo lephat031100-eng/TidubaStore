@@ -134,6 +134,29 @@ class AdminApi:
         }
 
 
+def auto_sync_cloud_db_to_local():
+    """Tự động kéo bản sao lưu mới nhất từ Render về máy tính F:\\TidubaStore\\data\\tiduba.db định kỳ."""
+    time.sleep(3)
+    try:
+        import json
+        login_data = json.dumps({"username": "admin", "password": "admin123"}).encode("utf-8")
+        login_req = urllib.request.Request(f"{SERVER_URL}/api/auth/login", data=login_data, headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(login_req, timeout=15) as resp:
+            token = json.loads(resp.read().decode("utf-8")).get("token")
+        if token:
+            dl_req = urllib.request.Request(f"{SERVER_URL}/api/admin/database/download?token={token}")
+            with urllib.request.urlopen(dl_req, timeout=30) as resp:
+                content = resp.read()
+                if len(content) > 1000:
+                    local_db = Path(__file__).resolve().parent / "data" / "tiduba.db"
+                    local_db.parent.mkdir(parents=True, exist_ok=True)
+                    with open(local_db, "wb") as f:
+                        f.write(content)
+                    safe_print(f"[AUTO SYNC] Da dong bo bo nho Web Cloud ve may tinh thanh cong: {len(content):,} bytes.")
+    except Exception as e:
+        safe_print(f"[AUTO SYNC NOTE] {e}")
+
+
 def main():
     # 1. Kiểm tra máy chủ Cloud chính thức
     cloud_online = is_cloud_accessible()
@@ -141,6 +164,8 @@ def main():
         target_url = ADMIN_URL
         window_title = "Tiduba Store - Quản Trị Hệ Thống (Cloud Online: tidubastore.onrender.com)"
         safe_print("[ADMIN APP] Da ket noi truc tiep May Chu Cloud: https://tidubastore.onrender.com")
+        # Khởi chạy luồng tự động sao lưu bộ não Cloud về ổ đĩa máy tính
+        threading.Thread(target=auto_sync_cloud_db_to_local, daemon=True, name="AutoSyncCloudDb").start()
     else:
         safe_print("[ADMIN APP] May chu Cloud chua san sang hoac khong co internet. Khoi chay may chu noi bo port 9000...")
         start_backend_server()
