@@ -1123,31 +1123,24 @@ def calculate_rental_metrics(start_iso: str, end_iso: str, price_4h: int, price_
             days = float(calendar_diff)
             dt_end_effective = datetime.datetime.combine(dt_start.date() + datetime.timedelta(days=calendar_diff), datetime.time(20, 0, 0))
 
-        rental_type = "24h"
+        rental_type = f"{int(days) if days.is_integer() else days} ngày (trả trước 20:00)"
         rental_days = days
 
-        if days >= 3.0:
-            discount_multiplier = 0.80
-        elif days >= 2.0:
-            discount_multiplier = 0.85
-        else:
-            discount_multiplier = 1.0
-
-        total_price = int(days * price_24h * discount_multiplier)
+        # QUY TẮC GIÁ MỚI: Thêm 1 ngày là thêm 10.000đ (hoặc 30.000đ nếu đồ >= 1 triệu)
+        extra_days = max(0.0, days - 1.0)
+        extra_rate = 30000 if price_24h >= 1000000 else 10000
+        total_price = int(price_24h + extra_days * extra_rate)
         return rental_type, hours, rental_days, total_price, dt_start, dt_end_effective
 
-    # Nếu không phải máy ảnh (Lens, Gimbal, Phụ kiện, Flycam...): chỉ tính theo ngày
+    # Nếu không phải máy ảnh (Lens, Gimbal, Phụ kiện, Flycam, Trang phục...): chỉ tính theo ngày
     if not is_camera_body_item(item_category, item_name, subcategory):
         days = max(1.0, round(hours / 24.0, 1))
-        rental_type = "24h"
+        rental_type = f"{int(days) if days.is_integer() else days} ngày"
         rental_days = days
-        if days >= 3.0:
-            discount_multiplier = 0.80
-        elif days >= 2.0:
-            discount_multiplier = 0.85
-        else:
-            discount_multiplier = 1.0
-        total_price = int(days * price_24h * discount_multiplier)
+
+        extra_days = max(0.0, days - 1.0)
+        extra_rate = 30000 if price_24h >= 1000000 else 10000
+        total_price = int(price_24h + extra_days * extra_rate)
         return rental_type, hours, rental_days, total_price, dt_start, dt_end
 
     if hours <= 4.0:
@@ -2639,6 +2632,21 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
     effective_end_time = dt_end.strftime("%Y-%m-%d %H:%M")
     discount = 0
 
+    # Kiểm tra xung đột lịch đặt thuê (Khóa theo ngày/giờ)
+    if req.item_id:
+        conflict = cur.execute("""
+            SELECT r.rental_code, r.start_time, r.end_time FROM rentals r
+            WHERE r.item_id = ? 
+              AND r.status IN ('ACTIVE', 'HOLD', 'APPROVED')
+              AND (r.start_time < ? AND r.end_time > ?)
+        """, (req.item_id, effective_end_time, req.start_time)).fetchone()
+        if conflict:
+            conn.close()
+            raise HTTPException(
+                status_code=400,
+                detail=f"Thiết bị '{item_name}' đã có khách đặt/thuê từ {conflict['start_time']} đến {conflict['end_time']} (Đơn #{conflict['rental_code']}). Vui lòng chọn ngày/giờ khác!"
+            )
+
     now = vn_now()
     now_str = now.strftime("%Y-%m-%d %H:%M:%S")
     hold_expires_at = (now + datetime.timedelta(minutes=15)).strftime("%Y-%m-%d %H:%M:%S")
@@ -3020,6 +3028,11 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
                 mult = 0.80 if d_cnt >= 3 else (0.85 if d_cnt >= 2 else 1.0)
                 r_type = f"{d_cnt:g} ngày (24h)"; hours = d_cnt * 24.0; r_days = d_cnt
                 it_price = int(d_cnt * price_24h * mult)
+        elif not is_cam and item_req.rental_type == "multi_days":
+            d_cnt = max(1.0, float(item_req.days or 1.0))
+            extra_rate = 30000 if price_24h >= 1000000 else 10000
+            r_type = f"{d_cnt:g} ngày"; hours = d_cnt * 24.0; r_days = d_cnt
+            it_price = int(price_24h + max(0.0, d_cnt - 1.0) * extra_rate)
 
         # Nếu Admin chỉnh sửa giá trực tiếp cho món này:
         if is_admin_mode and item_req.custom_price is not None and item_req.custom_price >= 0:
@@ -3029,6 +3042,21 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
         it_end_str = dt_e.strftime("%Y-%m-%d %H:%M")
         if it_end_str > effective_overall_end:
             effective_overall_end = it_end_str
+
+        # Kiểm tra xung đột lịch thuê theo ngày/giờ
+        if item_req.item_id and not is_admin_mode:
+            conflict = cur.execute("""
+                SELECT r.rental_code, r.start_time, r.end_time FROM rentals r
+                WHERE (r.item_id = ? OR r.items_json LIKE ?)
+                  AND r.status IN ('ACTIVE', 'HOLD', 'APPROVED')
+                  AND (r.start_time < ? AND r.end_time > ?)
+            """, (item_req.item_id, f'%\"item_id\": {item_req.item_id}%', it_end_str, it_start)).fetchone()
+            if conflict:
+                conn.close()
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Thiết bị '{name}' đã có khách đặt/thuê từ {conflict['start_time']} đến {conflict['end_time']} (Đơn #{conflict['rental_code']}). Vui lòng chọn ngày/giờ khác!"
+                )
 
         total_rental_price += it_price
         total_default_deposit += dep

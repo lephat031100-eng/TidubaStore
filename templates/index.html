@@ -1473,12 +1473,12 @@
                             <!-- Calculations Breakdown -->
                             <div class="grid grid-cols-3 gap-2 text-xs font-mono">
                                 <div class="bg-white p-2.5 rounded-xl border border-gray-200">
-                                    <div class="text-[10px] text-gray-400 uppercase">Tiền thuê</div>
+                                    <div class="text-[10px] text-gray-400 uppercase">Tiền thuê đồ</div>
                                     <div class="font-bold text-gray-900 text-sm mt-0.5" id="pos-subtotal-rent">0đ</div>
                                 </div>
                                 <div class="bg-white p-2.5 rounded-xl border border-gray-200">
-                                    <div class="text-[10px] text-gray-400 uppercase">Chiết khấu / Giảm</div>
-                                    <div class="font-bold text-emerald-600 text-sm mt-0.5" id="pos-subtotal-discount">0đ</div>
+                                    <div class="text-[10px] text-gray-400 uppercase">Thời lượng</div>
+                                    <div class="font-bold text-cyan-700 text-sm mt-0.5" id="pos-duration-disp">1 ngày</div>
                                 </div>
                                 <div class="bg-white p-2.5 rounded-xl border border-gray-200">
                                     <div class="text-[10px] text-gray-400 uppercase">Số lượng món</div>
@@ -1486,19 +1486,21 @@
                                 </div>
                             </div>
 
-                            <!-- ADMIN ĐIỀU CHỈNH GIÁ TỔNG / CHIẾT KHẤU / PHỤ THU POS -->
+                            <!-- NGÀY GIỜ NHẬN & TRẢ ĐỒ POS (THAY THẾ CHIẾT KHẤU & PHỤ THU THEO YÊU CẦU 2) -->
                             <div class="grid grid-cols-2 gap-2 text-xs font-mono">
-                                <div class="bg-white p-2 rounded-xl border border-emerald-300">
-                                    <label class="block text-[10px] font-bold text-emerald-800 mb-0.5 flex items-center gap-1">
-                                        <i class="fa-solid fa-tag"></i> Chiết khấu / Giảm giá (VNĐ):
+                                <div class="bg-white p-2 rounded-xl border border-cyan-400 shadow-sm">
+                                    <label class="block text-[10px] font-bold text-cyan-900 mb-0.5 flex items-center justify-between">
+                                        <span class="flex items-center gap-1"><i class="fa-solid fa-calendar-check text-cyan-600"></i> Ngày Nhận (POS):</span>
+                                        <span class="text-[9px] text-gray-500">08:00-20:00</span>
                                     </label>
-                                    <input type="number" id="pos-discount-input" oninput="posRecalculateActiveInvoice()" placeholder="0" class="w-full bg-emerald-50/50 border border-emerald-400 rounded-lg p-1.5 text-xs text-emerald-800 font-bold font-mono focus:outline-none">
+                                    <input type="datetime-local" id="pos-start-time" onchange="posTimingChanged()" class="w-full bg-cyan-50/50 border border-cyan-300 rounded-lg p-1.5 text-xs text-gray-900 font-bold font-mono focus:outline-none focus:border-cyan-500">
                                 </div>
-                                <div class="bg-white p-2 rounded-xl border border-amber-300">
-                                    <label class="block text-[10px] font-bold text-amber-800 mb-0.5 flex items-center gap-1">
-                                        <i class="fa-solid fa-plus-circle"></i> Phụ thu / Phí dịch vụ (VNĐ):
+                                <div class="bg-white p-2 rounded-xl border border-amber-400 shadow-sm">
+                                    <label class="block text-[10px] font-bold text-amber-900 mb-0.5 flex items-center justify-between">
+                                        <span class="flex items-center gap-1"><i class="fa-solid fa-calendar-xmark text-amber-600"></i> Ngày Trả (POS):</span>
+                                        <span class="text-[9px] text-amber-600">Trước 20:00</span>
                                     </label>
-                                    <input type="number" id="pos-surcharge-input" oninput="posRecalculateActiveInvoice()" placeholder="0" class="w-full bg-amber-50/50 border border-amber-400 rounded-lg p-1.5 text-xs text-amber-800 font-bold font-mono focus:outline-none">
+                                    <input type="datetime-local" id="pos-end-time" onchange="posTimingChanged()" class="w-full bg-amber-50/50 border border-amber-300 rounded-lg p-1.5 text-xs text-gray-900 font-bold font-mono focus:outline-none focus:border-amber-500">
                                 </div>
                             </div>
 
@@ -2515,7 +2517,9 @@
                         <div class="text-[11px] font-bold leading-tight text-black pt-0.5">
                             <div>CN1: 183A Huỳnh Thúc Kháng - Pleiku - Gia Lai</div>
                             <div>CN2: 801 Lê Duẩn - Pleiku - Gia Lai</div>
-                            <div class="font-black text-xs mt-0.5">Điện thoại: 0977 078 981</div>
+                            <div class="font-black text-xs mt-0.5 flex items-center justify-center gap-1">
+                                <span>📱 Hotline:</span> <strong>0977 078 981</strong>
+                            </div>
                         </div>
                     </div>
 
@@ -2538,16 +2542,17 @@
                         </div>
                         <div class="flex justify-between">
                             <span class="text-black">Nhân viên:</span>
-                            <span class="text-black font-bold text-right" id="k80-disp-staff">Admin</span>
+                            <span class="text-black font-bold text-right" id="k80-disp-staff">Quản Lý Cửa Hàng Tiduba</span>
                         </div>
                     </div>
 
-                    <!-- Danh sách sản phẩm (Đơn giá - SL - Thành tiền) -->
+                    <!-- Danh sách sản phẩm (Tên hàng - SL - Đơn giá - T.Tiền chuẩn Hình 1) -->
                     <div class="py-1.5 border-b-2 border-dashed border-black space-y-1 text-black">
                         <div class="flex justify-between text-[11px] font-black text-black pb-1 border-b border-black">
-                            <span>Đơn giá</span>
-                            <span class="text-center">SL</span>
-                            <span class="text-right">Thành tiền</span>
+                            <span class="w-24 text-left">Tên hàng</span>
+                            <span class="text-center w-8">SL</span>
+                            <span class="text-right w-16">Đơn giá</span>
+                            <span class="text-right flex-1">T.Tiền</span>
                         </div>
                         <div id="k80-disp-items" class="space-y-1.5 text-xs font-bold">
                             <!-- Javascript render sản phẩm -->
@@ -2561,7 +2566,7 @@
                             <strong class="text-black" id="k80-disp-subtotal">100,000</strong>
                         </div>
                         <div class="flex justify-between">
-                            <span class="font-sans font-bold">Chiết khấu:</span>
+                            <span class="font-sans font-bold">Chiết khấu /</span>
                             <span class="text-black" id="k80-disp-discount">0</span>
                         </div>
                         <div class="flex justify-between">
@@ -2574,25 +2579,25 @@
                         </div>
                     </div>
 
-                    <!-- Quy định ngày trả đồ y hệt ảnh thật -->
-                    <div class="py-1.5 text-[11px] leading-relaxed text-black font-bold border-b-2 border-dashed border-black">
-                        <div class="font-black text-black uppercase mb-0.5">QUY ĐỊNH NGÀY TRẢ:</div>
-                        <div class="space-y-0.5 text-black">
-                            <div>• Hôm nay lấy mai trả (trước 8h tối).</div>
-                            <div>• Thêm 1 ngày: đồ dưới 1 triệu thêm 10K, đồ trên 1 triệu thêm 30K (cần báo trước).</div>
-                            <div>• Đối với máy ảnh: cọc giấy tờ + 1 tài sản.</div>
-                            <div>• Hoàn trả lại 100% giấy tờ ngay khi trả đồ xong.</div>
+                    <!-- Bố cục Quy định trả đồ & Mã QR nằm ngang nhau tiết kiệm giấy chuẩn Hình 1 -->
+                    <div class="py-2 border-b-2 border-dashed border-black flex items-center gap-2.5">
+                        <!-- Mã QR Code bên trái nhỏ gọn -->
+                        <div class="flex-shrink-0 p-1 bg-white border-2 border-black rounded shadow-sm flex items-center justify-center">
+                            <img id="k80-bill-qr-img" crossorigin="anonymous" src="" alt="QR" class="w-20 h-20 sm:w-24 sm:h-24 object-contain" style="image-rendering: pixelated; filter: contrast(300%) grayscale(100%);">
+                        </div>
+                        <!-- Quy định trả đồ bên phải -->
+                        <div class="flex-1 text-[9.5px] leading-tight text-black font-bold text-left space-y-0.5 font-sans">
+                            <div class="font-black text-black uppercase mb-1 text-[10.5px]">QUY ĐỊNH TRẢ ĐỒ</div>
+                            <div>• Hôm nay lấy mai trả (trước 20h).</div>
+                            <div>• Thêm 1 ngày: &lt;1tr thêm 10k | &gt;1tr thêm 30k (báo trước).</div>
+                            <div>• Máy ảnh: cọc giấy tờ + 1 tài sản.</div>
+                            <div>• Thuê áo dài trả trong ngày.</div>
                         </div>
                     </div>
 
-                    <!-- Mã QR Code Trả Đồ In Ngay Trong Bill (Độ tương phản cao) -->
-                    <div class="pt-2 text-center space-y-1 text-black font-bold">
-                        <div class="p-1 bg-white inline-block border-2 border-black rounded shadow-sm">
-                            <img id="k80-bill-qr-img" crossorigin="anonymous" src="" alt="Mã QR Trả Đồ" class="w-32 h-32 mx-auto object-contain" style="image-rendering: pixelated; filter: contrast(300%) grayscale(100%);">
-                        </div>
-                        <div class="text-[10px] font-black text-black font-mono tracking-wider" id="k80-bill-qr-text">* TDB-XXXXXX *</div>
-                        <div class="text-[10px] font-bold text-black font-sans">Quét mã QR để nhận trả đồ nhanh</div>
-                        <div class="text-[11px] font-black italic text-black font-sans pt-1">Cảm ơn quý khách & Hẹn gặp lại!</div>
+                    <!-- Lời cảm ơn chuẩn Hình 1 -->
+                    <div class="pt-1.5 pb-0.5 text-center text-[10px] font-black text-black tracking-wider uppercase font-sans">
+                        CẢM ƠN QUÝ KHÁCH! • THANK YOU!
                     </div>
                 </div>
             </div>
@@ -4205,12 +4210,13 @@
                         const itQty = Number(it.quantity || 1);
                         const itTotal = itPrice * itQty;
                         return `
-                            <div class="space-y-0.5 border-b border-gray-100 pb-1">
-                                <div class="font-bold text-black text-[11px] leading-snug">${it.name || `Sản phẩm ${idx+1}`}</div>
-                                <div class="flex justify-between text-gray-900 font-mono text-[10px]">
-                                    <span>${itPrice.toLocaleString()}</span>
-                                    <span class="text-center font-bold">${itQty}</span>
-                                    <span class="text-right font-bold">${itTotal.toLocaleString()}</span>
+                            <div class="space-y-0.5 border-b border-dashed border-gray-300 pb-1">
+                                <div class="font-bold text-black text-[11px] leading-snug uppercase">${it.name || `Sản phẩm ${idx+1}`}</div>
+                                <div class="flex justify-between text-black font-mono text-[10.5px]">
+                                    <span class="text-left w-24">${itQty} x ${itPrice.toLocaleString()}</span>
+                                    <span class="text-center font-bold w-8">${itQty}</span>
+                                    <span class="text-right font-bold w-16">${itPrice.toLocaleString()}</span>
+                                    <span class="text-right font-black flex-1">${itTotal.toLocaleString()}</span>
                                 </div>
                             </div>
                         `;
@@ -4219,11 +4225,12 @@
                     const itemName = item || 'Thiết bị / Trang phục thuê';
                     itemsContainer.innerHTML = `
                         <div class="space-y-0.5">
-                            <div class="font-bold text-black text-[11px] leading-snug">${itemName}</div>
-                            <div class="flex justify-between text-gray-900 font-mono text-[10px]">
-                                <span>${subtotal.toLocaleString()}</span>
-                                <span class="text-center font-bold">1</span>
-                                <span class="text-right font-bold">${subtotal.toLocaleString()}</span>
+                            <div class="font-bold text-black text-[11px] leading-snug uppercase">${itemName}</div>
+                            <div class="flex justify-between text-black font-mono text-[10.5px]">
+                                <span class="text-left w-24">1 x ${subtotal.toLocaleString()}</span>
+                                <span class="text-center font-bold w-8">1</span>
+                                <span class="text-right font-bold w-16">${subtotal.toLocaleString()}</span>
+                                <span class="text-right font-black flex-1">${subtotal.toLocaleString()}</span>
                             </div>
                         </div>
                     `;
@@ -5184,20 +5191,39 @@
             if (target && !isCameraItem(target) && hours < 24) {
                 hours = 24; // Chỉ máy ảnh mới có ca 4h-8h. Các mặt hàng khác tính theo ngày
             }
-            const now = new Date();
-            const pad = (n) => String(n).padStart(2, '0');
-            const startStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:00`;
-            const endDt = new Date(now.getTime() + hours * 3600000);
-
-            if (target && target.category === 'COSTUME_FASHION') {
-                endDt.setHours(20, 0, 0, 0);
+            const startInp = document.getElementById('book-start-time');
+            let startDt = (startInp && startInp.value) ? new Date(startInp.value) : new Date();
+            if (isNaN(startDt.getTime()) || startDt < new Date(new Date().getTime() - 600000)) {
+                const now = new Date();
+                startDt = new Date(now);
+                if (now.getHours() >= 20) {
+                    startDt.setDate(startDt.getDate() + 1);
+                    startDt.setHours(8, 0, 0, 0);
+                } else if (now.getHours() < 8) {
+                    startDt.setHours(8, 0, 0, 0);
+                } else {
+                    startDt.setHours(startDt.getHours() + 1, 0, 0, 0);
+                }
             }
-            const endStr = `${endDt.getFullYear()}-${pad(endDt.getMonth()+1)}-${pad(endDt.getDate())}T${pad(endDt.getHours())}:${pad(endDt.getMinutes())}`;
+            const startStr = formatDtInput(startDt);
+            
+            const days = Math.max(1, Math.round(hours / 24));
+            let endDt;
+            if (hours < 24) {
+                endDt = new Date(startDt.getTime() + hours * 3600000);
+            } else {
+                endDt = new Date(startDt.getTime() + days * 86400000);
+                if (target && target.category === 'COSTUME_FASHION') {
+                    endDt.setHours(20, 0, 0, 0);
+                }
+            }
+            const endStr = formatDtInput(endDt);
 
-            document.getElementById('book-start-time').value = startStr;
-            document.getElementById('book-end-time').value = endStr;
+            if (startInp) startInp.value = startStr;
+            const endInp = document.getElementById('book-end-time');
+            if (endInp) endInp.value = endStr;
             calculateRentalPrice();
-            showToast(`Đã chọn gói: ${hours >= 24 ? (hours/24) + ' ngày' : hours + ' tiếng'}`);
+            showToast(`Đã chọn gói: ${hours >= 24 ? days + ' ngày' : hours + ' tiếng'}`);
         }
 
         function calculateRentalPrice() {
@@ -5222,8 +5248,9 @@
             const isCam = isCameraItem(target);
             let rentalType, rentalPrice;
 
-            if (isCostume) {
-                // TRANG PHỤC: 1 ngày = nhận hôm nay, trả trước 20:00 ngày hôm sau
+            if (isCostume || !isCam) {
+                // TRANG PHỤC & CÁC MẶT HÀNG KHÔNG PHẢI MÁY ẢNH:
+                // Thêm 1 ngày: đồ dưới 1 triệu thêm 10k, đồ trên 1 triệu thêm 30k
                 const startDay = new Date(dtStart.getFullYear(), dtStart.getMonth(), dtStart.getDate());
                 const endDay = new Date(dtEnd.getFullYear(), dtEnd.getMonth(), dtEnd.getDate());
                 const calendarDays = Math.round((endDay - startDay) / 86400000);
@@ -5233,11 +5260,15 @@
                 } else {
                     days = calendarDays;
                 }
-                rentalType = `${days} ngày (trả trước 20:00)`;
-                let mult = 1.0;
-                if (days >= 3) mult = 0.80;
-                else if (days >= 2) mult = 0.85;
-                rentalPrice = Math.round(days * target.price_24h * mult);
+                rentalType = `${days} ngày${isCostume ? ' (trả trước 20:00)' : ''}`;
+
+                const baseP = Number(target.price_24h) || 0;
+                const extraPerDay = baseP >= 1000000 ? 30000 : 10000;
+                if (days <= 1) {
+                    rentalPrice = baseP;
+                } else {
+                    rentalPrice = baseP + Math.round((days - 1) * extraPerDay);
+                }
             } else if (isCam && hours <= 4) {
                 rentalType = "ca 4h";
                 rentalPrice = target.price_4h || target.price_24h;
@@ -5247,10 +5278,7 @@
             } else {
                 const days = Math.max(1.0, Math.round((diffSec / 86400) * 10) / 10);
                 rentalType = `${days} ngày (24h)`;
-                let mult = 1.0;
-                if (days >= 3) mult = 0.80;
-                else if (days >= 2) mult = 0.85;
-                rentalPrice = Math.round(days * target.price_24h * mult);
+                rentalPrice = Math.round(days * target.price_24h);
             }
             
             // ADMIN ĐỒNG BỘ CHỈNH GIÁ THUÊ TÙY CHỌN:
@@ -5726,8 +5754,13 @@
             } else if (pkg === 'multi_days') {
                 const d = customDays ? parseFloat(customDays) : (itm.days > 1 ? itm.days : 2.0);
                 itm.days = Math.max(1.0, d);
-                const mult = itm.days >= 3 ? 0.80 : (itm.days >= 2 ? 0.85 : 1.0);
-                itm.calculated_price = Math.round(itm.days * itm.price_24h * mult);
+                const isCam = isCameraItem(itm);
+                if (!isCam) {
+                    const extraRate = (itm.price_24h >= 1000000) ? 30000 : 10000;
+                    itm.calculated_price = itm.price_24h + Math.round((itm.days - 1) * extraRate);
+                } else {
+                    itm.calculated_price = Math.round(itm.days * itm.price_24h);
+                }
             }
             renderCartDrawer();
         }
@@ -6178,11 +6211,53 @@
             } else if (pkg === 'multi_days') {
                 const d = customDays ? parseFloat(customDays) : (it.days > 1 ? it.days : 2.0);
                 it.days = Math.max(1.0, d);
-                const mult = it.days >= 3 ? 0.80 : (it.days >= 2 ? 0.85 : 1.0);
-                it.price = Math.round(it.days * it.price_24h * mult);
+                const isCam = isCameraItem(it);
+                if (!isCam) {
+                    const extraRate = (it.price_24h >= 1000000) ? 30000 : 10000;
+                    it.price = it.price_24h + Math.round((it.days - 1) * extraRate);
+                } else {
+                    it.price = Math.round(it.days * it.price_24h);
+                }
             }
 
             renderActivePosInvoice();
+        }
+
+        function posTimingChanged() {
+            const activeInv = posInvoices[activePosTabIdx];
+            if (!activeInv) return;
+            const startInp = document.getElementById('pos-start-time');
+            const endInp = document.getElementById('pos-end-time');
+            if (!startInp || !endInp) return;
+
+            activeInv.startTime = startInp.value;
+            activeInv.endTime = endInp.value;
+
+            // Tính số ngày thuê
+            let days = 1.0;
+            if (activeInv.startTime && activeInv.endTime) {
+                const dtS = new Date(activeInv.startTime);
+                const dtE = new Date(activeInv.endTime);
+                const diffSec = (dtE - dtS) / 1000;
+                if (diffSec > 0) {
+                    const calendarDays = Math.round((new Date(activeInv.endTime).setHours(0,0,0,0) - new Date(activeInv.startTime).setHours(0,0,0,0)) / 86400000);
+                    days = Math.max(1.0, calendarDays <= 1 ? 1.0 : calendarDays);
+                }
+            }
+
+            // Cập nhật lại giá từng món theo ngày thuê mới (thêm 1 ngày = +10k, máy ảnh tính theo ngày)
+            activeInv.items.forEach(it => {
+                const isCam = isCameraItem(it);
+                it.days = days;
+                if (!isCam) {
+                    const extraRate = (it.price_24h >= 1000000) ? 30000 : 10000;
+                    it.price = it.price_24h + Math.round((days - 1) * extraRate);
+                } else {
+                    it.price = Math.round(days * it.price_24h);
+                }
+            });
+
+            posRecalculateActiveInvoice();
         }
 
         function posUpdateItemCustomPrice(itemIdx, newPrice) {
@@ -6204,13 +6279,24 @@
                 subtotalRent += it.price;
             });
 
-            // Đọc Chiết khấu & Phụ thu tại POS:
-            const discountInp = document.getElementById('pos-discount-input');
-            const surchargeInp = document.getElementById('pos-surcharge-input');
-            const discountVal = discountInp ? (parseInt(discountInp.value) || 0) : 0;
-            const surchargeVal = surchargeInp ? (parseInt(surchargeInp.value) || 0) : 0;
-            activeInv.discountVal = discountVal;
-            activeInv.surchargeVal = surchargeVal;
+            // Đọc Ngày Giờ Nhận & Trả đồ tại POS (Thay thế chiết khấu & phụ thu theo Yêu cầu 2)
+            const startInp = document.getElementById('pos-start-time');
+            const endInp = document.getElementById('pos-end-time');
+            if (startInp && startInp.value) activeInv.startTime = startInp.value;
+            if (endInp && endInp.value) activeInv.endTime = endInp.value;
+
+            let durationText = "1 ngày";
+            if (activeInv.startTime && activeInv.endTime) {
+                const dtS = new Date(activeInv.startTime);
+                const dtE = new Date(activeInv.endTime);
+                const diffSec = (dtE - dtS) / 1000;
+                if (diffSec > 0) {
+                    const dDiff = Math.round((new Date(activeInv.endTime).setHours(0,0,0,0) - new Date(activeInv.startTime).setHours(0,0,0,0)) / 86400000);
+                    durationText = `${Math.max(1, dDiff)} ngày`;
+                }
+            }
+            const durDisp = document.getElementById('pos-duration-disp');
+            if (durDisp) durDisp.innerText = durationText;
 
             // Đọc Hình thức cọc & Tiền cọc (Dành riêng cho Admin):
             const depTypeSelect = document.getElementById('pos-deposit-type-select');
@@ -6223,11 +6309,9 @@
             activeInv.depositAmount = depAmt;
             activeInv.depositDesc = depDesc;
 
-            const finalRent = Math.max(0, subtotalRent - discountVal + surchargeVal);
-            const totalPayable = finalRent + depAmt;
+            const totalPayable = subtotalRent + depAmt;
 
             document.getElementById('pos-subtotal-rent').innerText = `${subtotalRent.toLocaleString()}đ`;
-            document.getElementById('pos-subtotal-discount').innerText = discountVal > 0 ? `-${discountVal.toLocaleString()}đ` : (surchargeVal > 0 ? `+${surchargeVal.toLocaleString()}đ (phụ thu)` : '0đ');
             document.getElementById('pos-items-count').innerText = `${activeInv.items.length} món`;
             document.getElementById('pos-checkout-btn-text').innerText = `${totalPayable.toLocaleString()}đ`;
         }
@@ -6251,6 +6335,27 @@
                 phoneInp.value = activeInv.customerPhone;
             } else if (phoneInp && activeInv.customerPhone === '0900000000') {
                 phoneInp.value = '';
+            }
+
+            // Đồng bộ ngày giờ nhận trả POS
+            const posStartInp = document.getElementById('pos-start-time');
+            const posEndInp = document.getElementById('pos-end-time');
+            if (posStartInp) {
+                if (!activeInv.startTime) {
+                    const now = new Date();
+                    activeInv.startTime = formatDtInput(now);
+                }
+                posStartInp.value = activeInv.startTime;
+                posStartInp.min = formatDtInput(new Date());
+            }
+            if (posEndInp) {
+                if (!activeInv.endTime) {
+                    const tom = new Date(new Date().getTime() + 86400000);
+                    tom.setHours(20, 0, 0, 0);
+                    activeInv.endTime = formatDtInput(tom);
+                }
+                posEndInp.value = activeInv.endTime;
+                posEndInp.min = activeInv.startTime;
             }
 
             // Đồng bộ ô cọc
@@ -6402,22 +6507,24 @@
                 return;
             }
 
-            const now = new Date();
-            const pad = (n) => String(n).padStart(2, '0');
-            const startTime = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+            const stInp = document.getElementById('pos-start-time');
+            const etInp = document.getElementById('pos-end-time');
+            const rawStartTime = (stInp && stInp.value) ? stInp.value : (activeInv.startTime || formatDtInput(new Date()));
+            const rawEndTime = (etInp && etInp.value) ? etInp.value : (activeInv.endTime || formatDtInput(new Date(new Date().getTime() + 86400000)));
+
+            const startTime = rawStartTime.replace('T', ' ');
+            const endTime = rawEndTime.replace('T', ' ');
             
             let maxDays = 1.0;
             activeInv.items.forEach(it => {
                 if (it.days && it.days > maxDays) maxDays = it.days;
             });
-            const dtEnd = new Date(now.getTime() + maxDays * 24 * 3600000);
-            const endTime = `${dtEnd.getFullYear()}-${pad(dtEnd.getMonth()+1)}-${pad(dtEnd.getDate())}T${pad(dtEnd.getHours())}:${pad(dtEnd.getMinutes())}`;
 
             const itemsPayload = activeInv.items.map(it => ({
                 item_id: it.item_id || null,
                 combo_id: it.combo_id || null,
                 rental_type: it.rental_type || '24h',
-                days: it.days || 1.0,
+                days: it.days || maxDays,
                 start_time: startTime,
                 end_time: endTime,
                 custom_price: it.price

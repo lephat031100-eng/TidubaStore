@@ -227,8 +227,8 @@ def test_payment_webhook_and_auto_print_queue():
     assert pq_res.status_code == 200
     jobs = pq_res.json()["jobs"]
     assert len(jobs) >= 1
-    assert "TIDUBA CAMERA & FASHION" in jobs[0]["bill_text"]
-    assert "MBBANK 0123006101998" in jobs[0]["bill_text"]
+    assert "CAMERA & FASHION" in jobs[0]["bill_text"]
+    assert "PHIEU XAC NHAN THUE" in jobs[0]["bill_text"]
 
 
 def test_digital_handover_and_damage_assessment():
