@@ -882,3 +882,41 @@ def test_smtp_config_api():
     cfg = get_res.json()["config"]
     assert cfg["smtp_user"] == "tidubastore.notify@gmail.com"
     assert "********" in cfg["smtp_password_masked"]
+
+
+def test_ao_dai_multi_days_pricing():
+    """Kiểm tra quy tắc tính giá áo dài: thêm 1 ngày = +20k."""
+    from main import calculate_rental_metrics, is_ao_dai_item
+    assert is_ao_dai_item(item_category="COSTUME_FASHION", item_name="Áo Dài Cách Tân Thêu Hoa", subcategory="Áo Dài") is True
+    assert is_ao_dai_item(item_category="COSTUME_FASHION", item_name="Váy Dạ Hội Đính Đá", subcategory="Váy Tiệc") is False
+
+    # 1. Áo dài giá 100k thuê 1 ngày
+    t1, h1, d1, p1, s1, e1 = calculate_rental_metrics(
+        "2026-10-20 10:00", "2026-10-21 20:00", 0, 0, 100000,
+        item_category="COSTUME_FASHION", item_name="Áo Dài Thiết Kế", subcategory="Áo Dài"
+    )
+    assert p1 == 100000
+    assert d1 == 1.0
+
+    # 2. Áo dài giá 100k thuê 2 ngày -> +20k = 120k
+    t2, h2, d2, p2, s2, e2 = calculate_rental_metrics(
+        "2026-10-20 10:00", "2026-10-22 20:00", 0, 0, 100000,
+        item_category="COSTUME_FASHION", item_name="Áo Dài Thiết Kế", subcategory="Áo Dài"
+    )
+    assert p2 == 120000
+    assert d2 == 2.0
+
+    # 3. Áo dài giá 100k thuê 3 ngày -> +40k = 140k
+    t3, h3, d3, p3, s3, e3 = calculate_rental_metrics(
+        "2026-10-20 10:00", "2026-10-23 20:00", 0, 0, 100000,
+        item_category="COSTUME_FASHION", item_name="Áo Dài Thiết Kế", subcategory="Áo Dài"
+    )
+    assert p3 == 140000
+    assert d3 == 3.0
+
+    # 4. Váy tiệc giá 100k thuê 2 ngày -> +10k = 110k (không phải áo dài)
+    tv2, hv2, dv2, pv2, sv2, ev2 = calculate_rental_metrics(
+        "2026-10-20 10:00", "2026-10-22 20:00", 0, 0, 100000,
+        item_category="COSTUME_FASHION", item_name="Váy Tiệc Đen", subcategory="Váy Tiệc"
+    )
+    assert pv2 == 110000

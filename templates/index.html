@@ -118,73 +118,81 @@
             padding-bottom: env(safe-area-inset-bottom, 16px);
         }
 
-        /* CHUẨN IN HÓA ĐƠN NHIỆT K80 (KIOTVIET STYLE ĐẬM NÉT ĐEN TUYỀN) */
+        /* CHUẨN IN HÓA ĐƠN NHIỆT K80 (KIOTVIET STYLE ĐẬM NÉT ĐEN TUYỀN, IN ĐÚNG 1 TRANG KHÔNG RỖNG) */
         @media print {
             @page {
                 size: 80mm auto;
                 margin: 0mm;
             }
             html, body {
-                width: 80mm !important;
-                margin: 0 !important;
+                width: 100% !important;
+                max-width: 80mm !important;
+                margin: 0 auto !important;
                 padding: 0 !important;
                 background: #ffffff !important;
+                height: auto !important;
+                min-height: 0 !important;
+                overflow: visible !important;
             }
-            body * {
-                visibility: hidden !important;
-            }
-            #k80-modal, #k80-modal * {
-                visibility: visible !important;
+            /* ẨN HOÀN TOÀN TẤT CẢ CÁC THẺ KHÁC KHỎI DOM PRINT (LOẠI BỎ 100% LỖI IN 14 TỜ VÀ BỊ THU NHỎ) */
+            body > *:not(#k80-modal) {
+                display: none !important;
             }
             #k80-modal {
-                position: absolute !important;
-                left: 0 !important;
-                top: 0 !important;
-                width: 80mm !important;
-                min-height: 100% !important;
-                background: #ffffff !important;
                 display: block !important;
+                position: static !important;
+                width: 100% !important;
+                max-width: 80mm !important;
+                min-height: 0 !important;
+                height: auto !important;
+                margin: 0 auto !important;
                 padding: 0 !important;
-                margin: 0 !important;
+                background: #ffffff !important;
                 border: none !important;
                 box-shadow: none !important;
+                overflow: visible !important;
             }
             #k80-modal-box {
+                display: block !important;
+                position: static !important;
+                width: 100% !important;
+                max-width: 80mm !important;
+                min-height: 0 !important;
+                height: auto !important;
+                margin: 0 auto !important;
+                padding: 0 !important;
                 border: none !important;
                 box-shadow: none !important;
                 background: #ffffff !important;
-                width: 80mm !important;
-                max-width: 80mm !important;
-                padding: 0 !important;
-                margin: 0 !important;
+                overflow: visible !important;
             }
             #k80-printable-area {
-                width: 76mm !important;
+                display: block !important;
+                width: 100% !important;
                 max-width: 76mm !important;
                 margin: 0 auto !important;
-                padding: 2mm 3mm !important;
+                padding: 1mm 2mm !important;
                 border: none !important;
                 box-shadow: none !important;
                 color: #000000 !important;
                 background: #ffffff !important;
-                font-family: Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
-                font-size: 11.5px !important;
+                font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+                font-size: 13px !important;
                 font-weight: 700 !important;
                 line-height: 1.35 !important;
+                box-sizing: border-box !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
             #k80-printable-area * {
                 color: #000000 !important;
-                font-family: Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+                font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
             }
             #k80-bill-qr-img {
-                width: 130px !important;
-                height: 130px !important;
+                width: 80px !important;
+                height: 80px !important;
                 margin: 0 auto !important;
                 image-rendering: pixelated !important;
-                image-rendering: -moz-crisp-edges !important;
-                image-rendering: crisp-edges !important;
                 filter: contrast(300%) grayscale(100%) !important;
             }
             .k80-no-print {
@@ -4295,7 +4303,106 @@
                 alert("Chỉ Quản Lý (Admin) mới có quyền in qua máy in nhiệt!");
                 return;
             }
-            window.print();
+            const printable = document.getElementById('k80-printable-area');
+            if (!printable) {
+                window.print();
+                return;
+            }
+
+            // Tạo iframe in độc lập 72mm-80mm: Triệt tiêu 100% lỗi in 14 trang và lỗi chữ bị thu nhỏ
+            let printFrame = document.getElementById('k80-print-iframe');
+            if (!printFrame) {
+                printFrame = document.createElement('iframe');
+                printFrame.id = 'k80-print-iframe';
+                printFrame.style.position = 'fixed';
+                printFrame.style.right = '0';
+                printFrame.style.bottom = '0';
+                printFrame.style.width = '0';
+                printFrame.style.height = '0';
+                printFrame.style.border = '0';
+                document.body.appendChild(printFrame);
+            }
+
+            const doc = printFrame.contentWindow.document;
+            doc.open();
+            doc.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>Hoa_Don_${currentK80Code || 'Tiduba'}</title>
+                    <style>
+                        @page {
+                            size: 80mm auto;
+                            margin: 0mm;
+                        }
+                        html, body {
+                            width: 72mm;
+                            max-width: 72mm;
+                            margin: 0 auto;
+                            padding: 1mm 1.5mm;
+                            background: #ffffff;
+                            color: #000000;
+                            font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+                            font-size: 13px;
+                            font-weight: 700;
+                            line-height: 1.35;
+                            box-sizing: border-box;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+                        * {
+                            color: #000000 !important;
+                            box-sizing: border-box;
+                            font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+                        }
+                        img {
+                            max-width: 100%;
+                            height: auto;
+                            image-rendering: pixelated;
+                        }
+                        .text-center { text-align: center; }
+                        .text-left { text-align: left; }
+                        .text-right { text-align: right; }
+                        .font-black { font-weight: 900; }
+                        .font-bold { font-weight: 700; }
+                        .uppercase { text-transform: uppercase; }
+                        .border-b-2 { border-bottom: 2px dashed #000000; }
+                        .border-t-2 { border-top: 2px dashed #000000; }
+                        .border-b { border-bottom: 1px dashed #333333; }
+                        .border-t { border-top: 1px solid #000000; }
+                        .border-2 { border: 2px solid #000000; }
+                        .rounded { border-radius: 4px; }
+                        .py-1 { padding-top: 3px; padding-bottom: 3px; }
+                        .py-1\\.5 { padding-top: 4px; padding-bottom: 4px; }
+                        .py-2 { padding-top: 6px; padding-bottom: 6px; }
+                        .pb-1 { padding-bottom: 3px; }
+                        .pb-2 { padding-bottom: 6px; }
+                        .pt-1 { padding-top: 3px; }
+                        .pt-2 { padding-top: 6px; }
+                        .space-y-1 > * + * { margin-top: 3px; }
+                        .space-y-2 > * + * { margin-top: 6px; }
+                        .flex { display: flex; }
+                        .items-center { align-items: center; }
+                        .justify-between { justify-content: space-between; }
+                        .justify-center { justify-content: center; }
+                        .gap-1 { gap: 4px; }
+                        .gap-2 { gap: 8px; }
+                        .gap-2\\.5 { gap: 10px; }
+                        .flex-1 { flex: 1 1 0%; }
+                        .flex-shrink-0 { flex-shrink: 0; }
+                    </style>
+                </head>
+                <body>
+                    ${printable.innerHTML}
+                </body>
+                </html>
+            `);
+            doc.close();
+            setTimeout(() => {
+                printFrame.contentWindow.focus();
+                printFrame.contentWindow.print();
+            }, 350);
         }
 
         async function saveK80BillAsImage() {
@@ -4941,6 +5048,12 @@
             return true;
         }
 
+        function isAoDaiItem(item) {
+            if (!item) return false;
+            const combined = `${item.name || ''} ${item.subcategory || ''} ${item.brand || ''}`.toLowerCase();
+            return ["ao dai", "ao_dai", "aodai", "áo dài"].some(k => combined.includes(k));
+        }
+
         function openBookingModal(itemId) {
             if (!currentUser) {
                 showToast("Vui lòng đăng nhập trước khi đặt thuê!");
@@ -4958,12 +5071,38 @@
             document.getElementById('modal-item-price').innerText = `${Number(item.price_24h).toLocaleString()}đ / ngày`;
             document.getElementById('modal-item-img').src = item.image_url;
 
-            // Hiển thị hoặc ẩn quy định riêng cho trang phục
+            // Hiển thị hoặc ẩn quy định riêng cho trang phục & Áo dài
             const isCostume = item.category === 'COSTUME_FASHION';
+            const isAoDai = isAoDaiItem(item);
             const costumeAlert = document.getElementById('costume-rule-alert');
             if (costumeAlert) {
-                if (isCostume) costumeAlert.classList.remove('hidden');
-                else costumeAlert.classList.add('hidden');
+                if (isAoDai) {
+                    costumeAlert.classList.remove('hidden');
+                    costumeAlert.innerHTML = `
+                        <div class="font-bold flex items-center gap-1.5 text-amber-300">
+                            <i class="fa-solid fa-shirt"></i> QUY ĐỊNH THUÊ ÁO DÀI THIẾT KẾ:
+                        </div>
+                        <div class="text-[11px] leading-relaxed">
+                            • <strong>Áo dài hạn chế thuê dài ngày</strong> (trả trước 20:00).<br>
+                            • Thuê dài ngày: <strong>Cứ thêm 1 ngày cộng thêm 20.000đ</strong>.<br>
+                            <span class="text-emerald-300">✓ Ví dụ: 1 ngày = ${Number(item.price_24h).toLocaleString()}đ; 2 ngày = ${(Number(item.price_24h) + 20000).toLocaleString()}đ.</span>
+                        </div>
+                    `;
+                } else if (isCostume) {
+                    costumeAlert.classList.remove('hidden');
+                    costumeAlert.innerHTML = `
+                        <div class="font-bold flex items-center gap-1.5 text-amber-300">
+                            <i class="fa-solid fa-shirt"></i> QUY ĐỊNH THUÊ TRANG PHỤC:
+                        </div>
+                        <div class="text-[11px] leading-relaxed">
+                            • Thuê trang phục tính theo ngày: Trả <strong>trước 20:00 ngày tiếp theo</strong> mới là 1 ngày.<br>
+                            • Thuê dài ngày: <strong>Thêm 1 ngày chỉ thêm 10.000đ</strong> (đồ trên 1 triệu thêm 30.000đ/ngày).<br>
+                            <span class="text-emerald-300">✓ Ví dụ: 1 ngày = ${Number(item.price_24h).toLocaleString()}đ; 2 ngày = ${(Number(item.price_24h) + (Number(item.price_24h)>=1000000?30000:10000)).toLocaleString()}đ.</span>
+                        </div>
+                    `;
+                } else {
+                    costumeAlert.classList.add('hidden');
+                }
             }
 
             // CHỈ CÓ MÁY ẢNH MỚI CÓ NÚT 4 TIẾNG VÀ 8 TIẾNG. MỌI MẶT HÀNG KHÁC CHỈ CÓ THEO NGÀY
@@ -5250,7 +5389,7 @@
 
             if (isCostume || !isCam) {
                 // TRANG PHỤC & CÁC MẶT HÀNG KHÔNG PHẢI MÁY ẢNH:
-                // Thêm 1 ngày: đồ dưới 1 triệu thêm 10k, đồ trên 1 triệu thêm 30k
+                // Thêm 1 ngày: đồ dưới 1 triệu thêm 10k, đồ trên 1 triệu thêm 30k. RIÊNG ÁO DÀI thêm 1 ngày +20k
                 const startDay = new Date(dtStart.getFullYear(), dtStart.getMonth(), dtStart.getDate());
                 const endDay = new Date(dtEnd.getFullYear(), dtEnd.getMonth(), dtEnd.getDate());
                 const calendarDays = Math.round((endDay - startDay) / 86400000);
@@ -5263,7 +5402,8 @@
                 rentalType = `${days} ngày${isCostume ? ' (trả trước 20:00)' : ''}`;
 
                 const baseP = Number(target.price_24h) || 0;
-                const extraPerDay = baseP >= 1000000 ? 30000 : 10000;
+                const isAoDai = isAoDaiItem(target);
+                const extraPerDay = isAoDai ? 20000 : (baseP >= 1000000 ? 30000 : 10000);
                 if (days <= 1) {
                     rentalPrice = baseP;
                 } else {
@@ -5756,7 +5896,8 @@
                 itm.days = Math.max(1.0, d);
                 const isCam = isCameraItem(itm);
                 if (!isCam) {
-                    const extraRate = (itm.price_24h >= 1000000) ? 30000 : 10000;
+                    const isAoDai = isAoDaiItem(itm);
+                    const extraRate = isAoDai ? 20000 : ((itm.price_24h >= 1000000) ? 30000 : 10000);
                     itm.calculated_price = itm.price_24h + Math.round((itm.days - 1) * extraRate);
                 } else {
                     itm.calculated_price = Math.round(itm.days * itm.price_24h);
@@ -6245,12 +6386,13 @@
                 }
             }
 
-            // Cập nhật lại giá từng món theo ngày thuê mới (thêm 1 ngày = +10k, máy ảnh tính theo ngày)
+            // Cập nhật lại giá từng món theo ngày thuê mới (thêm 1 ngày = +10k, riêng áo dài = +20k, máy ảnh tính theo ngày)
             activeInv.items.forEach(it => {
                 const isCam = isCameraItem(it);
                 it.days = days;
                 if (!isCam) {
-                    const extraRate = (it.price_24h >= 1000000) ? 30000 : 10000;
+                    const isAoDai = isAoDaiItem(it);
+                    const extraRate = isAoDai ? 20000 : ((it.price_24h >= 1000000) ? 30000 : 10000);
                     it.price = it.price_24h + Math.round((days - 1) * extraRate);
                 } else {
                     it.price = Math.round(days * it.price_24h);

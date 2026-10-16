@@ -1092,12 +1092,19 @@ def is_camera_body_item(item_category: Optional[str] = None, item_name: Optional
     return True
 
 
+def is_ao_dai_item(item_category: Optional[str] = None, item_name: Optional[str] = None, subcategory: Optional[str] = None, brand: Optional[str] = None) -> bool:
+    """Kiểm tra sản phẩm có phải Áo Dài hay không (Áo dài hạn chế thuê dài ngày, thêm 1 ngày +20.000đ)."""
+    combined = f"{item_name or ''} {subcategory or ''} {brand or ''}".lower()
+    return any(k in combined for k in ["ao dai", "ao_dai", "aodai", "áo dài"])
+
+
 def calculate_rental_metrics(start_iso: str, end_iso: str, price_4h: int, price_8h: int, price_24h: int,
                               item_category: Optional[str] = None, item_name: Optional[str] = None, subcategory: Optional[str] = None):
     """
     Tính toán thời lượng thuê theo ca (4h/8h) hoặc block ngày (24h) và giá tiền.
     - Máy ảnh (CAMERA_GEAR body/kit): tính theo ca 4h/8h hoặc ngày.
-    - Các mục khác (trang phục, lens, phụ kiện, gimbal...): chỉ tính theo ngày (tối thiểu 1 ngày).
+    - Áo dài: hạn chế thuê dài ngày, thêm 1 ngày = +20.000đ.
+    - Các mục trang phục khác: thêm 1 ngày = +10.000đ (hoặc +30.000đ nếu đồ >= 1tr).
     """
     try:
         dt_start = datetime.datetime.fromisoformat(start_iso.replace("Z", ""))
@@ -1112,6 +1119,7 @@ def calculate_rental_metrics(start_iso: str, end_iso: str, price_4h: int, price_
 
     hours = diff_seconds / 3600.0
     is_costume = item_category == "COSTUME_FASHION"
+    is_ad = is_ao_dai_item(item_category, item_name, subcategory)
 
     if is_costume:
         # TRANG PHỤC: 1 ngày = nhận hôm nay, trả trước 20:00 ngày hôm sau
@@ -1126,9 +1134,13 @@ def calculate_rental_metrics(start_iso: str, end_iso: str, price_4h: int, price_
         rental_type = f"{int(days) if days.is_integer() else days} ngày (trả trước 20:00)"
         rental_days = days
 
-        # QUY TẮC GIÁ MỚI: Thêm 1 ngày là thêm 10.000đ (hoặc 30.000đ nếu đồ >= 1 triệu)
         extra_days = max(0.0, days - 1.0)
-        extra_rate = 30000 if price_24h >= 1000000 else 10000
+        # QUY TẮC: Áo dài thêm 1 ngày +20.000đ. Trang phục khác: đồ >= 1tr thêm 30k, dưới 1tr thêm 10k
+        if is_ad:
+            extra_rate = 20000
+        else:
+            extra_rate = 30000 if price_24h >= 1000000 else 10000
+
         total_price = int(price_24h + extra_days * extra_rate)
         return rental_type, hours, rental_days, total_price, dt_start, dt_end_effective
 
@@ -1139,7 +1151,11 @@ def calculate_rental_metrics(start_iso: str, end_iso: str, price_4h: int, price_
         rental_days = days
 
         extra_days = max(0.0, days - 1.0)
-        extra_rate = 30000 if price_24h >= 1000000 else 10000
+        if is_ad:
+            extra_rate = 20000
+        else:
+            extra_rate = 30000 if price_24h >= 1000000 else 10000
+
         total_price = int(price_24h + extra_days * extra_rate)
         return rental_type, hours, rental_days, total_price, dt_start, dt_end
 
@@ -3030,7 +3046,8 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
                 it_price = int(d_cnt * price_24h * mult)
         elif not is_cam and item_req.rental_type == "multi_days":
             d_cnt = max(1.0, float(item_req.days or 1.0))
-            extra_rate = 30000 if price_24h >= 1000000 else 10000
+            is_ad = is_ao_dai_item(cat, name, (item["subcategory"] if item else None), (item["brand"] if item else None))
+            extra_rate = 20000 if is_ad else (30000 if price_24h >= 1000000 else 10000)
             r_type = f"{d_cnt:g} ngày"; hours = d_cnt * 24.0; r_days = d_cnt
             it_price = int(price_24h + max(0.0, d_cnt - 1.0) * extra_rate)
 
