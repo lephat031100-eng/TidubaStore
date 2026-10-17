@@ -3948,9 +3948,16 @@ def customer_reschedule_rental(rental_id: int, req: RescheduleRentalRequest, use
     return {"success": True, "message": f"🎉 Đã dời lịch sang {req.new_start_time} ➔ {req.new_end_time} hoàn toàn MIỄN PHÍ!"}
 
 
+class CancelRentalWithPenaltyRequest(BaseModel):
+    bank_name: Optional[str] = ""
+    account_no: Optional[str] = ""
+    account_name: Optional[str] = ""
+    reason: Optional[str] = "Khách hủy lịch"
+
+
 @app.post("/api/rentals/{rental_id}/cancel_with_penalty")
-def customer_cancel_with_penalty(rental_id: int, user: Optional[Dict[str, Any]] = Depends(get_current_user)):
-    """Khách hủy lịch thuê - Giữ lại 50% số tiền cọc/thuê theo quy định, hoàn lại 50%."""
+def customer_cancel_with_penalty(rental_id: int, req: Optional[CancelRentalWithPenaltyRequest] = None, user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+    """Khách hủy lịch thuê - Giữ lại 50% số tiền cọc/thuê theo quy định, hoàn lại 50% về STK ngân hàng khách nhập."""
     if not user:
         raise HTTPException(status_code=401, detail="Vui lòng đăng nhập để hủy lịch!")
     conn = get_db()
@@ -3970,15 +3977,35 @@ def customer_cancel_with_penalty(rental_id: int, user: Optional[Dict[str, Any]] 
     penalty_50 = int(round(total_amount * 0.5))
     refund_50 = total_amount - penalty_50
 
+    b_name = (req.bank_name if req else "") or ""
+    b_stk = (req.account_no if req else "") or ""
+    b_owner = (req.account_name if req else "") or ""
+    bank_info = f"{b_name} - STK: {b_stk} - {b_owner}".strip() if b_stk else ""
+
     note = f" | Khách hủy lịch: Giữ lại 50% phí ({penalty_50:,}đ), hoàn 50% ({refund_50:,}đ)"
+    if bank_info:
+        note += f" về STK: {bank_info}"
+
     cur.execute("""
         UPDATE rentals 
-        SET status = 'CANCELLED', customer_notes = COALESCE(customer_notes, '') || ?
+        SET status = 'CANCELLED',
+            refund_bank_info = COALESCE(NULLIF(?, ''), refund_bank_info),
+            customer_notes = COALESCE(customer_notes, '') || ?
         WHERE id = ?
-    """, (note, rental_id))
+    """, (bank_info, note, rental_id))
     conn.commit()
     sync_items_availability(conn)
     conn.close()
+
+    bank_detail_msg = ""
+    if b_stk:
+        bank_detail_msg = (
+            f"💳 <b>THÔNG TIN HOÀN TIỀN (50%):</b>\n"
+            f"   • Ngân hàng: <b>{b_name}</b>\n"
+            f"   • Số tài khoản: <code>{b_stk}</code>\n"
+            f"   • Chủ tài khoản: <b>{b_owner.upper()}</b>\n"
+            f"   • Số tiền cần chuyển hoàn: <b>{refund_50:,}đ</b>\n"
+        )
 
     msg = (
         f"<b>⚠️ [HỦY LỊCH THUÊ] KHÁCH ĐÃ HỦY ĐƠN (PHẠT 50%)!</b>\n"
@@ -3988,6 +4015,7 @@ def customer_cancel_with_penalty(rental_id: int, user: Optional[Dict[str, Any]] 
         f"💵 <b>Tổng tiền đơn:</b> {total_amount:,}đ\n"
         f"💸 <b>Phí phạt giữ lại (50%):</b> <b>{penalty_50:,}đ</b>\n"
         f"💰 <b>Số tiền hoàn lại cho khách (50%):</b> <b>{refund_50:,}đ</b>\n"
+        f"{bank_detail_msg}"
         f"🔓 <i>Thiết bị đã được tự động nhả về trạng thái SẴN SÀNG cho khách khác thuê.</i>\n"
         f"━━━━━━━━━━━━━━━━━━"
     )
@@ -3995,9 +4023,10 @@ def customer_cancel_with_penalty(rental_id: int, user: Optional[Dict[str, Any]] 
 
     return {
         "success": True,
-        "message": f"Đã hủy đơn thành công! Theo quy định, cửa hàng giữ lại 50% phí ({penalty_50:,}đ) và hoàn lại 50% ({refund_50:,}đ) cho bạn.",
+        "message": f"Đã hủy đơn thành công! Theo quy định, cửa hàng giữ lại 50% phí ({penalty_50:,}đ) và sẽ hoàn lại 50% ({refund_50:,}đ) về tài khoản ngân hàng của bạn.",
         "penalty_amount": penalty_50,
-        "refund_amount": refund_50
+        "refund_amount": refund_50,
+        "bank_info": bank_info
     }
 
 
