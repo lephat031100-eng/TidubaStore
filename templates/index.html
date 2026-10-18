@@ -542,7 +542,31 @@
                 </div>
             </div>
 
-            <!-- Admin Key Metrics -->
+            <!-- ============================================================== -->
+            <!-- ADMIN MASTER SUB-NAV TABS (5 PHÂN HỆ QUẢN TRỊ SANG TRỌNG & GỌN GÀNG) -->
+            <!-- ============================================================== -->
+            <div class="bg-slate-900 border border-slate-700/80 rounded-2xl p-1.5 flex items-center gap-1.5 overflow-x-auto no-scrollbar shadow-xl text-xs font-mono">
+                <button type="button" onclick="switchAdminMainTab('overview')" id="adm-tab-btn-overview" class="flex-1 min-w-[160px] py-2.5 px-3 rounded-xl font-black text-xs transition flex items-center justify-center gap-2 whitespace-nowrap bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/80 border border-purple-400">
+                    <i class="fa-solid fa-chart-pie"></i> <span>1. Tổng Quan & Lịch</span>
+                </button>
+                <button type="button" onclick="switchAdminMainTab('rentals')" id="adm-tab-btn-rentals" class="flex-1 min-w-[160px] py-2.5 px-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 whitespace-nowrap text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent">
+                    <i class="fa-solid fa-file-invoice"></i> <span>2. Quản Lý Đơn Thuê</span>
+                </button>
+                <button type="button" onclick="switchAdminMainTab('inventory')" id="adm-tab-btn-inventory" class="flex-1 min-w-[160px] py-2.5 px-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 whitespace-nowrap text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent">
+                    <i class="fa-solid fa-boxes-stacked"></i> <span>3. Kho Hàng (1.045 Món)</span>
+                </button>
+                <button type="button" onclick="switchAdminMainTab('crm')" id="adm-tab-btn-crm" class="flex-1 min-w-[160px] py-2.5 px-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 whitespace-nowrap text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent">
+                    <i class="fa-solid fa-users"></i> <span>4. Khách Hàng CRM</span>
+                </button>
+                <button type="button" onclick="switchAdminMainTab('settings')" id="adm-tab-btn-settings" class="flex-1 min-w-[160px] py-2.5 px-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 whitespace-nowrap text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent">
+                    <i class="fa-solid fa-sliders"></i> <span>5. Cài Đặt & Kết Nối</span>
+                </button>
+            </div>
+
+
+            <!-- PANE 1: TỔNG QUAN, BÁO CÁO & LỊCH THUÊ THEO TUẦN / GIỜ -->
+            <div id="adm-pane-overview" class="space-y-6">
+                <!-- Admin Key Metrics -->
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
                 <div class="luxury-card p-4 rounded-xl space-y-1">
                     <div class="text-gray-400">Doanh Thu Đã Thu</div>
@@ -561,107 +585,7 @@
                     <div class="text-xl font-black text-rose-400" id="adm-overdue-rentals">0</div>
                 </div>
             </div>
-
-            <!-- Revenue 7 Days Analytics Chart Bar -->
-            <div class="bg-gray-950 rounded-2xl p-5 border border-gray-800 space-y-3 shadow-sm">
-                <div class="flex items-center justify-between text-xs font-mono">
-                    <h4 class="text-sm font-bold text-amber-400 flex items-center gap-2">
-                        <i class="fa-solid fa-chart-simple text-amber-400"></i> BIỂU ĐỒ DOANH THU THỰC TẾ 7 NGÀY GẦN NHẤT
-                    </h4>
-                    <span class="text-emerald-400 font-bold">MBBank 0123006101998</span>
-                </div>
-                <div id="adm-revenue-bars" class="grid grid-cols-7 gap-2 pt-2 items-end h-28 text-center text-[10px] font-mono">
-                    <!-- Javascript renders revenue bars -->
-                </div>
-            </div>
-
-            <!-- LIVE TELEGRAM AUTOMATION HEALTH & DIAGNOSTICS CONSOLE -->
-            <div class="bg-gray-950 rounded-2xl p-5 border border-sky-800/60 space-y-3.5 shadow-xl text-xs font-mono text-white">
-                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-gray-800 pb-3">
-                    <div class="flex items-center gap-2">
-                        <span class="w-8 h-8 rounded-xl bg-sky-950 text-sky-400 border border-sky-600 flex items-center justify-center text-sm font-bold">
-                            <i class="fa-brands fa-telegram"></i>
-                        </span>
-                        <div>
-                            <h4 class="text-sm font-bold text-sky-300">TRẠNG THÁI TỰ ĐỘNG TELEGRAM & HỆ THỐNG (LIVE HEALTH CONSOLE)</h4>
-                            <p class="text-[11px] text-gray-400">Giờ máy chủ GMT+7, kết nối 3 Group và luồng ngầm tự động 24/7</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-gray-400 text-[11px]">🕒 Giờ máy chủ:</span>
-                        <strong class="text-amber-300 font-bold text-xs" id="health-server-time">--:--:--</strong>
-                        <button onclick="fetchSystemHealth()" class="text-sky-400 hover:underline text-[11px] ml-1"><i class="fa-solid fa-rotate"></i> Tải lại</button>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <!-- Card Group 1 -->
-                    <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-800 space-y-2">
-                        <div class="flex justify-between items-center font-bold">
-                            <span class="text-cyan-300">Group 1: Đơn & Tiền</span>
-                            <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">HOẠT ĐỘNG</span>
-                        </div>
-                        <div class="text-[11px] text-gray-400 truncate">ID: <code class="text-white" id="health-chat-id-main">-5368352616</code></div>
-                        <div class="text-[10px] text-gray-400 leading-tight">Nhận thông báo khi khách chuyển khoản, có 3 nút: Duyệt / Hủy / Hết đồ.</div>
-                        <button onclick="testTelegramNotify()" class="w-full bg-gray-800 hover:bg-gray-700 text-cyan-300 py-1.5 rounded-lg text-[11px] font-bold transition">
-                            <i class="fa-solid fa-paper-plane"></i> Gửi Tin Test Group 1
-                        </button>
-                    </div>
-
-                    <!-- Card Group 2 -->
-                    <div class="bg-gray-900/80 p-3 rounded-xl border border-amber-900/60 space-y-2">
-                        <div class="flex justify-between items-center font-bold">
-                            <span class="text-amber-300">Group 2: Nhắc Hẹn & Quá Hạn</span>
-                            <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">HOẠT ĐỘNG</span>
-                        </div>
-                        <div class="text-[11px] text-gray-400 truncate">ID: <code class="text-amber-300" id="health-chat-id-overdue">-1004498214603</code></div>
-                        <div class="text-[10px] text-gray-400 leading-tight">Tự động nhắc trước 30p khách lấy đồ, nhắc trước 5-10p trả đồ và báo quá hạn.</div>
-                        <div class="flex gap-1.5">
-                            <button onclick="triggerOverdueAlertsCheck()" class="flex-1 bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-700 py-1.5 rounded-lg text-[10px] font-bold transition">
-                                <i class="fa-solid fa-bell"></i> Quét Ngay
-                            </button>
-                            <button onclick="testTelegramNotifyGroup2()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-amber-300 py-1.5 rounded-lg text-[10px] font-bold transition">
-                                <i class="fa-solid fa-paper-plane"></i> Test G2
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Card Group 3 -->
-                    <div class="bg-gray-900/80 p-3 rounded-xl border border-emerald-900/60 space-y-2">
-                        <div class="flex justify-between items-center font-bold">
-                            <span class="text-emerald-300">Group 3: Doanh Thu Ngày 21:00</span>
-                            <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">HOẠT ĐỘNG</span>
-                        </div>
-                        <div class="text-[11px] text-gray-400 truncate">ID: <code class="text-emerald-300" id="health-chat-id-revenue">-1003930707954</code></div>
-                        <div class="text-[10px] text-gray-400 leading-tight">Đúng 21:00 tối tự chốt sổ tổng bill, tổng tiền, cọc. Tự cập nhật nếu có trả đồ sau 21h.</div>
-                        <div class="flex gap-1.5">
-                            <button onclick="triggerDailyRevenueReportNow()" class="flex-1 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-700 py-1.5 rounded-lg text-[10px] font-bold transition">
-                                <i class="fa-solid fa-chart-pie"></i> Chốt Ngay
-                            </button>
-                            <button onclick="testTelegramNotifyGroup3()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-emerald-300 py-1.5 rounded-lg text-[10px] font-bold transition">
-                                <i class="fa-solid fa-paper-plane"></i> Test G3
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Status of Background Daemon Threads -->
-                <div class="p-2.5 bg-black/60 rounded-xl border border-gray-800 flex flex-wrap items-center justify-between gap-3 text-[11px]">
-                    <div class="flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                        <span class="text-gray-300 font-bold">Luồng ngầm 24/7:</span>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-3 text-gray-300">
-                        <span>⏰ Nhắc hẹn: <strong class="text-emerald-400" id="health-th-reminder">Đang chạy</strong></span>
-                        <span>•</span>
-                        <span>🤖 Nút Telegram: <strong class="text-emerald-400" id="health-th-bot">Đang chạy</strong></span>
-                        <span>•</span>
-                        <span>⚡ KeepAlive: <strong class="text-emerald-400" id="health-th-keepalive">Đang chạy</strong></span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Overdue Warnings Box (Danh sách đơn trễ hạn & sắp đến giờ trả) -->
+                <!-- Overdue Warnings Box (Danh sách đơn trễ hạn & sắp đến giờ trả) -->
             <div class="bg-gray-950 rounded-2xl p-6 border-l-4 border-l-rose-500 border border-gray-800 space-y-4 shadow-sm">
                 <h4 class="text-sm font-bold text-rose-400 uppercase tracking-wider flex items-center gap-2">
                     <i class="fa-solid fa-triangle-exclamation text-rose-400 pulse-warning"></i> BẢNG ĐIỀU KHIỂN CẢNH BÁO GIỜ TRẢ ĐỒ & PHẠT TRỄ HẠN
@@ -673,7 +597,19 @@
 
             <!-- ============================================================== -->
             <!-- ADMIN SCHEDULE TIMELINE & CALENDAR (LỊCH ĐẶT THEO GIỜ & THEO MÓN) -->
-            <!-- ============================================================== -->
+                <!-- Revenue 7 Days Analytics Chart Bar -->
+            <div class="bg-gray-950 rounded-2xl p-5 border border-gray-800 space-y-3 shadow-sm">
+                <div class="flex items-center justify-between text-xs font-mono">
+                    <h4 class="text-sm font-bold text-amber-400 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-simple text-amber-400"></i> BIỂU ĐỒ DOANH THU THỰC TẾ 7 NGÀY GẦN NHẤT
+                    </h4>
+                    <span class="text-emerald-400 font-bold">MBBank 0123006101998</span>
+                </div>
+                <div id="adm-revenue-bars" class="grid grid-cols-7 gap-2 pt-2 items-end h-28 text-center text-[10px] font-mono">
+                    <!-- Javascript renders revenue bars -->
+                </div>
+            </div>
+                <!-- ============================================================== -->
             <div id="admin-schedule-section" class="bg-gradient-to-b from-[#111827] to-[#0f172a] text-white rounded-2xl p-5 md:p-6 border border-purple-800/50 space-y-4 shadow-2xl">
                 <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 border-b border-gray-800 pb-4">
                     <div>
@@ -792,8 +728,12 @@
                     </div>
                 </div>
             </div>
+            </div>
 
-            <!-- Admin Rentals Management Table -->
+
+            <!-- PANE 2: QUẢN LÝ ĐƠN THUÊ TOÀN HỆ THỐNG -->
+            <div id="adm-pane-rentals" class="hidden space-y-6">
+                <!-- Admin Rentals Management Table -->
             <div class="bg-[#111827] text-white rounded-2xl p-6 border border-gray-700 space-y-4 shadow-xl">
                 <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-gray-800 pb-4">
                     <h4 class="text-base font-bold text-white flex items-center gap-2">
@@ -833,8 +773,304 @@
                     </table>
                 </div>
             </div>
+            </div>
 
-            <!-- Admin Telegram Bot Notification Config & Logs Section -->
+
+            <!-- PANE 3: KHO HÀNG & THIẾT BỊ 1.045 MÓN (TÌM KIẾM & THAO TÁC HÀNG LOẠT) -->
+            <div id="adm-pane-inventory" class="hidden space-y-6">
+                <!-- QUẢN LÝ THIẾT BỊ & TRANG PHỤC KHO HÀNG (THÊM / SỬA / HẠ / XÓA) -->
+            <!-- ============================================================== -->
+            <div class="bg-[#111827] text-white rounded-2xl p-6 border border-gray-700 space-y-4 shadow-xl">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-gray-700 pb-4">
+                    <div>
+                        <span class="text-xs font-mono bg-amber-950 text-amber-300 border border-amber-600 px-2.5 py-0.5 rounded font-bold uppercase">EQUIPMENT & COSTUMES INVENTORY</span>
+                        <h4 class="text-base font-bold text-amber-400 mt-1 flex items-center gap-2">
+                            <i class="fa-solid fa-boxes-stacked text-amber-400"></i> Quản Lý Thiết Bị & Trang Phục Cho Thuê
+                        </h4>
+                        <p class="text-xs text-gray-300 mt-0.5">Thêm máy mới, sửa ảnh/giá/album nhiều hình, hạ xuống (tạm ngưng), mở lại hoặc xóa hàng loạt.</p>
+                    </div>
+                    <button onclick="openAddItemModal()" class="bg-gradient-to-r from-amber-500 to-yellow-400 text-gray-950 font-black px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition">
+                        <i class="fa-solid fa-plus"></i> Thêm Thiết Bị / Trang Phục Mới
+                    </button>
+                </div>
+
+                <!-- THANH THAO TÁC HÀNG LOẠT (MỞ LẠI HẾT / HẠ XUỐNG HẾT / XỬ LÝ MỤC ĐÃ CHỌN) -->
+                <div class="bg-gray-950 p-3 rounded-xl border border-gray-800 flex flex-wrap items-center justify-between gap-2.5 text-xs font-mono">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-gray-400 text-[11px] font-bold">Thao tác toàn bộ kho:</span>
+                        <button type="button" onclick="adminBulkStatusAction('ALL_AVAILABLE')" class="bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-600 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 transition">
+                            <i class="fa-solid fa-arrow-up"></i> Mở Lại Tất Cả
+                        </button>
+                        <button type="button" onclick="adminBulkStatusAction('ALL_UNAVAILABLE')" class="bg-yellow-950 hover:bg-yellow-900 text-yellow-300 border border-yellow-700 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 transition">
+                            <i class="fa-solid fa-arrow-down"></i> Hạ Xuống Tất Cả
+                        </button>
+                        <button type="button" onclick="adminReclassifyAllKiotvietItems()" class="bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-600 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 transition" title="Tự động sửa toàn bộ sản phẩm KiotViet sang đúng nhóm Váy/Áo/Set/Máy ảnh trong 1 giây">
+                            <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> Phân Loại Lại Toàn Kho
+                        </button>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-gray-400 text-[11px] font-bold" id="adm-selected-count-label">Đã chọn: 0</span>
+                        <button type="button" onclick="adminBulkStatusAction('SET_AVAILABLE')" class="bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 transition">
+                            <i class="fa-solid fa-check"></i> Mở Đã Chọn
+                        </button>
+                        <button type="button" onclick="adminBulkStatusAction('SET_UNAVAILABLE')" class="bg-amber-950 hover:bg-amber-900 text-amber-300 border border-amber-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 transition">
+                            <i class="fa-solid fa-ban"></i> Hạ Đã Chọn
+                        </button>
+                        <button type="button" onclick="adminBulkStatusAction('SET_HIDDEN')" class="bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 transition" title="Ẩn hoàn toàn khỏi web khách">
+                            <i class="fa-solid fa-eye-slash"></i> Ẩn Đã Chọn
+                        </button>
+                        <button type="button" onclick="adminBulkStatusAction('SET_UNHIDDEN')" class="bg-teal-950 hover:bg-teal-900 text-teal-300 border border-teal-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 transition" title="Hiện lại lên web khách">
+                            <i class="fa-solid fa-eye"></i> Hiện Đã Chọn
+                        </button>
+                        <button type="button" onclick="adminBulkStatusAction('DELETE')" class="bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 transition">
+                            <i class="fa-solid fa-trash-can"></i> Xóa Đã Chọn
+                        </button>
+                    </div>
+                </div>
+
+                <!-- THANH TÌM KIẾM NHANH KHO DÀNH CHO ADMIN (YÊU CẦU 4) -->
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-gray-950 p-3 rounded-xl border border-gray-800 text-xs font-mono">
+                    <div class="relative flex-1">
+                        <input type="text" id="adm-item-search-kw" oninput="adminFilterInventoryTable()" placeholder="🔍 Tìm kiếm nhanh tên máy/váy, mã SP (SP0000xx), serial, thương hiệu, nhóm đồ..." class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3.5 py-2 text-white font-mono text-xs focus:outline-none focus:border-amber-500">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select id="adm-item-filter-avail" onchange="adminFilterInventoryTable()" class="bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-amber-500 cursor-pointer">
+                            <option value="ALL">Tất cả trạng thái kho</option>
+                            <option value="AVAILABLE">🟢 SẴN SÀNG</option>
+                            <option value="RENTED">🔴 ĐANG THUÊ</option>
+                            <option value="HIDDEN">🔒 ĐÃ ẨN KHỎI WEB</option>
+                            <option value="UNAVAILABLE">⚠️ TẠM NGƯNG</option>
+                        </select>
+                        <span class="text-amber-400 font-bold whitespace-nowrap text-[11px]" id="adm-inventory-filtered-count">-- món</span>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto custom-scroll">
+                    <table class="w-full text-left text-xs font-mono">
+                        <thead class="bg-gray-950 text-gray-300 uppercase text-[11px] border-b border-gray-700">
+                            <tr>
+                                <th class="p-3 w-8 text-center">
+                                    <input type="checkbox" id="adm-items-select-all" onchange="toggleSelectAllAdminItems(this)" class="rounded bg-gray-900 border-gray-700 text-amber-500">
+                                </th>
+                                <th class="p-3 text-cyan-300">Ảnh</th>
+                                <th class="p-3 text-white">Tên Sản Phẩm</th>
+                                <th class="p-3 text-amber-300">Phân Loại / Brand</th>
+                                <th class="p-3 text-emerald-400">Giá Thuê 24h</th>
+                                <th class="p-3 text-cyan-400">Album Ảnh</th>
+                                <th class="p-3 text-amber-400">Trạng Thái</th>
+                                <th class="p-3 text-right text-gray-300">Hành Động Admin</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adm-items-inventory-tbody" class="divide-y divide-gray-800/80 bg-[#111827]">
+                            <!-- Javascript nạp danh sách thiết bị -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ============================================================== -->
+            </div>
+
+
+            <!-- PANE 4: KHÁCH HÀNG CRM & DANH SÁCH ĐEN -->
+            <div id="adm-pane-crm" class="hidden space-y-6">
+                <!-- QUẢN LÝ KHÁCH HÀNG CRM (KIOTVIET STYLE CUSTOMER DIRECTORY)     -->
+            <!-- ============================================================== -->
+            <div class="bg-[#111827] text-white rounded-2xl p-6 border border-gray-700 space-y-4 shadow-xl">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-gray-700 pb-4">
+                    <div>
+                        <span class="text-xs font-mono bg-emerald-950 text-emerald-300 border border-emerald-600 px-2.5 py-0.5 rounded font-bold uppercase">KIOTVIET CRM CUSTOMERS</span>
+                        <h4 class="text-base font-bold text-emerald-400 mt-1 flex items-center gap-2">
+                            <i class="fa-solid fa-users text-emerald-400"></i> Quản Lý Danh Bạ Khách Hàng (Tích Hợp CRM)
+                        </h4>
+                        <p class="text-xs text-gray-300 mt-0.5">Lưu thông tin khách hàng, số điện thoại, CCCD, địa chỉ, tổng chi tiêu thuê đồ và lịch sử thuê.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 text-xs">
+                        <div class="relative">
+                            <input type="text" id="adm-customer-search-input" oninput="debounceFetchCustomers()" placeholder="Tìm tên, SĐT, CCCD..." class="bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-white font-mono text-xs focus:border-emerald-500 w-52">
+                        </div>
+                        <button onclick="openCreateCustomerModal()" class="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-950 transition">
+                            <i class="fa-solid fa-user-plus"></i> Thêm Khách Hàng
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto custom-scroll">
+                    <table class="w-full text-left text-xs font-mono">
+                        <thead class="bg-gray-950 text-gray-300 uppercase text-[11px] border-b border-gray-700">
+                            <tr>
+                                <th class="p-3 text-cyan-300">Khách Hàng</th>
+                                <th class="p-3 text-amber-300">Số Điện Thoại</th>
+                                <th class="p-3 text-white">Số CCCD</th>
+                                <th class="p-3 text-gray-300">Địa Chỉ</th>
+                                <th class="p-3 text-emerald-400">Tổng Tiền Thuê</th>
+                                <th class="p-3 text-purple-300">Số Lần Thuê</th>
+                                <th class="p-3 text-gray-400">Ghi Chú</th>
+                                <th class="p-3 text-right text-gray-300">Thao Tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adm-customers-tbody" class="divide-y divide-gray-800/80 bg-[#111827]">
+                            <!-- Javascript nạp danh sách khách hàng -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ============================================================== -->
+                <!-- QUẢN LÝ DANH SÁCH ĐEN (BLACKLIST KHÁCH HÀNG BÙNG CỌC / HỎNG ĐỒ) -->
+            <!-- ============================================================== -->
+            <div class="luxury-card rounded-2xl p-6 space-y-4 border border-rose-900/40">
+                <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                    <h4 class="text-base font-bold text-rose-400 flex items-center gap-2">
+                        <i class="fa-solid fa-user-slash text-rose-500"></i> Quản Lý Danh Sách Đen (Blacklist Chống Bùng Cọc & Hư Đồ)
+                    </h4>
+                    <span class="text-xs font-mono bg-rose-950 text-rose-300 border border-rose-700 px-2 py-0.5 rounded font-bold">SECURITY PROTECTION</span>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs font-mono">
+                    <!-- Form thêm Blacklist -->
+                    <div class="bg-gray-950 p-4 rounded-xl border border-gray-800 space-y-2.5">
+                        <div class="text-xs font-bold text-gray-200">Thêm đối tượng vào Danh Sách Đen:</div>
+                        <div>
+                            <label class="block text-gray-400 text-[10px] mb-0.5">Số điện thoại:</label>
+                            <input type="text" id="bl-input-phone" placeholder="vd: 0977xxxxxx" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-[10px] mb-0.5">Số CCCD / CMND:</label>
+                            <input type="text" id="bl-input-cccd" placeholder="vd: 079200xxxxxx" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-[10px] mb-0.5">Số tài khoản ngân hàng:</label>
+                            <input type="text" id="bl-input-bank" placeholder="vd: 0123456789 (MB)" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-gray-400 text-[10px] mb-0.5">Lý do đưa vào danh sách đen (*):</label>
+                            <input type="text" id="bl-input-reason" placeholder="vd: Làm rơi vỡ lens không đền, quá hạn không trả..." class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-rose-300">
+                        </div>
+                        <button onclick="submitAddBlacklist()" class="w-full bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-500 hover:to-red-600 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-rose-950">
+                            <i class="fa-solid fa-plus"></i> Thêm Vào Blacklist
+                        </button>
+                    </div>
+
+                    <!-- Bảng danh sách đen -->
+                    <div class="lg:col-span-2 bg-[#111827] p-4 rounded-xl border border-gray-700 flex flex-col justify-between">
+                        <div class="flex items-center justify-between pb-2 border-b border-gray-800">
+                            <span class="font-bold text-gray-300">Danh sách đối tượng bị chặn thuê tự động:</span>
+                            <button onclick="fetchAdminBlacklist()" class="text-rose-400 hover:underline text-[11px]">Tải lại</button>
+                        </div>
+                        <div class="overflow-x-auto custom-scroll max-h-64 mt-2">
+                            <table class="w-full text-left text-xs font-mono">
+                                <thead class="bg-gray-950 text-gray-400 text-[10px] uppercase">
+                                    <tr>
+                                        <th class="p-2">SĐT</th>
+                                        <th class="p-2">CCCD</th>
+                                        <th class="p-2">STK</th>
+                                        <th class="p-2">Lý Do</th>
+                                        <th class="p-2 text-right">Xóa</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adm-blacklist-tbody" class="divide-y divide-gray-800">
+                                    <!-- Javascript renders blacklist rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================== -->
+            </div>
+
+
+            <!-- PANE 5: CÀI ĐẶT & KẾT NỐI HỆ THỐNG -->
+            <div id="adm-pane-settings" class="hidden space-y-6">
+                <!-- LIVE TELEGRAM AUTOMATION HEALTH & DIAGNOSTICS CONSOLE -->
+            <div class="bg-gray-950 rounded-2xl p-5 border border-sky-800/60 space-y-3.5 shadow-xl text-xs font-mono text-white">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-gray-800 pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="w-8 h-8 rounded-xl bg-sky-950 text-sky-400 border border-sky-600 flex items-center justify-center text-sm font-bold">
+                            <i class="fa-brands fa-telegram"></i>
+                        </span>
+                        <div>
+                            <h4 class="text-sm font-bold text-sky-300">TRẠNG THÁI TỰ ĐỘNG TELEGRAM & HỆ THỐNG (LIVE HEALTH CONSOLE)</h4>
+                            <p class="text-[11px] text-gray-400">Giờ máy chủ GMT+7, kết nối 3 Group và luồng ngầm tự động 24/7</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-gray-400 text-[11px]">🕒 Giờ máy chủ:</span>
+                        <strong class="text-amber-300 font-bold text-xs" id="health-server-time">--:--:--</strong>
+                        <button onclick="fetchSystemHealth()" class="text-sky-400 hover:underline text-[11px] ml-1"><i class="fa-solid fa-rotate"></i> Tải lại</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <!-- Card Group 1 -->
+                    <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-800 space-y-2">
+                        <div class="flex justify-between items-center font-bold">
+                            <span class="text-cyan-300">Group 1: Đơn & Tiền</span>
+                            <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">HOẠT ĐỘNG</span>
+                        </div>
+                        <div class="text-[11px] text-gray-400 truncate">ID: <code class="text-white" id="health-chat-id-main">-5368352616</code></div>
+                        <div class="text-[10px] text-gray-400 leading-tight">Nhận thông báo khi khách chuyển khoản, có 3 nút: Duyệt / Hủy / Hết đồ.</div>
+                        <button onclick="testTelegramNotify()" class="w-full bg-gray-800 hover:bg-gray-700 text-cyan-300 py-1.5 rounded-lg text-[11px] font-bold transition">
+                            <i class="fa-solid fa-paper-plane"></i> Gửi Tin Test Group 1
+                        </button>
+                    </div>
+
+                    <!-- Card Group 2 -->
+                    <div class="bg-gray-900/80 p-3 rounded-xl border border-amber-900/60 space-y-2">
+                        <div class="flex justify-between items-center font-bold">
+                            <span class="text-amber-300">Group 2: Nhắc Hẹn & Quá Hạn</span>
+                            <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">HOẠT ĐỘNG</span>
+                        </div>
+                        <div class="text-[11px] text-gray-400 truncate">ID: <code class="text-amber-300" id="health-chat-id-overdue">-1004498214603</code></div>
+                        <div class="text-[10px] text-gray-400 leading-tight">Tự động nhắc trước 30p khách lấy đồ, nhắc trước 5-10p trả đồ và báo quá hạn.</div>
+                        <div class="flex gap-1.5">
+                            <button onclick="triggerOverdueAlertsCheck()" class="flex-1 bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-700 py-1.5 rounded-lg text-[10px] font-bold transition">
+                                <i class="fa-solid fa-bell"></i> Quét Ngay
+                            </button>
+                            <button onclick="testTelegramNotifyGroup2()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-amber-300 py-1.5 rounded-lg text-[10px] font-bold transition">
+                                <i class="fa-solid fa-paper-plane"></i> Test G2
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Card Group 3 -->
+                    <div class="bg-gray-900/80 p-3 rounded-xl border border-emerald-900/60 space-y-2">
+                        <div class="flex justify-between items-center font-bold">
+                            <span class="text-emerald-300">Group 3: Doanh Thu Ngày 21:00</span>
+                            <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">HOẠT ĐỘNG</span>
+                        </div>
+                        <div class="text-[11px] text-gray-400 truncate">ID: <code class="text-emerald-300" id="health-chat-id-revenue">-1003930707954</code></div>
+                        <div class="text-[10px] text-gray-400 leading-tight">Đúng 21:00 tối tự chốt sổ tổng bill, tổng tiền, cọc. Tự cập nhật nếu có trả đồ sau 21h.</div>
+                        <div class="flex gap-1.5">
+                            <button onclick="triggerDailyRevenueReportNow()" class="flex-1 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-700 py-1.5 rounded-lg text-[10px] font-bold transition">
+                                <i class="fa-solid fa-chart-pie"></i> Chốt Ngay
+                            </button>
+                            <button onclick="testTelegramNotifyGroup3()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-emerald-300 py-1.5 rounded-lg text-[10px] font-bold transition">
+                                <i class="fa-solid fa-paper-plane"></i> Test G3
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status of Background Daemon Threads -->
+                <div class="p-2.5 bg-black/60 rounded-xl border border-gray-800 flex flex-wrap items-center justify-between gap-3 text-[11px]">
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                        <span class="text-gray-300 font-bold">Luồng ngầm 24/7:</span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3 text-gray-300">
+                        <span>⏰ Nhắc hẹn: <strong class="text-emerald-400" id="health-th-reminder">Đang chạy</strong></span>
+                        <span>•</span>
+                        <span>🤖 Nút Telegram: <strong class="text-emerald-400" id="health-th-bot">Đang chạy</strong></span>
+                        <span>•</span>
+                        <span>⚡ KeepAlive: <strong class="text-emerald-400" id="health-th-keepalive">Đang chạy</strong></span>
+                    </div>
+                </div>
+            </div>
+                <!-- Admin Telegram Bot Notification Config & Logs Section -->
             <div class="luxury-card rounded-2xl p-6 space-y-4">
                 <div class="flex items-center justify-between border-b border-gray-800 pb-3">
                     <h4 class="text-base font-bold text-white flex items-center gap-2">
@@ -935,8 +1171,7 @@
                     </div>
                 </div>
             </div>
-
-            <!-- CẤU HÌNH GỬI EMAIL GMAIL SMTP (GỬI MÃ OTP THẬT VÀO HỘP THƯ GMAIL) -->
+                <!-- CẤU HÌNH GỬI EMAIL GMAIL SMTP (GỬI MÃ OTP THẬT VÀO HỘP THƯ GMAIL) -->
             <div class="luxury-card rounded-2xl p-6 space-y-4 border border-rose-900/40 bg-[#111827] text-white">
                 <div class="flex items-center justify-between border-b border-gray-800 pb-3">
                     <h4 class="text-base font-bold text-rose-400 flex items-center gap-2">
@@ -985,69 +1220,7 @@
             </div>
 
             <!-- ============================================================== -->
-            <!-- QUẢN LÝ DANH SÁCH ĐEN (BLACKLIST KHÁCH HÀNG BÙNG CỌC / HỎNG ĐỒ) -->
-            <!-- ============================================================== -->
-            <div class="luxury-card rounded-2xl p-6 space-y-4 border border-rose-900/40">
-                <div class="flex items-center justify-between border-b border-gray-800 pb-3">
-                    <h4 class="text-base font-bold text-rose-400 flex items-center gap-2">
-                        <i class="fa-solid fa-user-slash text-rose-500"></i> Quản Lý Danh Sách Đen (Blacklist Chống Bùng Cọc & Hư Đồ)
-                    </h4>
-                    <span class="text-xs font-mono bg-rose-950 text-rose-300 border border-rose-700 px-2 py-0.5 rounded font-bold">SECURITY PROTECTION</span>
-                </div>
-                
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs font-mono">
-                    <!-- Form thêm Blacklist -->
-                    <div class="bg-gray-950 p-4 rounded-xl border border-gray-800 space-y-2.5">
-                        <div class="text-xs font-bold text-gray-200">Thêm đối tượng vào Danh Sách Đen:</div>
-                        <div>
-                            <label class="block text-gray-400 text-[10px] mb-0.5">Số điện thoại:</label>
-                            <input type="text" id="bl-input-phone" placeholder="vd: 0977xxxxxx" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white">
-                        </div>
-                        <div>
-                            <label class="block text-gray-400 text-[10px] mb-0.5">Số CCCD / CMND:</label>
-                            <input type="text" id="bl-input-cccd" placeholder="vd: 079200xxxxxx" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white">
-                        </div>
-                        <div>
-                            <label class="block text-gray-400 text-[10px] mb-0.5">Số tài khoản ngân hàng:</label>
-                            <input type="text" id="bl-input-bank" placeholder="vd: 0123456789 (MB)" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-white">
-                        </div>
-                        <div>
-                            <label class="block text-gray-400 text-[10px] mb-0.5">Lý do đưa vào danh sách đen (*):</label>
-                            <input type="text" id="bl-input-reason" placeholder="vd: Làm rơi vỡ lens không đền, quá hạn không trả..." class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-rose-300">
-                        </div>
-                        <button onclick="submitAddBlacklist()" class="w-full bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-500 hover:to-red-600 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-rose-950">
-                            <i class="fa-solid fa-plus"></i> Thêm Vào Blacklist
-                        </button>
-                    </div>
-
-                    <!-- Bảng danh sách đen -->
-                    <div class="lg:col-span-2 bg-[#111827] p-4 rounded-xl border border-gray-700 flex flex-col justify-between">
-                        <div class="flex items-center justify-between pb-2 border-b border-gray-800">
-                            <span class="font-bold text-gray-300">Danh sách đối tượng bị chặn thuê tự động:</span>
-                            <button onclick="fetchAdminBlacklist()" class="text-rose-400 hover:underline text-[11px]">Tải lại</button>
-                        </div>
-                        <div class="overflow-x-auto custom-scroll max-h-64 mt-2">
-                            <table class="w-full text-left text-xs font-mono">
-                                <thead class="bg-gray-950 text-gray-400 text-[10px] uppercase">
-                                    <tr>
-                                        <th class="p-2">SĐT</th>
-                                        <th class="p-2">CCCD</th>
-                                        <th class="p-2">STK</th>
-                                        <th class="p-2">Lý Do</th>
-                                        <th class="p-2 text-right">Xóa</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="adm-blacklist-tbody" class="divide-y divide-gray-800">
-                                    <!-- Javascript renders blacklist rows -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ============================================================== -->
-            <!-- QUẢN LÝ BỘ NHỚ LƯU TRỮ SQLite (.db) VÀ SAO LƯU DỮ LIỆU ĐỘC LẬP -->
+                <!-- QUẢN LÝ BỘ NHỚ LƯU TRỮ SQLite (.db) VÀ SAO LƯU DỮ LIỆU ĐỘC LẬP -->
             <!-- ============================================================== -->
             <div class="luxury-card rounded-2xl p-6 space-y-4 border border-blue-900/40 bg-[#0f172a] text-white">
                 <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-gray-800 pb-3">
@@ -1103,142 +1276,7 @@
             </div>
 
             <!-- ============================================================== -->
-            <!-- QUẢN LÝ THIẾT BỊ & TRANG PHỤC KHO HÀNG (THÊM / SỬA / HẠ / XÓA) -->
-            <!-- ============================================================== -->
-            <div class="bg-[#111827] text-white rounded-2xl p-6 border border-gray-700 space-y-4 shadow-xl">
-                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-gray-700 pb-4">
-                    <div>
-                        <span class="text-xs font-mono bg-amber-950 text-amber-300 border border-amber-600 px-2.5 py-0.5 rounded font-bold uppercase">EQUIPMENT & COSTUMES INVENTORY</span>
-                        <h4 class="text-base font-bold text-amber-400 mt-1 flex items-center gap-2">
-                            <i class="fa-solid fa-boxes-stacked text-amber-400"></i> Quản Lý Thiết Bị & Trang Phục Cho Thuê
-                        </h4>
-                        <p class="text-xs text-gray-300 mt-0.5">Thêm máy mới, sửa ảnh/giá/album nhiều hình, hạ xuống (tạm ngưng), mở lại hoặc xóa hàng loạt.</p>
-                    </div>
-                    <button onclick="openAddItemModal()" class="bg-gradient-to-r from-amber-500 to-yellow-400 text-gray-950 font-black px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition">
-                        <i class="fa-solid fa-plus"></i> Thêm Thiết Bị / Trang Phục Mới
-                    </button>
-                </div>
-
-                <!-- THANH THAO TÁC HÀNG LOẠT (MỞ LẠI HẾT / HẠ XUỐNG HẾT / XỬ LÝ MỤC ĐÃ CHỌN) -->
-                <div class="bg-gray-950 p-3 rounded-xl border border-gray-800 flex flex-wrap items-center justify-between gap-2.5 text-xs font-mono">
-                    <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-gray-400 text-[11px] font-bold">Thao tác toàn bộ kho:</span>
-                        <button type="button" onclick="adminBulkStatusAction('ALL_AVAILABLE')" class="bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-600 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 transition">
-                            <i class="fa-solid fa-arrow-up"></i> Mở Lại Tất Cả
-                        </button>
-                        <button type="button" onclick="adminBulkStatusAction('ALL_UNAVAILABLE')" class="bg-yellow-950 hover:bg-yellow-900 text-yellow-300 border border-yellow-700 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 transition">
-                            <i class="fa-solid fa-arrow-down"></i> Hạ Xuống Tất Cả
-                        </button>
-                        <button type="button" onclick="adminReclassifyAllKiotvietItems()" class="bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-600 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 transition" title="Tự động sửa toàn bộ sản phẩm KiotViet sang đúng nhóm Váy/Áo/Set/Máy ảnh trong 1 giây">
-                            <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> Phân Loại Lại Toàn Kho
-                        </button>
-                    </div>
-
-                    <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-gray-400 text-[11px] font-bold" id="adm-selected-count-label">Đã chọn: 0</span>
-                        <button type="button" onclick="adminBulkStatusAction('SET_AVAILABLE')" class="bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 transition">
-                            <i class="fa-solid fa-check"></i> Mở Đã Chọn
-                        </button>
-                        <button type="button" onclick="adminBulkStatusAction('SET_UNAVAILABLE')" class="bg-amber-950 hover:bg-amber-900 text-amber-300 border border-amber-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 transition">
-                            <i class="fa-solid fa-ban"></i> Hạ Đã Chọn
-                        </button>
-                        <button type="button" onclick="adminBulkStatusAction('SET_HIDDEN')" class="bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 transition" title="Ẩn hoàn toàn khỏi web khách">
-                            <i class="fa-solid fa-eye-slash"></i> Ẩn Đã Chọn
-                        </button>
-                        <button type="button" onclick="adminBulkStatusAction('SET_UNHIDDEN')" class="bg-teal-950 hover:bg-teal-900 text-teal-300 border border-teal-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 transition" title="Hiện lại lên web khách">
-                            <i class="fa-solid fa-eye"></i> Hiện Đã Chọn
-                        </button>
-                        <button type="button" onclick="adminBulkStatusAction('DELETE')" class="bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 transition">
-                            <i class="fa-solid fa-trash-can"></i> Xóa Đã Chọn
-                        </button>
-                    </div>
-                </div>
-
-                <!-- THANH TÌM KIẾM NHANH KHO DÀNH CHO ADMIN (YÊU CẦU 4) -->
-                <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-gray-950 p-3 rounded-xl border border-gray-800 text-xs font-mono">
-                    <div class="relative flex-1">
-                        <input type="text" id="adm-item-search-kw" oninput="adminFilterInventoryTable()" placeholder="🔍 Tìm kiếm nhanh tên máy/váy, mã SP (SP0000xx), serial, thương hiệu, nhóm đồ..." class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3.5 py-2 text-white font-mono text-xs focus:outline-none focus:border-amber-500">
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <select id="adm-item-filter-avail" onchange="adminFilterInventoryTable()" class="bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-amber-500 cursor-pointer">
-                            <option value="ALL">Tất cả trạng thái kho</option>
-                            <option value="AVAILABLE">🟢 SẴN SÀNG</option>
-                            <option value="RENTED">🔴 ĐANG THUÊ</option>
-                            <option value="HIDDEN">🔒 ĐÃ ẨN KHỎI WEB</option>
-                            <option value="UNAVAILABLE">⚠️ TẠM NGƯNG</option>
-                        </select>
-                        <span class="text-amber-400 font-bold whitespace-nowrap text-[11px]" id="adm-inventory-filtered-count">-- món</span>
-                    </div>
-                </div>
-
-                <div class="overflow-x-auto custom-scroll">
-                    <table class="w-full text-left text-xs font-mono">
-                        <thead class="bg-gray-950 text-gray-300 uppercase text-[11px] border-b border-gray-700">
-                            <tr>
-                                <th class="p-3 w-8 text-center">
-                                    <input type="checkbox" id="adm-items-select-all" onchange="toggleSelectAllAdminItems(this)" class="rounded bg-gray-900 border-gray-700 text-amber-500">
-                                </th>
-                                <th class="p-3 text-cyan-300">Ảnh</th>
-                                <th class="p-3 text-white">Tên Sản Phẩm</th>
-                                <th class="p-3 text-amber-300">Phân Loại / Brand</th>
-                                <th class="p-3 text-emerald-400">Giá Thuê 24h</th>
-                                <th class="p-3 text-cyan-400">Album Ảnh</th>
-                                <th class="p-3 text-amber-400">Trạng Thái</th>
-                                <th class="p-3 text-right text-gray-300">Hành Động Admin</th>
-                            </tr>
-                        </thead>
-                        <tbody id="adm-items-inventory-tbody" class="divide-y divide-gray-800/80 bg-[#111827]">
-                            <!-- Javascript nạp danh sách thiết bị -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- ============================================================== -->
-            <!-- QUẢN LÝ KHÁCH HÀNG CRM (KIOTVIET STYLE CUSTOMER DIRECTORY)     -->
-            <!-- ============================================================== -->
-            <div class="bg-[#111827] text-white rounded-2xl p-6 border border-gray-700 space-y-4 shadow-xl">
-                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-gray-700 pb-4">
-                    <div>
-                        <span class="text-xs font-mono bg-emerald-950 text-emerald-300 border border-emerald-600 px-2.5 py-0.5 rounded font-bold uppercase">KIOTVIET CRM CUSTOMERS</span>
-                        <h4 class="text-base font-bold text-emerald-400 mt-1 flex items-center gap-2">
-                            <i class="fa-solid fa-users text-emerald-400"></i> Quản Lý Danh Bạ Khách Hàng (Tích Hợp CRM)
-                        </h4>
-                        <p class="text-xs text-gray-300 mt-0.5">Lưu thông tin khách hàng, số điện thoại, CCCD, địa chỉ, tổng chi tiêu thuê đồ và lịch sử thuê.</p>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-2 text-xs">
-                        <div class="relative">
-                            <input type="text" id="adm-customer-search-input" oninput="debounceFetchCustomers()" placeholder="Tìm tên, SĐT, CCCD..." class="bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-white font-mono text-xs focus:border-emerald-500 w-52">
-                        </div>
-                        <button onclick="openCreateCustomerModal()" class="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-950 transition">
-                            <i class="fa-solid fa-user-plus"></i> Thêm Khách Hàng
-                        </button>
-                    </div>
-                </div>
-
-                <div class="overflow-x-auto custom-scroll">
-                    <table class="w-full text-left text-xs font-mono">
-                        <thead class="bg-gray-950 text-gray-300 uppercase text-[11px] border-b border-gray-700">
-                            <tr>
-                                <th class="p-3 text-cyan-300">Khách Hàng</th>
-                                <th class="p-3 text-amber-300">Số Điện Thoại</th>
-                                <th class="p-3 text-white">Số CCCD</th>
-                                <th class="p-3 text-gray-300">Địa Chỉ</th>
-                                <th class="p-3 text-emerald-400">Tổng Tiền Thuê</th>
-                                <th class="p-3 text-purple-300">Số Lần Thuê</th>
-                                <th class="p-3 text-gray-400">Ghi Chú</th>
-                                <th class="p-3 text-right text-gray-300">Thao Tác</th>
-                            </tr>
-                        </thead>
-                        <tbody id="adm-customers-tbody" class="divide-y divide-gray-800/80 bg-[#111827]">
-                            <!-- Javascript nạp danh sách khách hàng -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- ============================================================== -->
-            <!-- CHỈNH SỬA TOÀN BỘ WEBSITE TRỰC TIẾP (KHÔNG CẦN VÀO APP CODE)   -->
+                <!-- CHỈNH SỬA TOÀN BỘ WEBSITE TRỰC TIẾP (KHÔNG CẦN VÀO APP CODE)   -->
             <!-- ============================================================== -->
             <div class="bg-[#111827] text-white rounded-2xl p-6 border border-gray-700 space-y-4 shadow-xl">
                 <div class="flex items-center justify-between border-b border-gray-700 pb-3">
@@ -1294,7 +1332,7 @@
             </div>
 
             <!-- ============================================================== -->
-            <!-- QUẢN LÝ THƯ MỤC / BỘ LỌC CHIP (THÊM / XÓA / SỬA CATEGORY CHIP) -->
+                <!-- QUẢN LÝ THƯ MỤC / BỘ LỌC CHIP (THÊM / XÓA / SỬA CATEGORY CHIP) -->
             <!-- ============================================================== -->
             <div class="bg-[#111827] text-white rounded-2xl p-6 border border-gray-700 space-y-4 shadow-xl">
                 <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-gray-700 pb-4">
@@ -1328,6 +1366,8 @@
                     </table>
                 </div>
             </div>
+            </div>
+
         </section>
 
         <!-- ============================================================== -->
@@ -3452,7 +3492,12 @@
                 }
             });
             if (secName === 'my-rentals') fetchMyRentals();
-            if (secName === 'admin') fetchAdminDashboard();
+            if (secName === 'admin') {
+                if (typeof switchAdminMainTab === 'function') {
+                    switchAdminMainTab(currentAdminActiveTab);
+                }
+                fetchAdminDashboard();
+            }
             if (secName === 'kiotviet-pos') initKiotvietPos();
         }
 
@@ -9013,9 +9058,14 @@
 
         function openAdminScheduleModal() {
             showSection('admin');
+            if (typeof switchAdminMainTab === 'function') {
+                switchAdminMainTab('overview');
+            }
             const schedSec = document.getElementById('admin-schedule-section');
             if (schedSec) {
-                schedSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                setTimeout(() => {
+                    schedSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 50);
             }
             initAdminSchedulePicker();
             fetchAdminScheduleCalendar();
@@ -10688,6 +10738,50 @@
         function onCatalogSortChange(val) {
             catalogSortOrder = val;
             renderCatalog();
+        }
+
+        
+        // ==============================================================
+        // ADMIN DASHBOARD MASTER TABS CONTROLLER (5 PHÂN HỆ SANG TRỌNG)
+        // ==============================================================
+        let currentAdminActiveTab = localStorage.getItem('tiduba_admin_active_tab') || 'overview';
+
+        function switchAdminMainTab(tabKey) {
+            currentAdminActiveTab = tabKey;
+            localStorage.setItem('tiduba_admin_active_tab', tabKey);
+
+            const tabs = ['overview', 'rentals', 'inventory', 'crm', 'settings'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`adm-tab-btn-${t}`);
+                const pane = document.getElementById(`adm-pane-${t}`);
+                if (btn && pane) {
+                    if (t === tabKey) {
+                        btn.className = "flex-1 min-w-[160px] py-2.5 px-3 rounded-xl font-black text-xs transition flex items-center justify-center gap-2 whitespace-nowrap bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/80 border border-purple-400";
+                        pane.classList.remove('hidden');
+                    } else {
+                        btn.className = "flex-1 min-w-[160px] py-2.5 px-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 whitespace-nowrap text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent";
+                        pane.classList.add('hidden');
+                    }
+                }
+            });
+
+            if (tabKey === 'overview') {
+                fetchAdminScheduleCalendar();
+            } else if (tabKey === 'rentals') {
+                fetchAdminRentals();
+            } else if (tabKey === 'inventory') {
+                adminFilterInventoryTable();
+            } else if (tabKey === 'crm') {
+                fetchAdminCustomers();
+                fetchAdminBlacklist();
+            } else if (tabKey === 'settings') {
+                fetchTelegramConfig();
+                fetchSmtpConfig();
+                fetchAdminCategoriesList();
+                fetchSiteSettingsForm();
+                fetchDatabaseStorageStatus();
+                fetchSystemHealth();
+            }
         }
 
         fetchCatalog();
