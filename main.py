@@ -3899,6 +3899,9 @@ def customer_reschedule_rental(rental_id: int, req: RescheduleRentalRequest, use
     if user.get("role") != "admin" and r["user_id"] != user["id"]:
         conn.close()
         raise HTTPException(status_code=403, detail="Bạn không có quyền dời lịch cho đơn này!")
+    if r["status"] == "HOLD":
+        conn.close()
+        raise HTTPException(status_code=400, detail="Đơn hàng đang ở trạng thái 'Đang Chờ Admin Duyệt Tiền', vui lòng chờ Admin duyệt hoặc hoàn tất thanh toán trước khi dời lịch!")
     if r["status"] in ("RETURNED", "CANCELLED"):
         conn.close()
         raise HTTPException(status_code=400, detail="Đơn hàng đã hoàn tất hoặc đã hủy, không thể dời lịch!")
@@ -3969,6 +3972,12 @@ def customer_cancel_with_penalty(rental_id: int, req: Optional[CancelRentalWithP
     if user.get("role") != "admin" and r["user_id"] != user["id"]:
         conn.close()
         raise HTTPException(status_code=403, detail="Bạn không có quyền hủy đơn này!")
+    if r["status"] == "HOLD":
+        conn.close()
+        raise HTTPException(status_code=400, detail="Đơn hàng đang ở trạng thái 'Đang Chờ Admin Duyệt Tiền' (chưa thanh toán xong) nên không thể áp dụng hủy lịch hoàn tiền!")
+    if r["status"] != "ACTIVE":
+        conn.close()
+        raise HTTPException(status_code=400, detail="Chỉ đơn hàng đã được Admin xác nhận thanh toán (ACTIVE) mới được áp dụng chính sách hủy lịch!")
     if r["status"] in ("RETURNED", "CANCELLED"):
         conn.close()
         raise HTTPException(status_code=400, detail="Đơn hàng đã hoàn tất hoặc đã được hủy trước đó!")

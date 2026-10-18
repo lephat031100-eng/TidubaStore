@@ -118,15 +118,15 @@
             padding-bottom: env(safe-area-inset-bottom, 16px);
         }
 
-        /* CHUẨN IN HÓA ĐƠN NHIỆT K80 (KIOTVIET STYLE ĐẬM NÉT ĐEN TUYỀN, IN ĐÚNG 1 TRANG KHÔNG RỖNG) */
+        /* CHUẨN IN HÓA ĐƠN NHIỆT K80 (KHỔ 80/72.1mm - KHÔNG PHÓNG TO, IN ĐÚNG 1 TRANG VỪA KHÍT) */
         @media print {
             @page {
                 size: 80mm auto;
                 margin: 0mm;
             }
             html, body {
-                width: 100% !important;
-                max-width: 80mm !important;
+                width: 68mm !important;
+                max-width: 68mm !important;
                 margin: 0 auto !important;
                 padding: 0 !important;
                 background: #ffffff !important;
@@ -141,8 +141,8 @@
             #k80-modal {
                 display: block !important;
                 position: static !important;
-                width: 100% !important;
-                max-width: 80mm !important;
+                width: 68mm !important;
+                max-width: 68mm !important;
                 min-height: 0 !important;
                 height: auto !important;
                 margin: 0 auto !important;
@@ -155,8 +155,8 @@
             #k80-modal-box {
                 display: block !important;
                 position: static !important;
-                width: 100% !important;
-                max-width: 80mm !important;
+                width: 68mm !important;
+                max-width: 68mm !important;
                 min-height: 0 !important;
                 height: auto !important;
                 margin: 0 auto !important;
@@ -168,18 +168,18 @@
             }
             #k80-printable-area {
                 display: block !important;
-                width: 100% !important;
-                max-width: 76mm !important;
+                width: 68mm !important;
+                max-width: 68mm !important;
                 margin: 0 auto !important;
-                padding: 1mm 2mm !important;
+                padding: 1.5mm 1mm !important;
                 border: none !important;
                 box-shadow: none !important;
                 color: #000000 !important;
                 background: #ffffff !important;
                 font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
-                font-size: 13px !important;
+                font-size: 10.5px !important;
                 font-weight: 700 !important;
-                line-height: 1.35 !important;
+                line-height: 1.3 !important;
                 box-sizing: border-box !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
@@ -189,8 +189,11 @@
                 font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
             }
             #k80-bill-qr-img {
-                width: 80px !important;
-                height: 80px !important;
+                width: 52px !important;
+                height: 52px !important;
+                max-width: 52px !important;
+                max-height: 52px !important;
+                display: block !important;
                 margin: 0 auto !important;
                 image-rendering: pixelated !important;
                 filter: contrast(300%) grayscale(100%) !important;
@@ -2150,10 +2153,10 @@
                             <span>Thanh Toán VietQR MBBank</span>
                             <span class="text-[10px] font-mono bg-cyan-950 text-cyan-300 border border-cyan-600 px-2 py-0.5 rounded-full font-bold">MB 24/7</span>
                         </h3>
-                        <p class="text-[11px] text-gray-400 font-mono" id="qr-modal-desc">Đơn thuê đang được khóa giữ trong 15 phút</p>
+                        <p class="text-[11px] text-gray-400 font-mono" id="qr-modal-desc">Vui lòng quét mã VietQR và gửi ảnh biên lai để hoàn tất</p>
                     </div>
                 </div>
-                <button onclick="keepRentalAndCloseQrModal()" class="w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white flex items-center justify-center transition" title="Đóng cửa sổ">
+                <button onclick="cancelRentalFromQrModal()" class="w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white flex items-center justify-center transition" title="Đóng cửa sổ & Hủy đơn">
                     <i class="fa-solid fa-xmark text-base"></i>
                 </button>
             </div>
@@ -2261,13 +2264,10 @@
                 <i class="fa-solid fa-crown text-yellow-300"></i> Admin Xác Nhận Đã Nhận Đủ Tiền (Kích Hoạt Ngay)
             </button>
 
-            <!-- Hàng nút thao tác đóng / giữ đơn / hủy đơn -->
-            <div class="flex items-center justify-between gap-2 pt-1 border-t border-gray-800 text-xs">
-                <button type="button" onclick="cancelRentalFromQrModal()" class="text-rose-400 hover:text-rose-300 hover:underline font-mono text-[11px] flex items-center gap-1">
-                    <i class="fa-solid fa-trash-can"></i> Hủy đơn này
-                </button>
-                <button type="button" onclick="keepRentalAndCloseQrModal()" class="bg-gray-800 hover:bg-gray-700 text-gray-200 px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 font-sans">
-                    <i class="fa-solid fa-clock"></i> Tôi sẽ chuyển sau (Lưu đơn 15 phút)
+            <!-- Hàng nút hủy / đóng cửa sổ thanh toán (Đã bỏ Tôi sẽ chuyển sau) -->
+            <div class="pt-1 border-t border-gray-800 text-xs">
+                <button type="button" onclick="cancelRentalFromQrModal()" class="w-full bg-gray-800/80 hover:bg-gray-700 text-rose-400 hover:text-rose-300 font-mono text-xs py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 font-bold">
+                    <i class="fa-solid fa-trash-can"></i> Hủy & Đóng Cửa Sổ (Hủy Đơn Chưa Thanh Toán)
                 </button>
             </div>
         </div>
@@ -2631,8 +2631,8 @@
                     <div class="py-1.5 border-b border-dashed border-black">
                         <table style="width: 100%; border-collapse: collapse;">
                             <tr>
-                                <td style="width: 66px; min-width: 66px; max-width: 66px; vertical-align: middle; text-align: center; padding: 2px 4px 2px 0;">
-                                    <img id="k80-bill-qr-img" crossorigin="anonymous" src="" alt="QR" width="58" height="58" style="width: 58px !important; height: 58px !important; max-width: 58px !important; max-height: 58px !important; display: block; margin: 0 auto; image-rendering: pixelated; border: 1px solid #000; padding: 1px;">
+                                <td style="width: 60px; min-width: 60px; max-width: 60px; vertical-align: middle; text-align: center; padding: 2px 4px 2px 0;">
+                                    <img id="k80-bill-qr-img" crossorigin="anonymous" src="" alt="QR" width="52" height="52" style="width: 52px !important; height: 52px !important; max-width: 52px !important; max-height: 52px !important; display: block; margin: 0 auto; image-rendering: pixelated; border: 1px solid #000; padding: 1px;">
                                 </td>
                                 <td style="vertical-align: middle; text-align: left; padding-left: 4px; font-size: 9.5px; line-height: 1.35; font-weight: 700; color: #000; font-family: Arial, sans-serif;">
                                     <div style="font-weight: 900; font-size: 10px; margin-bottom: 2px; text-transform: uppercase;">QUY ĐỊNH TRẢ ĐỒ</div>
@@ -4447,10 +4447,10 @@
                             font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
                         }
                         img#k80-bill-qr-img {
-                            width: 58px !important;
-                            height: 58px !important;
-                            max-width: 58px !important;
-                            max-height: 58px !important;
+                            width: 52px !important;
+                            height: 52px !important;
+                            max-width: 52px !important;
+                            max-height: 52px !important;
                             display: block !important;
                             margin: 0 auto !important;
                             image-rendering: pixelated !important;
@@ -5689,20 +5689,12 @@
             showToast("Đang tải ảnh mã QR xuống...");
         }
 
-        function keepRentalAndCloseQrModal() {
-            document.getElementById('qr-modal').style.display = 'none';
-            currentActiveRentalId = null;
-            showSection('my-rentals');
-            fetchMyRentals();
-            showToast("Đơn thuê đã được lưu trong mục 'Đơn Thuê'. Bạn có 15 phút để chuyển khoản.");
-        }
-
         async function cancelRentalFromQrModal() {
             if (!currentActiveRentalId) {
                 document.getElementById('qr-modal').style.display = 'none';
                 return;
             }
-            if (!confirm("Bạn có chắc chắn muốn hủy đơn hàng này không? Thiết bị sẽ được nhả lại vào kho.")) return;
+            if (!confirm("Xác nhận hủy đơn hàng này? Thiết bị sẽ được nhả lại vào kho ngay lập tức.")) return;
             const token = localStorage.getItem('tiduba_token');
             try {
                 await fetch(`/api/rentals/${currentActiveRentalId}/cancel_unpaid`, {
@@ -5716,6 +5708,27 @@
             }
             currentActiveRentalId = null;
             document.getElementById('qr-modal').style.display = 'none';
+        }
+
+        async function cancelUnpaidRentalFromMyRentals(rentalId, code) {
+            if (!confirm(`Xác nhận hủy đơn hàng #${code}? Thiết bị sẽ được nhả lại vào kho ngay lập tức.`)) return;
+            const token = localStorage.getItem('tiduba_token');
+            try {
+                const res = await fetch(`/api/rentals/${rentalId}/cancel_unpaid`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                showToast(data.message || "Đã hủy đơn hàng thành công!");
+                fetchMyRentals();
+                fetchCatalog();
+            } catch(e) {
+                alert("Lỗi khi hủy đơn: " + e);
+            }
+        }
+
+        function keepRentalAndCloseQrModal() {
+            cancelRentalFromQrModal();
         }
 
         async function uploadCustomerPaymentProof(event) {
@@ -7175,12 +7188,17 @@
                                 <button onclick="openK80BillModal('${r.rental_code}')" class="bg-amber-950/80 hover:bg-amber-900 text-yellow-300 border border-amber-600 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition font-bold" title="Xem hóa đơn và lưu về máy">
                                     <i class="fa-solid fa-receipt text-yellow-400"></i> Xem & Lưu Bill K80
                                 </button>
-                                ${!isReturned && !isCancelled ? `
+                                ${isActive ? `
                                     <button onclick="openRescheduleModal(${r.id}, '${r.rental_code}', '${r.start_time}', '${r.end_time}')" class="bg-blue-950/80 hover:bg-blue-900 text-cyan-300 border border-blue-600 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition font-bold" title="Đổi ngày giờ thuê miễn phí 100%">
                                         <i class="fa-solid fa-calendar-plus text-cyan-400"></i> Dời Lịch (Miễn Phí)
                                     </button>
                                     <button onclick="openCancelModalWithPenalty(${r.id}, '${r.rental_code}', ${r.total_price})" class="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-700 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition font-bold" title="Hủy lịch thuê (mất 50% phí)">
                                         <i class="fa-solid fa-ban text-rose-400"></i> Hủy Lịch
+                                    </button>
+                                ` : ''}
+                                ${isHold ? `
+                                    <button onclick="cancelUnpaidRentalFromMyRentals(${r.id}, '${r.rental_code}')" class="text-rose-400 hover:text-rose-300 border border-rose-800/80 bg-rose-950/40 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition" title="Hủy đơn chưa thanh toán / chưa duyệt">
+                                        <i class="fa-solid fa-trash-can"></i> Hủy Đơn Chưa Duyệt
                                     </button>
                                 ` : ''}
                             </div>

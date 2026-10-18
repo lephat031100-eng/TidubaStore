@@ -781,6 +781,16 @@ def test_qr_image_and_reschedule_and_cancel_penalty_and_deposit_update():
     assert book_res.status_code == 200
     rental_id = book_res.json()["rental_id"]
 
+    # Đơn đang HOLD (chưa duyệt) -> không được phép hủy lịch phạt 50%
+    cancel_hold_res = client.post(f"/api/rentals/{rental_id}/cancel_with_penalty", headers=cus_headers)
+    assert cancel_hold_res.status_code == 400
+
+    # Chuyển sang ACTIVE (Admin đã xác nhận)
+    conn = get_db()
+    conn.execute("UPDATE rentals SET status = 'ACTIVE' WHERE id = ?", (rental_id,))
+    conn.commit()
+    conn.close()
+
     # 4. Khách dời lịch thuê (Miễn phí 100%)
     new_start = (datetime.datetime.now() + datetime.timedelta(days=2)).replace(hour=9, minute=0, second=0)
     new_end = (new_start + datetime.timedelta(days=1)).replace(hour=9, minute=0, second=0)
