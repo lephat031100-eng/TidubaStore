@@ -42,6 +42,7 @@ from email_service import (
     send_otp_email,
     get_smtp_config
 )
+from revenue_card import generate_revenue_card_image
 
 # Đảm bảo UTF-8 encoding trên Windows
 if sys.platform.startswith("win"):
@@ -581,6 +582,19 @@ def init_db():
 
     try:
         cur.execute("UPDATE telegram_config SET revenue_chat_id = '-1003930707954' WHERE (revenue_chat_id IS NULL OR revenue_chat_id = '')")
+        conn.commit()
+    except Exception:
+        pass
+
+    # Tự động cập nhật cột deposit_chat_id cho telegram_config (-1004476055497)
+    try:
+        cur.execute("ALTER TABLE telegram_config ADD COLUMN deposit_chat_id TEXT DEFAULT '-1004476055497';")
+        conn.commit()
+    except Exception:
+        pass
+
+    try:
+        cur.execute("UPDATE telegram_config SET deposit_chat_id = '-1004476055497' WHERE (deposit_chat_id IS NULL OR deposit_chat_id = '')")
         conn.commit()
     except Exception:
         pass
@@ -2720,6 +2734,17 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
         f"━━━━━━━━━━━━━━━━━━\n"
         f"🔗 Quét trả đồ: {PUBLIC_DOMAIN}/return-qr?code={rental_code}"
     )
+    # Bắn thông báo tiền cọc vào Group -1004476055497 nếu có cọc
+    if deposit_amount > 0 or dep_type in ("CCCD", "ASSET", "CASH"):
+        notify_deposit_event("THU_COC", {
+            "rental_code": rental_code,
+            "customer_name": user["full_name"],
+            "customer_phone": user["phone"],
+            "item_name": item_name,
+            "deposit_paid": deposit_amount,
+            "deposit_type": dep_type,
+            "deposit_asset_desc": asset_desc
+        })
     # Không gửi Telegram ở trạng thái HOLD (Chỉ gửi khi khách bấm nút 'TÔI ĐÃ CHUYỂN TIỀN kèm ảnh biên lai')
 
     return {
@@ -3189,6 +3214,18 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
     # Chỉ gửi thông báo ngay nếu là Admin bán tại quầy POS trực tiếp
     if is_admin_mode:
         _send_telegram_notification(tele_msg, rental_id=rental_id, event_type="NEW_RENTAL")
+
+    # Bắn thông báo tiền cọc vào Group -1004476055497 nếu có cọc
+    if final_deposit > 0 or dep_type in ("CCCD", "ASSET", "CASH"):
+        notify_deposit_event("THU_COC", {
+            "rental_code": rental_code,
+            "customer_name": target_user_name,
+            "customer_phone": target_user_phone,
+            "item_name": f"Gói {len(processed_items)} món",
+            "deposit_paid": final_deposit,
+            "deposit_type": dep_type,
+            "deposit_asset_desc": asset_desc
+        })
 
     # Tạo trước nội dung bill K80 ESC/POS
     bill_data = {
@@ -4050,7 +4087,15 @@ def admin_update_rental_deposit(rental_id: int, req: AdminUpdateDepositRequest, 
     """Admin cập nhật hình thức cọc và tiền cọc cho đơn khi kiểm tra bill / quét QR."""
     conn = get_db()
     cur = conn.cursor()
-    r = cur.execute("SELECT id, rental_code FROM rentals WHERE id = ?", (rental_id,)).fetchone()
+    r = cur.execute("""
+        SELECT r.*, COALESCE(i.name, c.name, 'Đơn thuê') as item_name,
+               u.full_name as customer_name, u.phone as customer_phone
+        FROM rentals r
+        LEFT JOIN items i ON r.item_id = i.id
+        LEFT JOIN combos c ON r.combo_id = c.id
+        JOIN users u ON r.user_id = u.id
+        WHERE r.id = ?
+    """, (rental_id,)).fetchone()
     if not r:
         conn.close()
         raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê!")
@@ -4062,6 +4107,13 @@ def admin_update_rental_deposit(rental_id: int, req: AdminUpdateDepositRequest, 
     """, (req.deposit_type, req.deposit_paid, req.deposit_asset_desc or "", rental_id))
     conn.commit()
     conn.close()
+
+    r_dict = dict(r)
+    r_dict["deposit_type"] = req.deposit_type
+    r_dict["deposit_paid"] = req.deposit_paid
+    r_dict["deposit_asset_desc"] = req.deposit_asset_desc or ""
+    notify_deposit_event("CAP_NHAT_COC", r_dict)
+
     return {"success": True, "message": f"✅ Đã cập nhật phương thức cọc cho đơn #{r['rental_code']} thành công!"}
 
 
@@ -4563,17 +4615,35 @@ def lookup_customer_by_phone(phone: str):
 
 @app.get("/api/ping")
 def api_ping():
-    """Endpoint keepalive giữ máy chủ Render luôn thức 24/7."""
+    """Endpoint keepalive giữ máy chủ Render luôn thức 24/7 & tự động kích hoạt chốt sổ 21:00 nếu đến giờ."""
+    now = vn_now()
+    if now.hour >= 21:
+        try:
+            today_d = now.strftime("%Y-%m-%d")
+            cutoff_21h = f"{today_d} 21:00:00"
+            conn = get_db()
+            chk_rep = conn.execute("""
+                SELECT id FROM daily_revenue_logs 
+                WHERE report_date = ? AND sent_at >= ?
+                ORDER BY id DESC LIMIT 1
+            """, (today_d, cutoff_21h)).fetchone()
+            conn.close()
+            if not chk_rep:
+                print(f"[PING PULL] Đúng giờ chốt sổ 21:00 -> Tự động chốt sổ doanh thu ngày {today_d}...")
+                send_daily_revenue_report(today_d, is_update=False)
+        except Exception as e:
+            print(f"[PING AUTO 21H REVENUE ERROR] {e}")
+
     return {
         "status": "ok",
-        "time": vn_now().strftime("%Y-%m-%d %H:%M:%S"),
+        "time": now.strftime("%Y-%m-%d %H:%M:%S"),
         "service": "TidubaStore"
     }
 
 
 @app.get("/api/admin/system/health")
 def api_system_health(admin: Dict[str, Any] = Depends(require_admin)):
-    """Kiểm tra sức khỏe hệ thống, kết nối 3 Group Telegram và trạng thái các luồng ngầm."""
+    """Kiểm tra sức khỏe hệ thống, kết nối 4 Group Telegram và trạng thái các luồng ngầm."""
     conn = get_db()
     cfg = conn.execute("SELECT * FROM telegram_config WHERE id = 1").fetchone()
     total_items = conn.execute("SELECT count(*) as c FROM items").fetchone()["c"]
@@ -4597,6 +4667,7 @@ def api_system_health(admin: Dict[str, Any] = Depends(require_admin)):
             "chat_id_main": cfg["chat_id"] if cfg else "",
             "chat_id_overdue": cfg["overdue_chat_id"] if (cfg and "overdue_chat_id" in cfg.keys()) else "-1004498214603",
             "chat_id_revenue": cfg["revenue_chat_id"] if (cfg and "revenue_chat_id" in cfg.keys()) else "-1003930707954",
+            "chat_id_deposit": cfg["deposit_chat_id"] if (cfg and "deposit_chat_id" in cfg.keys()) else "-1004476055497",
             "today_revenue_reported": bool(today_revenue_log)
         },
         "background_threads": {
@@ -5650,6 +5721,11 @@ def _send_telegram_notification(
             if event_type == "DAILY_REVENUE":
                 active_chat_id = cfg["revenue_chat_id"].strip()
 
+        # Nếu là sự kiện TIỀN CỌC: Ưu tiên gửi sang Group Tính tiền cọc (-1004476055497)
+        if not override_chat_id and cfg and "deposit_chat_id" in cfg.keys() and cfg["deposit_chat_id"]:
+            if event_type == "DEPOSIT":
+                active_chat_id = cfg["deposit_chat_id"].strip()
+
         if active_token and active_chat_id:
             # Kiểm tra phân loại sự kiện theo cấu hình bật/tắt (nếu không phải TEST hoặc override)
             if not override_chat_id and cfg and cfg["is_active"]:
@@ -5833,6 +5909,8 @@ def _send_telegram_notification(
                             conn.execute("UPDATE telegram_config SET overdue_chat_id = ? WHERE id = 1", (working_chat_id,))
                         elif event_type == "DAILY_REVENUE":
                             conn.execute("UPDATE telegram_config SET revenue_chat_id = ? WHERE id = 1", (working_chat_id,))
+                        elif event_type == "DEPOSIT":
+                            conn.execute("UPDATE telegram_config SET deposit_chat_id = ? WHERE id = 1", (working_chat_id,))
                         else:
                             conn.execute("UPDATE telegram_config SET chat_id = ? WHERE id = 1", (working_chat_id,))
                         conn.commit()
@@ -5880,6 +5958,7 @@ class TelegramConfigRequest(BaseModel):
     chat_id: Optional[str] = None
     overdue_chat_id: Optional[str] = None
     revenue_chat_id: Optional[str] = None
+    deposit_chat_id: Optional[str] = None
     is_active: Optional[int] = None
     auto_notify_new_rental: Optional[int] = None
     auto_notify_payment: Optional[int] = None
@@ -6099,7 +6178,7 @@ def format_daily_revenue_message(m: Dict[str, Any], is_update: bool = False) -> 
 
 
 def send_daily_revenue_report(target_date: Optional[str] = None, is_update: bool = False) -> Tuple[bool, str]:
-    """Gửi tin nhắn tổng kết doanh thu ngày vào Group Telegram -1003930707954."""
+    """Gửi ảnh thẻ đồ họa Infographic + tin nhắn tổng kết doanh thu ngày vào Group Telegram -1003930707954."""
     if not target_date:
         target_date = vn_today().strftime("%Y-%m-%d")
 
@@ -6109,10 +6188,23 @@ def send_daily_revenue_report(target_date: Optional[str] = None, is_update: bool
     conn = get_db()
     cfg = conn.execute("SELECT * FROM telegram_config WHERE id = 1").fetchone()
     rev_chat_id = (cfg["revenue_chat_id"] if (cfg and "revenue_chat_id" in cfg.keys() and cfg["revenue_chat_id"]) else "-1003930707954").strip()
+    conn.close()
 
-    sent = _send_telegram_notification(msg, event_type="DAILY_REVENUE", override_chat_id=rev_chat_id)
+    # Sinh ảnh đồ họa thẻ báo cáo doanh thu 1280x720 chuẩn HD y hệt bản thiết kế
+    card_rel = f"static/uploads/revenue_card_{target_date}.png"
+    card_abs = str(BASE_DIR / card_rel)
+    photo_param = None
+    try:
+        generate_revenue_card_image(m, card_abs)
+        if os.path.exists(card_abs):
+            photo_param = f"/{card_rel}"
+    except Exception as img_e:
+        print(f"[REVENUE CARD IMAGE ERROR] {img_e}")
+
+    sent = _send_telegram_notification(msg, event_type="DAILY_REVENUE", photo_url=photo_param, override_chat_id=rev_chat_id)
 
     now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = get_db()
     cur = conn.cursor()
     cur.execute("""
         INSERT INTO daily_revenue_logs (
@@ -6123,24 +6215,32 @@ def send_daily_revenue_report(target_date: Optional[str] = None, is_update: bool
     conn.commit()
     conn.close()
 
-    return (sent, f"Đã gửi báo cáo doanh thu ngày {target_date} vào Group {rev_chat_id}!")
+    return (sent, f"Đã gửi ảnh thẻ báo cáo doanh thu ngày {target_date} vào Group {rev_chat_id}!")
 
 
 def check_and_trigger_daily_revenue_update():
-    """Nếu sau giờ chốt sổ 21:00 có biến động mới (trả đồ, thu thêm cọc, hóa đơn mới), tự động tính lại và gửi bản cập nhật."""
+    """Nếu sau 21:00 có biến động mới (trả đồ, thu thêm cọc, hóa đơn mới), tự động tính lại và gửi bản cập nhật."""
     try:
         today_str = vn_today().strftime("%Y-%m-%d")
+        now = vn_now()
+        # Chỉ kích hoạt cập nhật nếu đã qua 21:00 tối
+        if now.hour < 21:
+            return
+
         conn = get_db()
+        cutoff_21h = f"{today_str} 21:00:00"
         last_log = conn.execute("""
             SELECT * FROM daily_revenue_logs 
-            WHERE report_date = ? 
+            WHERE report_date = ? AND sent_at >= ?
             ORDER BY id DESC LIMIT 1
-        """, (today_str,)).fetchone()
+        """, (today_str, cutoff_21h)).fetchone()
         conn.close()
 
-        # Chỉ kích hoạt nếu hôm nay ĐÃ TỪNG GỬI báo cáo chốt sổ (lúc 21h hoặc Admin bấm chốt)
-        if last_log:
-            cur_m = calculate_daily_revenue_metrics(today_str)
+        cur_m = calculate_daily_revenue_metrics(today_str)
+        if not last_log:
+            # Chưa từng gửi báo cáo 21h hôm nay -> Gửi ngay!
+            send_daily_revenue_report(today_str, is_update=False)
+        else:
             if (cur_m["total_bills"] != last_log["bills_count"] or
                 cur_m["total_revenue"] != last_log["total_revenue"] or
                 cur_m["total_deposit_refunded"] != last_log["total_deposit_refunded"]):
@@ -6163,7 +6263,189 @@ def api_get_daily_revenue_preview(date: Optional[str] = None, admin: Dict[str, A
     """Xem trước số liệu doanh thu, bill và cọc của ngày hôm nay."""
     target_date = date or vn_today().strftime("%Y-%m-%d")
     m = calculate_daily_revenue_metrics(target_date)
-    return {"success": True, "metrics": m}
+    card_rel = f"static/uploads/revenue_card_{target_date}.png"
+    card_abs = str(BASE_DIR / card_rel)
+    try:
+        generate_revenue_card_image(m, card_abs)
+    except Exception:
+        pass
+    return {
+        "success": True,
+        "metrics": m,
+        "card_image_url": f"/{card_rel}" if os.path.exists(card_abs) else None
+    }
+
+
+# =============================================================================
+# 15.2 QUẢN LÝ TIỀN CỌC & THÔNG BÁO TELEGRAM (GROUP -1004476055497)
+# =============================================================================
+
+def calculate_deposit_summary() -> Dict[str, Any]:
+    """Tính toán chi tiết toàn bộ số liệu tiền cọc và tài sản cọc đang giữ trong kho."""
+    conn = get_db()
+    cur = conn.cursor()
+    today_str = vn_today().strftime("%Y-%m-%d")
+
+    # 1. Các đơn đang giữ cọc (status = ACTIVE hoặc HOLD)
+    holding_rentals = cur.execute("""
+        SELECT r.id, r.rental_code, r.user_id, r.deposit_paid, r.deposit_type, r.deposit_asset_desc,
+               r.status, r.branch_code, r.start_time, r.end_time,
+               COALESCE(i.name, c.name, 'Đơn nhiều món') as item_name,
+               u.full_name as customer_name, u.phone as customer_phone
+        FROM rentals r
+        LEFT JOIN items i ON r.item_id = i.id
+        LEFT JOIN combos c ON r.combo_id = c.id
+        JOIN users u ON r.user_id = u.id
+        WHERE r.status IN ('ACTIVE', 'HOLD')
+          AND (r.deposit_paid > 0 OR (r.deposit_type IS NOT NULL AND r.deposit_type != 'NONE'))
+        ORDER BY r.id DESC
+    """).fetchall()
+
+    total_holding_cash = sum(r["deposit_paid"] or 0 for r in holding_rentals)
+    cccd_count = sum(1 for r in holding_rentals if r["deposit_type"] == "CCCD")
+    asset_count = sum(1 for r in holding_rentals if r["deposit_type"] == "ASSET")
+    cash_count = sum(1 for r in holding_rentals if r["deposit_type"] == "CASH" or (r["deposit_paid"] or 0) > 0)
+    vip_count = sum(1 for r in holding_rentals if r["deposit_type"] in ("VIP_NONE", "NONE"))
+
+    dep_today_rows = cur.execute("""
+        SELECT deposit_paid FROM rentals 
+        WHERE status IN ('ACTIVE', 'HOLD', 'RETURNED') 
+          AND created_at LIKE ? AND deposit_paid > 0
+    """, (f"{today_str}%",)).fetchall()
+    total_deposit_today = sum(r["deposit_paid"] for r in dep_today_rows)
+
+    returns_today = cur.execute("""
+        SELECT deposit_paid FROM rentals 
+        WHERE status = 'RETURNED' AND (admin_notes LIKE ? OR created_at LIKE ?) AND deposit_paid > 0
+    """, (f"%{today_str}%", f"{today_str}%")).fetchall()
+    total_refunded_today = sum(r["deposit_paid"] for r in returns_today)
+
+    conn.close()
+
+    return {
+        "today": today_str,
+        "total_holding_cash": total_holding_cash,
+        "total_deposit_today": total_deposit_today,
+        "total_refunded_today": total_refunded_today,
+        "holding_count": len(holding_rentals),
+        "cccd_count": cccd_count,
+        "asset_count": asset_count,
+        "cash_count": cash_count,
+        "vip_count": vip_count,
+        "holding_rentals": [dict(r) for r in holding_rentals]
+    }
+
+
+def send_deposit_telegram_report() -> Tuple[bool, str]:
+    """Gửi tin nhắn tổng hợp toàn bộ tiền cọc vào Group Telegram Tính tiền cọc (-1004476055497)."""
+    s = calculate_deposit_summary()
+    now_str = vn_now().strftime("%d/%m/%Y %H:%M:%S")
+
+    holding_preview = ""
+    if s["holding_rentals"]:
+        holding_preview = "\n📋 <b>Chi tiết các đơn đang giữ cọc:</b>\n"
+        for idx, r in enumerate(s["holding_rentals"][:8], 1):
+            dep_val = f"{r['deposit_paid']:,}đ" if r['deposit_paid'] > 0 else "0đ"
+            desc = f" ({r['deposit_asset_desc']})" if r.get('deposit_asset_desc') else ""
+            holding_preview += f"{idx}. <code>{r['rental_code']}</code> - {r['customer_name']}: <b>{dep_val}</b> [{r['deposit_type']}]{desc}\n"
+        if len(s["holding_rentals"]) > 8:
+            holding_preview += f"   <i>... và {len(s['holding_rentals']) - 8} đơn khác.</i>\n"
+
+    msg = (
+        f"🛡️ <b>TIDUBA STORE - BÁO CÁO QUẢN LÝ TIỀN CỌC</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"💰 <b>TỔNG TIỀN CỌC ĐANG GIỮ:</b> <b>{s['total_holding_cash']:,}đ</b>\n"
+        f"📥 <b>Tiền cọc thu hôm nay:</b> <b>{s['total_deposit_today']:,}đ</b>\n"
+        f"📤 <b>Tiền cọc đã hoàn hôm nay:</b> <b>{s['total_refunded_today']:,}đ</b>\n\n"
+        f"📊 <b>Phân loại tài sản cọc đang giữ ({s['holding_count']} đơn):</b>\n"
+        f"   • 💵 Cọc tiền mặt / CK: <b>{s['cash_count']} đơn</b> ({s['total_holding_cash']:,}đ)\n"
+        f"   • 🪪 Giữ giấy tờ (CCCD/GPLX): <b>{s['cccd_count']} đơn</b>\n"
+        f"   • 📱 Cọc tài sản (ĐT, Xe, Laptop...): <b>{s['asset_count']} đơn</b>\n"
+        f"{holding_preview}"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"⏰ <i>Thời gian cập nhật: {now_str}</i>"
+    )
+
+    conn = get_db()
+    cfg = conn.execute("SELECT * FROM telegram_config WHERE id = 1").fetchone()
+    dep_chat_id = (cfg["deposit_chat_id"] if (cfg and "deposit_chat_id" in cfg.keys() and cfg["deposit_chat_id"]) else "-1004476055497").strip()
+    conn.close()
+
+    sent = _send_telegram_notification(msg, event_type="DEPOSIT", override_chat_id=dep_chat_id)
+    return sent, f"Đã gửi báo cáo tiền cọc vào Group {dep_chat_id}!"
+
+
+def notify_deposit_event(event_action: str, rental: Dict[str, Any], detail: str = ""):
+    """
+    Bắn thông báo tức thì vào Group Tính tiền cọc (-1004476055497):
+    - event_action = "THU_COC" hoặc "HOAN_COC" hoặc "CAP_NHAT_COC"
+    """
+    try:
+        conn = get_db()
+        cfg = conn.execute("SELECT * FROM telegram_config WHERE id = 1").fetchone()
+        dep_chat_id = (cfg["deposit_chat_id"] if (cfg and "deposit_chat_id" in cfg.keys() and cfg["deposit_chat_id"]) else "-1004476055497").strip()
+        conn.close()
+
+        dep_summary = calculate_deposit_summary()
+        now_str = vn_now().strftime("%d/%m/%Y %H:%M:%S")
+
+        code = rental.get("rental_code", "")
+        cus_name = rental.get("customer_name") or rental.get("full_name") or "Khách hàng"
+        cus_phone = rental.get("customer_phone") or rental.get("phone") or ""
+        item_name = rental.get("item_name") or "Thiết bị / Trang phục"
+        dep_type = rental.get("deposit_type") or "NONE"
+        dep_val = rental.get("deposit_paid") or 0
+        dep_desc = rental.get("deposit_asset_desc") or ""
+
+        type_map = {
+            "CCCD": "🪪 Giữ giấy tờ (CCCD/GPLX)",
+            "ASSET": f"📱 Cọc tài sản ({dep_desc or 'Điện thoại, Xe, Laptop...'})",
+            "CASH": f"💵 Cọc tiền mặt / CK ({dep_val:,}đ)",
+            "NONE": "👑 Miễn cọc VIP"
+        }
+        dep_type_str = type_map.get(dep_type, dep_type)
+
+        if event_action == "THU_COC":
+            title = "🛡️ <b>[THU TIỀN CỌC MỚI] ĐƠN THUÊ</b>"
+            action_desc = f"📥 <b>Tiền cọc thu:</b> <b>{dep_val:,}đ</b>\n" if dep_val > 0 else f"📥 <b>Hình thức cọc:</b> <b>{dep_type_str}</b>\n"
+        elif event_action == "HOAN_COC":
+            title = "💸 <b>[HOÀN TRẢ TIỀN CỌC] TRẢ ĐỒ XONG</b>"
+            action_desc = f"📤 <b>Số tiền hoàn trả khách:</b> <b>{dep_val:,}đ</b>\n" if dep_val > 0 else f"📤 <b>Đã trả lại giấy tờ/tài sản cho khách</b>\n"
+        else:
+            title = "🔄 <b>[CẬP NHẬT PHƯƠNG THỨC CỌC]</b>"
+            action_desc = f"📝 <b>Thông tin cọc:</b> <b>{dep_type_str}</b>\n"
+
+        msg = (
+            f"{title}\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"📋 <b>Mã đơn:</b> <code>{code}</code>\n"
+            f"👤 <b>Khách hàng:</b> {cus_name} (<code>{cus_phone}</code>)\n"
+            f"📦 <b>Thiết bị/Đồ:</b> {item_name}\n"
+            f"{action_desc}"
+            f"📋 <b>Chi tiết cọc:</b> {dep_desc or 'Không có ghi chú'}\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"💰 <b>TỔNG TIỀN CỌC ĐANG GIỮ:</b> <b>{dep_summary['total_holding_cash']:,}đ</b>\n"
+            f"📊 <i>(Hôm nay: Thu {format_short_currency(dep_summary['total_deposit_today'])} | Hoàn {format_short_currency(dep_summary['total_refunded_today'])})</i>\n"
+            f"⏰ <i>{now_str}</i>"
+        )
+
+        _send_telegram_notification(msg, rental_id=rental.get("id"), event_type="DEPOSIT", override_chat_id=dep_chat_id)
+    except Exception as e:
+        print(f"[NOTIFY DEPOSIT EVENT ERROR] {e}")
+
+
+@app.get("/api/admin/deposits/summary")
+def api_get_deposit_summary(admin: Dict[str, Any] = Depends(require_admin)):
+    """Lấy số liệu thống kê toàn bộ tiền cọc và danh sách các đơn đang cọc."""
+    s = calculate_deposit_summary()
+    return {"success": True, "data": s}
+
+
+@app.post("/api/admin/deposits/send_telegram_report")
+def api_send_deposit_telegram_report(admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin bấm gửi báo cáo tổng hợp tiền cọc vào Group Telegram -1004476055497."""
+    sent, msg = send_deposit_telegram_report()
+    return {"success": sent, "message": msg}
 
 
 @app.get("/api/admin/telegram/logs")
@@ -6366,6 +6648,10 @@ def process_return_by_qr(req: ReturnQrRequest, admin: Dict[str, Any] = Depends(r
         f"━━━━━━━━━━━━━━━━━━"
     )
     _send_telegram_notification(tele_msg, rental_id=rental_dict["id"], event_type="RETURN")
+
+    # Bắn thông báo hoàn cọc sang Group Tính tiền cọc (-1004476055497) nếu có cọc
+    if rental_dict.get("deposit_paid", 0) > 0 or (rental_dict.get("deposit_type") and rental_dict.get("deposit_type") != "NONE"):
+        notify_deposit_event("HOAN_COC", rental_dict)
 
     # Tự động cập nhật lại tổng kết doanh thu nếu sau 21h có khách trả đồ
     check_and_trigger_daily_revenue_update()

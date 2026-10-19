@@ -569,25 +569,33 @@
 
             <!-- PANE 1: TỔNG QUAN, BÁO CÁO & LỊCH THUÊ THEO TUẦN / GIỜ -->
             <div id="adm-pane-overview" class="space-y-6">
-                <!-- Admin Key Metrics -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
-                <div class="luxury-card p-4 rounded-xl space-y-1">
-                    <div class="text-gray-400">Doanh Thu Đã Thu</div>
-                    <div class="text-xl font-black text-emerald-400" id="adm-total-revenue">0đ</div>
+                <!-- Admin Key Metrics (Doanh Thu & Tiền Cọc Đang Giữ) -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs font-mono">
+                    <div class="luxury-card p-3.5 rounded-xl space-y-1">
+                        <div class="text-gray-400 text-[11px]">Doanh Thu Đã Thu</div>
+                        <div class="text-lg font-black text-emerald-400" id="adm-total-revenue">0đ</div>
+                    </div>
+                    <div class="luxury-card p-3.5 rounded-xl space-y-1">
+                        <div class="text-gray-400 text-[11px]">Tổng Đơn Thuê</div>
+                        <div class="text-lg font-black text-white" id="adm-total-rentals">0</div>
+                    </div>
+                    <div class="luxury-card p-3.5 rounded-xl space-y-1">
+                        <div class="text-gray-400 text-[11px]">Đang Cho Thuê</div>
+                        <div class="text-lg font-black text-cyan-400" id="adm-active-rentals">0</div>
+                    </div>
+                    <div class="luxury-card p-3.5 rounded-xl space-y-1 border-l-4 border-l-rose-500">
+                        <div class="text-rose-400 text-[11px] font-bold">Đơn Quá Hạn</div>
+                        <div class="text-lg font-black text-rose-400" id="adm-overdue-rentals">0</div>
+                    </div>
+                    <div class="luxury-card p-3.5 rounded-xl space-y-1 border-l-4 border-l-cyan-500 bg-cyan-950/20">
+                        <div class="text-cyan-300 text-[11px] font-bold">Cọc Đang Giữ</div>
+                        <div class="text-lg font-black text-cyan-400" id="adm-holding-deposit">0đ</div>
+                    </div>
+                    <div class="luxury-card p-3.5 rounded-xl space-y-1 border-l-4 border-l-amber-500 bg-amber-950/20">
+                        <div class="text-amber-300 text-[11px] font-bold">Thu Cọc Hôm Nay</div>
+                        <div class="text-lg font-black text-amber-400" id="adm-today-deposit">0đ</div>
+                    </div>
                 </div>
-                <div class="luxury-card p-4 rounded-xl space-y-1">
-                    <div class="text-gray-400">Tổng Số Đơn Thuê</div>
-                    <div class="text-xl font-black text-white" id="adm-total-rentals">0</div>
-                </div>
-                <div class="luxury-card p-4 rounded-xl space-y-1">
-                    <div class="text-gray-400">Đơn Đang Cho Thuê</div>
-                    <div class="text-xl font-black text-cyan-400" id="adm-active-rentals">0</div>
-                </div>
-                <div class="luxury-card p-4 rounded-xl space-y-1 border-l-4 border-l-rose-500">
-                    <div class="text-rose-400 font-bold">Đơn Quá Hạn (Overdue)</div>
-                    <div class="text-xl font-black text-rose-400" id="adm-overdue-rentals">0</div>
-                </div>
-            </div>
                 <!-- Overdue Warnings Box (Danh sách đơn trễ hạn & sắp đến giờ trả) -->
             <div class="bg-gray-950 rounded-2xl p-6 border-l-4 border-l-rose-500 border border-gray-800 space-y-4 shadow-sm">
                 <h4 class="text-sm font-bold text-rose-400 uppercase tracking-wider flex items-center gap-2">
@@ -1007,7 +1015,7 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                     <!-- Card Group 1 -->
                     <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-800 space-y-2">
                         <div class="flex justify-between items-center font-bold">
@@ -1046,13 +1054,31 @@
                             <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">HOẠT ĐỘNG</span>
                         </div>
                         <div class="text-[11px] text-gray-400 truncate">ID: <code class="text-emerald-300" id="health-chat-id-revenue">-1003930707954</code></div>
-                        <div class="text-[10px] text-gray-400 leading-tight">Đúng 21:00 tối tự chốt sổ tổng bill, tổng tiền, cọc. Tự cập nhật nếu có trả đồ sau 21h.</div>
+                        <div class="text-[10px] text-gray-400 leading-tight">Gửi ảnh thẻ đồ họa Infographic 1280x720 + bảng tổng kết doanh thu lúc 21h.</div>
                         <div class="flex gap-1.5">
                             <button onclick="triggerDailyRevenueReportNow()" class="flex-1 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-700 py-1.5 rounded-lg text-[10px] font-bold transition">
                                 <i class="fa-solid fa-chart-pie"></i> Chốt Ngay
                             </button>
                             <button onclick="testTelegramNotifyGroup3()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-emerald-300 py-1.5 rounded-lg text-[10px] font-bold transition">
                                 <i class="fa-solid fa-paper-plane"></i> Test G3
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Card Group 4: Tính Tiền Cọc -->
+                    <div class="bg-gray-900/80 p-3 rounded-xl border border-cyan-900/60 space-y-2">
+                        <div class="flex justify-between items-center font-bold">
+                            <span class="text-cyan-300">Group 4: Tính Tiền Cọc</span>
+                            <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">HOẠT ĐỘNG</span>
+                        </div>
+                        <div class="text-[11px] text-gray-400 truncate">ID: <code class="text-cyan-300" id="health-chat-id-deposit">-1004476055497</code></div>
+                        <div class="text-[10px] text-gray-400 leading-tight">Báo ngay khi thu cọc, hoàn trả cọc và tổng tiền cọc đang giữ trong kho.</div>
+                        <div class="flex gap-1.5">
+                            <button onclick="triggerDepositReportNow()" class="flex-1 bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-700 py-1.5 rounded-lg text-[10px] font-bold transition">
+                                <i class="fa-solid fa-shield-halved"></i> Báo Cáo
+                            </button>
+                            <button onclick="testTelegramNotifyGroup4()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-cyan-300 py-1.5 rounded-lg text-[10px] font-bold transition">
+                                <i class="fa-solid fa-paper-plane"></i> Test G4
                             </button>
                         </div>
                     </div>
@@ -1125,7 +1151,16 @@
                             </label>
                             <input type="text" id="telegram-revenue-chat-id" placeholder="vd: -1003930707954" class="w-full bg-gray-900 border border-emerald-600/60 rounded-lg p-2 text-emerald-300 font-mono text-xs">
                             <p class="text-[10px] text-gray-400 mt-1">
-                                💡 Đúng 21:00 (9h tối) tự động chốt sổ gửi tổng bill, tổng tiền, tổng cọc. Nếu sau 21h có biến động trả đồ/thanh toán, Bot tự động nhắn bản cập nhật mới nhất!
+                                💡 Đúng 21:00 (9h tối) tự động chốt sổ gửi ảnh thẻ đồ họa Infographic 1280x720 + bảng tổng kết doanh thu, tiền cọc.
+                            </p>
+                        </div>
+                        <div>
+                            <label class="block text-cyan-300 font-bold mb-1 flex items-center gap-1">
+                                <i class="fa-solid fa-shield-halved"></i> Telegram Group Tính Tiền Cọc (Group riêng):
+                            </label>
+                            <input type="text" id="telegram-deposit-chat-id" placeholder="vd: -1004476055497" class="w-full bg-gray-900 border border-cyan-600/60 rounded-lg p-2 text-cyan-200 font-mono text-xs">
+                            <p class="text-[10px] text-gray-400 mt-1">
+                                💡 Tự động thông báo ngay khi thu tiền cọc, hoàn trả cọc và tổng tiền cọc đang giữ trong kho.
                             </p>
                         </div>
                         <div class="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-gray-300">
@@ -7482,6 +7517,20 @@
                 fetchSiteSettingsForm();
                 fetchAdminBlacklist();
                 fetchAdminScheduleCalendar();
+
+                // Tải dữ liệu tổng tiền cọc
+                fetch('/api/admin/deposits/summary', { headers: { 'Authorization': `Bearer ${token}` } })
+                    .then(r => r.json())
+                    .then(d => {
+                        if (d.success && d.data) {
+                            if (document.getElementById('adm-holding-deposit')) {
+                                document.getElementById('adm-holding-deposit').innerText = `${Number(d.data.total_holding_cash).toLocaleString()}đ`;
+                            }
+                            if (document.getElementById('adm-today-deposit')) {
+                                document.getElementById('adm-today-deposit').innerText = `${Number(d.data.total_deposit_today).toLocaleString()}đ`;
+                            }
+                        }
+                    }).catch(() => {});
             } catch (err) {
                 console.error("Lỗi lấy dữ liệu Admin:", err);
             }
@@ -9578,6 +9627,7 @@
                     if (document.getElementById('telegram-chat-id')) document.getElementById('telegram-chat-id').value = cfg.chat_id || '';
                     if (document.getElementById('telegram-overdue-chat-id')) document.getElementById('telegram-overdue-chat-id').value = cfg.overdue_chat_id || '-1004498214603';
                     if (document.getElementById('telegram-revenue-chat-id')) document.getElementById('telegram-revenue-chat-id').value = cfg.revenue_chat_id || '-1003930707954';
+                    if (document.getElementById('telegram-deposit-chat-id')) document.getElementById('telegram-deposit-chat-id').value = cfg.deposit_chat_id || '-1004476055497';
                     if (document.getElementById('tele-chk-new')) document.getElementById('tele-chk-new').checked = !!cfg.auto_notify_new_rental;
                     if (document.getElementById('tele-chk-pay')) document.getElementById('tele-chk-pay').checked = !!cfg.auto_notify_payment;
                     if (document.getElementById('tele-chk-return')) document.getElementById('tele-chk-return').checked = !!cfg.auto_notify_return;
@@ -9593,6 +9643,7 @@
                 chat_id: document.getElementById('telegram-chat-id').value.trim(),
                 overdue_chat_id: document.getElementById('telegram-overdue-chat-id') ? document.getElementById('telegram-overdue-chat-id').value.trim() : '-1004498214603',
                 revenue_chat_id: document.getElementById('telegram-revenue-chat-id') ? document.getElementById('telegram-revenue-chat-id').value.trim() : '-1003930707954',
+                deposit_chat_id: document.getElementById('telegram-deposit-chat-id') ? document.getElementById('telegram-deposit-chat-id').value.trim() : '-1004476055497',
                 is_active: 1,
                 auto_notify_new_rental: document.getElementById('tele-chk-new').checked ? 1 : 0,
                 auto_notify_payment: document.getElementById('tele-chk-pay').checked ? 1 : 0,
@@ -9612,7 +9663,7 @@
 
         async function triggerDailyRevenueReportNow() {
             const token = localStorage.getItem('tiduba_token');
-            showToast("Đang tính toán & gửi báo cáo doanh thu hôm nay...");
+            showToast("Đang vẽ ảnh thẻ đồ họa & gửi báo cáo doanh thu hôm nay...");
             try {
                 const res = await fetch('/api/admin/telegram/send_daily_revenue_report', {
                     method: 'POST',
@@ -9620,7 +9671,7 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    showToast("✅ Đã gửi báo cáo doanh thu vào Group -1003930707954!");
+                    showToast("✅ Đã gửi ảnh thẻ báo cáo doanh thu vào Group -1003930707954!");
                     alert(data.message || "Đã gửi báo cáo doanh thu thành công!");
                     fetchTelegramLogs();
                 } else {
@@ -9629,6 +9680,45 @@
             } catch (e) {
                 alert("Lỗi kết nối gửi báo cáo: " + e);
             }
+        }
+
+        async function triggerDepositReportNow() {
+            const token = localStorage.getItem('tiduba_token');
+            showToast("Đang tính toán & gửi báo cáo tiền cọc...");
+            try {
+                const res = await fetch('/api/admin/deposits/send_telegram_report', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast("✅ Đã gửi báo cáo tiền cọc vào Group -1004476055497!");
+                    alert(data.message || "Đã gửi báo cáo cọc!");
+                    fetchTelegramLogs();
+                } else {
+                    alert(data.message || "Lỗi gửi báo cáo cọc!");
+                }
+            } catch (e) {
+                alert("Lỗi kết nối gửi báo cáo cọc: " + e);
+            }
+        }
+
+        async function testTelegramNotifyGroup4() {
+            const token = localStorage.getItem('tiduba_token');
+            showToast("Đang gửi tin test tới Group Tính Tiền Cọc...");
+            try {
+                const res = await fetch('/api/admin/telegram/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({
+                        message: "🛡️ [TEST] Kết nối Group Tính Tiền Cọc (-1004476055497) tự động 24/7!",
+                        chat_id: "-1004476055497"
+                    })
+                });
+                const data = await res.json();
+                showToast(data.message || "Đã gửi test Group 4!");
+                fetchTelegramLogs();
+            } catch (e) { alert("Lỗi: " + e); }
         }
 
         async function triggerOverdueAlertsCheck() {

@@ -930,3 +930,38 @@ def test_ao_dai_multi_days_pricing():
         item_category="COSTUME_FASHION", item_name="Váy Tiệc Đen", subcategory="Váy Tiệc"
     )
     assert pv2 == 110000
+
+
+def test_deposit_summary_and_telegram_report():
+    """Kiểm tra tính năng quản lý tiền cọc và báo cáo group -1004476055497."""
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    adm_headers = {"Authorization": f"Bearer {login_adm.json()['token']}"}
+
+    res = client.get("/api/admin/deposits/summary", headers=adm_headers)
+    assert res.status_code == 200
+    assert res.json()["success"] is True
+    assert "total_holding_cash" in res.json()["data"]
+
+    rep = client.post("/api/admin/deposits/send_telegram_report", headers=adm_headers)
+    assert rep.status_code == 200
+    assert rep.json()["success"] is True
+
+
+def test_infographic_revenue_card_generator():
+    """Kiểm tra hàm vẽ ảnh đồ họa Infographic thẻ doanh thu."""
+    from revenue_card import generate_revenue_card_image
+    metrics = {
+        "total_revenue": 710000,
+        "total_rent": 710000,
+        "total_late": 0,
+        "total_bills": 3,
+        "bills_cn1": 3,
+        "bills_cn2": 0,
+        "returned_count": 3,
+        "active_count": 0,
+        "total_deposit_paid": 1500000,
+        "total_deposit_refunded": 1500000,
+        "rentals": []
+    }
+    im = generate_revenue_card_image(metrics)
+    assert im.size == (1280, 720)
