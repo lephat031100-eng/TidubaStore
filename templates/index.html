@@ -607,7 +607,7 @@
             <!-- PANE 1: TỔNG QUAN, BÁO CÁO & LỊCH THUÊ THEO TUẦN / GIỜ -->
             <div id="adm-pane-overview" class="space-y-6">
                 <!-- Admin Key Metrics (Doanh Thu & Tiền Cọc Đang Giữ) -->
-                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs font-mono">
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 text-xs font-mono">
                     <div class="luxury-card p-3.5 rounded-xl space-y-1">
                         <div class="text-gray-400 text-[11px]">Doanh Thu Đã Thu</div>
                         <div class="text-lg font-black text-emerald-400" id="adm-total-revenue">0đ</div>
@@ -615,6 +615,14 @@
                     <div class="luxury-card p-3.5 rounded-xl space-y-1">
                         <div class="text-gray-400 text-[11px]">Tổng Đơn Thuê</div>
                         <div class="text-lg font-black text-white" id="adm-total-rentals">0</div>
+                    </div>
+                    <div onclick="filterRentalsWaitingApproval()" class="cursor-pointer luxury-card p-3.5 rounded-xl space-y-1 border-l-4 border-l-yellow-500 bg-yellow-950/20 hover:bg-yellow-950/40 transition group" title="Bấm để xem danh sách các đơn đang chờ duyệt tiền">
+                        <div class="text-yellow-300 text-[11px] font-bold flex items-center justify-between">
+                            <span>Đơn Chờ Duyệt</span>
+                            <i class="fa-solid fa-clock-rotate-left text-[10px] text-yellow-400 group-hover:scale-110 transition"></i>
+                        </div>
+                        <div class="text-lg font-black text-yellow-300" id="adm-pending-rentals">0</div>
+                        <div class="text-[9px] text-yellow-300/80 font-sans">Bấm xem & duyệt ➔</div>
                     </div>
                     <div class="luxury-card p-3.5 rounded-xl space-y-1">
                         <div class="text-gray-400 text-[11px]">Đang Cho Thuê</div>
@@ -802,11 +810,15 @@
                         <i class="fa-solid fa-list-check text-cyan-400"></i> Danh Sách Đơn Thuê Toàn Hệ Thống
                     </h4>
                     <div class="flex flex-wrap items-center gap-2 text-xs">
+                        <button type="button" onclick="filterRentalsWaitingApproval()" id="adm-btn-pending-filter" class="bg-amber-950 hover:bg-amber-900 text-amber-300 border border-amber-600 px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5 shadow-md shadow-amber-950/60" title="Bấm để lọc ra tất cả đơn đang chờ duyệt tiền (PENDING / HOLD)">
+                            <i class="fa-solid fa-clock-rotate-left text-yellow-400"></i>
+                            <span>Đơn Chờ Duyệt (<strong id="adm-count-pending-badge">0</strong>)</span>
+                        </button>
                         <select id="adm-filter-status" onchange="fetchAdminRentals()" class="bg-gray-900 border border-gray-700 text-white rounded-lg p-2 font-mono">
                             <option value="">Tất cả trạng thái</option>
+                            <option value="WAITING_APPROVAL">⏳ Đơn Chờ Duyệt (Pending / Hold)</option>
                             <option value="OVERDUE">🚨 Quá hạn trả (Overdue)</option>
                             <option value="ACTIVE">Đang thuê ngoài (Active)</option>
-                            <option value="PENDING">Chờ duyệt (Pending)</option>
                             <option value="RETURNED">Đã trả đồ xong</option>
                         </select>
                         <button onclick="adminClearAllRentals()" class="bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-600 px-3 py-2 rounded-xl font-bold transition flex items-center gap-1.5 shadow-lg shadow-rose-950/80" title="Xóa toàn bộ danh sách đơn thuê và làm sạch lịch sử hóa đơn">
@@ -929,6 +941,7 @@
             </div>
 
             <!-- ============================================================== -->
+            </div>
             </div>
 
 
@@ -1063,15 +1076,15 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
                     <!-- Card Group 1 -->
                     <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-800 space-y-2">
                         <div class="flex justify-between items-center font-bold">
-                            <span class="text-cyan-300">Group 1: Đơn & Tiền</span>
+                            <span class="text-cyan-300">Group 1: Quản Trị</span>
                             <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">HOẠT ĐỘNG</span>
                         </div>
                         <div class="text-[11px] text-gray-400 truncate">ID: <code class="text-white" id="health-chat-id-main">-5368352616</code></div>
-                        <div class="text-[10px] text-gray-400 leading-tight">Nhận thông báo khi khách chuyển khoản, có 3 nút: Duyệt / Hủy / Hết đồ.</div>
+                        <div class="text-[10px] text-gray-400 leading-tight">Nhóm tổng quát điều hành cửa hàng và quản trị viên.</div>
                         <button onclick="testTelegramNotify()" class="w-full bg-gray-800 hover:bg-gray-700 text-cyan-300 py-1.5 rounded-lg text-[11px] font-bold transition">
                             <i class="fa-solid fa-paper-plane"></i> Test Group 1
                         </button>
@@ -1080,17 +1093,17 @@
                     <!-- Card Group 2 -->
                     <div class="bg-gray-900/80 p-3 rounded-xl border border-amber-900/60 space-y-2">
                         <div class="flex justify-between items-center font-bold">
-                            <span class="text-amber-300">Group 2: Nhắc Hẹn & Quá Hạn</span>
+                            <span class="text-amber-300">Group 2: Nhắc Hẹn</span>
                             <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">HOẠT ĐỘNG</span>
                         </div>
                         <div class="text-[11px] text-gray-400 truncate">ID: <code class="text-amber-300" id="health-chat-id-overdue">-1004498214603</code></div>
                         <div class="text-[10px] text-gray-400 leading-tight">Tự động nhắc trước 30p khách lấy đồ, nhắc trước 5-10p trả đồ và báo quá hạn.</div>
                         <div class="flex gap-1.5">
                             <button onclick="triggerOverdueAlertsCheck()" class="flex-1 bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-700 py-1.5 rounded-lg text-[10px] font-bold transition">
-                                <i class="fa-solid fa-bell"></i> Quét Ngay
+                                <i class="fa-solid fa-bell"></i> Quét
                             </button>
                             <button onclick="testTelegramNotifyGroup2()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-amber-300 py-1.5 rounded-lg text-[10px] font-bold transition">
-                                <i class="fa-solid fa-paper-plane"></i> Test G2
+                                <i class="fa-solid fa-paper-plane"></i> Test
                             </button>
                         </div>
                     </div>
@@ -1098,17 +1111,17 @@
                     <!-- Card Group 3 -->
                     <div class="bg-gray-900/80 p-3 rounded-xl border border-emerald-900/60 space-y-2">
                         <div class="flex justify-between items-center font-bold">
-                            <span class="text-emerald-300">Group 3: Doanh Thu 21h</span>
+                            <span class="text-emerald-300">Group 3: Doanh Thu</span>
                             <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">HOẠT ĐỘNG</span>
                         </div>
                         <div class="text-[11px] text-gray-400 truncate">ID: <code class="text-emerald-300" id="health-chat-id-revenue">-1003930707954</code></div>
                         <div class="text-[10px] text-gray-400 leading-tight">Gửi ảnh thẻ đồ họa Infographic 1280x720 + bảng tổng kết doanh thu lúc 21h.</div>
                         <div class="flex gap-1.5">
                             <button onclick="triggerDailyRevenueReportNow()" class="flex-1 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-700 py-1.5 rounded-lg text-[10px] font-bold transition">
-                                <i class="fa-solid fa-chart-pie"></i> Chốt Ngay
+                                <i class="fa-solid fa-chart-pie"></i> Chốt
                             </button>
                             <button onclick="testTelegramNotifyGroup3()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-emerald-300 py-1.5 rounded-lg text-[10px] font-bold transition">
-                                <i class="fa-solid fa-paper-plane"></i> Test G3
+                                <i class="fa-solid fa-paper-plane"></i> Test
                             </button>
                         </div>
                     </div>
@@ -1116,7 +1129,7 @@
                     <!-- Card Group 4: Tính Tiền Cọc -->
                     <div class="bg-gray-900/80 p-3 rounded-xl border border-cyan-900/60 space-y-2">
                         <div class="flex justify-between items-center font-bold">
-                            <span class="text-cyan-300">Group 4: Tính Tiền Cọc</span>
+                            <span class="text-cyan-300">Group 4: Tiền Cọc</span>
                             <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">HOẠT ĐỘNG</span>
                         </div>
                         <div class="text-[11px] text-gray-400 truncate">ID: <code class="text-cyan-300" id="health-chat-id-deposit">-1004476055497</code></div>
@@ -1126,7 +1139,7 @@
                                 <i class="fa-solid fa-shield-halved"></i> Báo Cáo
                             </button>
                             <button onclick="testTelegramNotifyGroup4()" class="flex-1 bg-gray-800 hover:bg-gray-700 text-cyan-300 py-1.5 rounded-lg text-[10px] font-bold transition">
-                                <i class="fa-solid fa-paper-plane"></i> Test G4
+                                <i class="fa-solid fa-paper-plane"></i> Test
                             </button>
                         </div>
                     </div>
@@ -1134,13 +1147,26 @@
                     <!-- Card Group 5: Hủy Đơn & Dời Lịch -->
                     <div class="bg-gray-900/80 p-3 rounded-xl border border-rose-900/60 space-y-2">
                         <div class="flex justify-between items-center font-bold">
-                            <span class="text-rose-300">Group 5: Hủy & Dời Lịch</span>
+                            <span class="text-rose-300">Group 5: Hủy / Dời</span>
                             <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">HOẠT ĐỘNG</span>
                         </div>
                         <div class="text-[11px] text-gray-400 truncate">ID: <code class="text-rose-300" id="health-chat-id-cancel">-1004467743740</code></div>
-                        <div class="text-[10px] text-gray-400 leading-tight">Báo ngay khi khách yêu cầu hủy lịch/dời lịch kèm STK hoàn tiền và ảnh biên lai.</div>
+                        <div class="text-[10px] text-gray-400 leading-tight">Báo khi khách yêu cầu hủy lịch/dời lịch kèm STK hoàn 50% tiền và ảnh biên lai.</div>
                         <button onclick="testTelegramNotifyGroup5()" class="w-full bg-gray-800 hover:bg-gray-700 text-rose-300 py-1.5 rounded-lg text-[10px] font-bold transition">
                             <i class="fa-solid fa-paper-plane"></i> Test Group 5
+                        </button>
+                    </div>
+
+                    <!-- Card Group 6: Đơn Đang Chờ Duyệt (YÊU CẦU 2) -->
+                    <div class="bg-gray-900/80 p-3 rounded-xl border border-yellow-900/60 space-y-2">
+                        <div class="flex justify-between items-center font-bold">
+                            <span class="text-yellow-300">Group 6: Chờ Duyệt</span>
+                            <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">HOẠT ĐỘNG</span>
+                        </div>
+                        <div class="text-[11px] text-gray-400 truncate">ID: <code class="text-yellow-300" id="health-chat-id-pending">-1003911311220</code></div>
+                        <div class="text-[10px] text-gray-400 leading-tight">Báo khi khách bấm 'Tôi đã chuyển tiền' kèm ảnh bill và các nút duyệt/hủy.</div>
+                        <button onclick="testTelegramNotifyGroupPending()" class="w-full bg-gray-800 hover:bg-gray-700 text-yellow-300 py-1.5 rounded-lg text-[10px] font-bold transition">
+                            <i class="fa-solid fa-paper-plane"></i> Test Chờ Duyệt
                         </button>
                     </div>
                 </div>
@@ -7472,94 +7498,94 @@
                 const isCancelled = r.status === 'CANCELLED';
 
                 let statusBadgeText = r.status;
-                let statusBadgeClass = 'bg-yellow-950 text-yellow-300 border-yellow-700';
+                let statusBadgeClass = 'bg-yellow-50 text-yellow-800 border-yellow-300';
 
                 if (isHold || isPending) {
                     statusBadgeText = '⏳ Đang Chờ Admin Duyệt Tiền';
-                    statusBadgeClass = 'bg-amber-950 text-amber-300 border-amber-600 font-bold';
+                    statusBadgeClass = 'bg-amber-50 text-amber-900 border-amber-300 font-bold';
                 } else if (isActive) {
                     statusBadgeText = '✅ Đã Xác Nhận (Đang Thuê)';
-                    statusBadgeClass = 'bg-emerald-950 text-emerald-300 border-emerald-600 font-bold';
+                    statusBadgeClass = 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold';
                 } else if (isReturned) {
                     statusBadgeText = '🎉 Đã Trả Đồ Xong';
-                    statusBadgeClass = 'bg-teal-950 text-teal-300 border-teal-600 font-bold';
+                    statusBadgeClass = 'bg-teal-50 text-teal-800 border-teal-300 font-bold';
                 } else if (isOverdue) {
                     statusBadgeText = '🚨 Đã Quá Hạn Trả';
-                    statusBadgeClass = 'bg-rose-950 text-rose-300 border-rose-600 font-black';
+                    statusBadgeClass = 'bg-rose-50 text-rose-800 border-rose-400 font-black';
                 } else if (isCancelled) {
                     statusBadgeText = '❌ Đã Hủy Đơn';
-                    statusBadgeClass = 'bg-gray-800 text-gray-400 border-gray-700 font-bold';
+                    statusBadgeClass = 'bg-slate-100 text-slate-500 border-slate-300 font-bold';
                 }
 
                 return `
-                    <div class="luxury-card rounded-2xl p-5 border ${isOverdue ? 'border-rose-500/60' : isWaitingApproval ? 'border-amber-500/60' : 'border-gray-800'} space-y-4">
-                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-800 pb-3">
+                    <div class="luxury-card rounded-2xl p-5 border ${isOverdue ? 'border-rose-400' : isWaitingApproval ? 'border-amber-400' : 'border-[#efe8df]'} space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#f2ece4] pb-3">
                             <div class="flex flex-wrap items-center gap-2">
-                                <span class="text-xs font-mono font-bold text-amber-400">${r.rental_code}</span>
+                                <span class="text-xs font-mono font-bold text-[#c86d51]">${r.rental_code}</span>
                                 <span class="text-xs font-mono px-2.5 py-0.5 rounded-full border ${statusBadgeClass}">${statusBadgeText}</span>
-                                <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-700">
+                                <span class="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-medium">
                                     📍 ${r.branch_code === 'CN2' ? 'CN2: 801 Lê Duẩn, P. An Phú, Pleiku' : 'CN1: 183A Huỳnh Thúc Kháng, Pleiku'}
                                 </span>
                             </div>
-                            <span class="text-xs text-gray-400 font-mono">Đặt lúc: ${r.created_at}</span>
+                            <span class="text-xs text-slate-500 font-mono">Đặt lúc: ${r.created_at}</span>
                         </div>
                         <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                             <div class="flex items-center gap-3">
-                                <img src="${r.item_image}" class="w-16 h-16 rounded-xl object-cover border border-gray-800">
+                                <img src="${r.item_image}" class="w-16 h-16 rounded-xl object-cover border border-[#efe8df] shadow-sm">
                                 <div>
-                                    <h4 class="text-sm font-bold text-white">${r.item_name}</h4>
-                                    <div class="text-xs text-gray-400 font-mono">Hạn trả: <strong class="${isOverdue ? 'text-rose-400' : 'text-amber-400'}">${r.end_time}</strong></div>
-                                    ${r.late_fee > 0 ? `<div class="text-xs text-rose-400 font-bold font-mono">Phí phạt trễ hạn: +${r.late_fee.toLocaleString()}đ</div>` : ''}
-                                    ${r.extension_status === 'REQUESTED' ? `<div class="text-xs text-cyan-400 font-mono">⏳ Đang chờ Quản lý duyệt gia hạn thêm giờ...</div>` : ''}
-                                    ${r.payment_proof_img ? `<div class="mt-1"><a href="${r.payment_proof_img}" target="_blank" class="text-[11px] text-cyan-300 underline font-mono flex items-center gap-1 font-bold"><i class="fa-solid fa-receipt"></i> Đã tải ảnh bill chuyển khoản</a></div>` : ''}
+                                    <h4 class="text-base font-bold text-slate-900 leading-snug">${r.item_name}</h4>
+                                    <div class="text-xs text-slate-600 font-mono mt-0.5">Hạn trả: <strong class="${isOverdue ? 'text-rose-600 font-bold' : 'text-amber-800 font-bold'}">${r.end_time}</strong></div>
+                                    ${r.late_fee > 0 ? `<div class="text-xs text-rose-600 font-bold font-mono">Phí phạt trễ hạn: +${r.late_fee.toLocaleString()}đ</div>` : ''}
+                                    ${r.extension_status === 'REQUESTED' ? `<div class="text-xs text-[#0284c7] font-mono font-medium">⏳ Đang chờ Quản lý duyệt gia hạn thêm giờ...</div>` : ''}
+                                    ${r.payment_proof_img ? `<div class="mt-1"><a href="${r.payment_proof_img}" target="_blank" class="text-[11px] text-[#0284c7] hover:underline font-mono flex items-center gap-1 font-bold"><i class="fa-solid fa-receipt"></i> Đã tải ảnh bill chuyển khoản</a></div>` : ''}
                                 </div>
                             </div>
                             <div class="text-right space-y-1">
-                                <div class="text-sm font-bold font-mono text-white">Tổng tiền: ${r.total_price.toLocaleString()}đ</div>
-                                <div class="text-[11px] font-mono text-amber-300 font-bold">Lưu ý: Để lại giấy tờ hoặc cọc thêm tiền</div>
-                                <button onclick="showQrModal('${r.qr_url}', '${r.item_name}', '${r.total_price.toLocaleString()} VNĐ', '${r.rental_code}')" class="text-xs text-amber-400 underline font-mono">Xem lại mã QR MBBank</button>
+                                <div class="text-sm font-bold font-mono text-slate-900">Tổng tiền: <span class="text-[#c86d51] text-base font-black">${r.total_price.toLocaleString()}đ</span></div>
+                                <div class="text-[11px] font-sans text-amber-800 font-medium">Lưu ý: Để lại giấy tờ hoặc cọc thêm tiền</div>
+                                <button onclick="showQrModal('${r.qr_url}', '${r.item_name}', '${r.total_price.toLocaleString()} VNĐ', '${r.rental_code}')" class="text-xs text-[#0284c7] hover:underline font-mono font-medium">Xem lại mã QR MBBank</button>
                             </div>
                         </div>
-                        <div class="pt-3 border-t border-gray-800 flex flex-wrap items-center justify-between gap-2">
+                        <div class="pt-3 border-t border-[#f2ece4] flex flex-wrap items-center justify-between gap-2">
                             <div class="flex flex-wrap items-center gap-2">
-                                <button onclick="window.open('/api/rentals/${r.id}/contract', '_blank')" class="bg-gray-800 hover:bg-gray-700 text-cyan-300 border border-gray-700 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition">
-                                    <i class="fa-solid fa-file-contract text-cyan-400"></i> Hợp Đồng (PDF)
+                                <button onclick="window.open('/api/rentals/${r.id}/contract', '_blank')" class="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 px-3 py-1.5 rounded-lg text-xs font-mono font-medium flex items-center gap-1.5 transition">
+                                    <i class="fa-solid fa-file-contract text-[#0284c7]"></i> Hợp Đồng (PDF)
                                 </button>
                                 ${!r.e_contract_signed ? `
-                                    <button onclick="openOtpModal(${r.id})" class="bg-amber-950 hover:bg-amber-900 text-amber-300 border border-amber-600 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition">
-                                        <i class="fa-solid fa-key"></i> Ký Số OTP
+                                    <button onclick="openOtpModal(${r.id})" class="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-3 py-1.5 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition">
+                                        <i class="fa-solid fa-key text-amber-600"></i> Ký Số OTP
                                     </button>
                                 ` : `
-                                    <span class="text-xs font-mono text-emerald-400 bg-emerald-950/80 px-2 py-1 rounded border border-emerald-700 flex items-center gap-1"><i class="fa-solid fa-check"></i> Đã Ký OTP</span>
+                                    <span class="text-xs font-mono text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-300 font-bold flex items-center gap-1"><i class="fa-solid fa-check"></i> Đã Ký OTP</span>
                                 `}
-                                <button onclick="openK80BillModal('${r.rental_code}')" class="bg-amber-950/80 hover:bg-amber-900 text-yellow-300 border border-amber-600 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition font-bold" title="Xem hóa đơn và lưu về máy">
-                                    <i class="fa-solid fa-receipt text-yellow-400"></i> Xem & Lưu Bill K80
+                                <button onclick="openK80BillModal('${r.rental_code}')" class="bg-yellow-50 hover:bg-yellow-100 text-yellow-900 border border-yellow-300 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition font-bold" title="Xem hóa đơn và lưu về máy">
+                                    <i class="fa-solid fa-receipt text-yellow-600"></i> Xem & Lưu Bill K80
                                 </button>
 
                                 <!-- Nút Dời Lịch (Miễn Phí) cho cả Đang Chờ Duyệt (HOLD/PENDING) và Đang Thuê (ACTIVE) -->
                                 ${isActive || isWaitingApproval ? `
-                                    <button onclick="openRescheduleModal(${r.id}, '${r.rental_code}', '${r.start_time}', '${r.end_time}')" class="bg-blue-950/80 hover:bg-blue-900 text-cyan-300 border border-blue-600 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition font-bold" title="Đổi ngày giờ thuê miễn phí 100%">
-                                        <i class="fa-solid fa-calendar-plus text-cyan-400"></i> Dời Lịch (Miễn Phí)
+                                    <button onclick="openRescheduleModal(${r.id}, '${r.rental_code}', '${r.start_time}', '${r.end_time}')" class="bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-300 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition font-bold" title="Đổi ngày giờ thuê miễn phí 100%">
+                                        <i class="fa-solid fa-calendar-plus text-sky-600"></i> Dời Lịch (Miễn Phí)
                                     </button>
                                 ` : ''}
 
-                                <!-- Nút Hủy Đơn khi Đang Chờ Duyệt (HOLD/PENDING): Mở Modal Hoàn 100% Tiền -->
+                                <!-- Nút Hủy Đơn khi Đang Chờ Duyệt (HOLD/PENDING) - Phạt 50% theo quy định -->
                                 ${isWaitingApproval ? `
-                                    <button onclick="openCancelModalWithPenalty(${r.id}, '${r.rental_code}', ${r.total_price + (r.deposit_paid || 0)}, true)" class="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-700 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition font-bold" title="Hủy đơn đang chờ duyệt (Hoàn 100% tiền cọc & thuê)">
-                                        <i class="fa-solid fa-ban text-rose-400"></i> Hủy Đơn Chờ Duyệt
+                                    <button onclick="openCancelModalWithPenalty(${r.id}, '${r.rental_code}', ${r.total_price + (r.deposit_paid || 0)})" class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition font-bold" title="Hủy đơn đang chờ duyệt (Giữ lại 50% chi phí chuẩn bị đồ, hoàn 50%)">
+                                        <i class="fa-solid fa-ban text-rose-600"></i> Hủy Đơn Chờ Duyệt
                                     </button>
                                 ` : ''}
 
                                 <!-- Nút Hủy Lịch khi Đang Thuê (ACTIVE - Có phạt 50%) -->
                                 ${isActive ? `
-                                    <button onclick="openCancelModalWithPenalty(${r.id}, '${r.rental_code}', ${r.total_price + (r.deposit_paid || 0)}, false)" class="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-700 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition font-bold" title="Hủy lịch thuê (mất 50% phí)">
-                                        <i class="fa-solid fa-ban text-rose-400"></i> Hủy Lịch
+                                    <button onclick="openCancelModalWithPenalty(${r.id}, '${r.rental_code}', ${r.total_price + (r.deposit_paid || 0)})" class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition font-bold" title="Hủy lịch thuê (mất 50% phí)">
+                                        <i class="fa-solid fa-ban text-rose-600"></i> Hủy Lịch
                                     </button>
                                 ` : ''}
                             </div>
                             ${r.status === 'ACTIVE' || isOverdue ? `
-                                <button onclick="openExtendModal(${r.id})" class="bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-700 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition">
-                                    <i class="fa-solid fa-clock-rotate-left"></i> Xin Gia Hạn Thuê Thêm
+                                <button onclick="openExtendModal(${r.id})" class="bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 px-3 py-1.5 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition">
+                                    <i class="fa-solid fa-clock-rotate-left text-teal-600"></i> Xin Gia Hạn Thuê Thêm
                                 </button>
                             ` : ''}
                         </div>
@@ -7664,77 +7690,50 @@
 
         let pendingCancelRentalId = null;
         let pendingCancelCode = '';
-        let pendingCancelIsWaitingApproval = false;
 
-        function openCancelModalWithPenalty(rentalId, code, total, isWaitingApproval = false) {
+        function openCancelModalWithPenalty(rentalId, code, total) {
             pendingCancelRentalId = rentalId;
             pendingCancelCode = code;
-            pendingCancelIsWaitingApproval = Boolean(isWaitingApproval);
 
             document.getElementById('cancel-rental-id').value = rentalId;
             document.getElementById('cancel-modal-code').innerText = `Đơn hàng: #${code}`;
 
             const tot = Number(total) || 0;
+            const penalty = Math.round(tot * 0.5);
+            const refund = tot - penalty;
+
             const modalTitleEl = document.getElementById('cancel-modal-title');
+            if (modalTitleEl) modalTitleEl.innerText = "Xác Nhận Hủy Đơn Hàng";
+
             const warnBox = document.getElementById('cancel-warning-box');
-            const submitBtn = document.getElementById('btn-submit-cancel-pen');
+            if (warnBox) {
+                warnBox.className = "p-3.5 bg-rose-950/70 border-2 border-rose-500/80 rounded-2xl text-rose-200 leading-relaxed space-y-1.5 shadow-inner";
+                warnBox.innerHTML = `
+                    <div class="font-bold text-amber-300 flex items-center gap-1.5 text-xs font-mono uppercase">
+                        <i class="fa-solid fa-triangle-exclamation text-yellow-400"></i> LƯU Ý QUY ĐỊNH HỦY ĐƠN:
+                    </div>
+                    <p class="text-white text-xs font-bold leading-normal">
+                        ⚠️ Nếu bạn chọn <strong>HỦY ĐƠN</strong>: Theo quy định bạn sẽ <strong>mất 50% số tiền</strong> (cửa hàng giữ lại 50% chi phí chuẩn bị đồ và hoàn lại 50% về số tài khoản của bạn).
+                    </p>
+                    <p class="text-emerald-300 text-xs font-bold leading-normal">
+                        💡 Nếu bạn chọn <strong>DỜI LỊCH</strong>: Bạn được đổi sang ngày giờ khác hoàn toàn <strong>MIỄN PHÍ 100% không mất tiền</strong>!
+                    </p>
+                `;
+            }
+
             const penaltyLabel = document.getElementById('cancel-label-penalty');
             const refundLabel = document.getElementById('cancel-label-refund');
+            if (penaltyLabel) penaltyLabel.innerText = "Phí phạt giữ lại (50%):";
+            if (refundLabel) refundLabel.innerText = "Số tiền hoàn trả (50%):";
 
-            if (pendingCancelIsWaitingApproval) {
-                // ĐƠN ĐANG CHỜ DUYỆT (HOLD / PENDING) -> HOÀN 100% TIỀN
-                if (modalTitleEl) modalTitleEl.innerText = "Xác Nhận Hủy Đơn Chờ Duyệt";
-                if (warnBox) {
-                    warnBox.className = "p-3.5 bg-amber-950/70 border-2 border-amber-500/80 rounded-2xl text-amber-200 leading-relaxed space-y-1.5 shadow-inner";
-                    warnBox.innerHTML = `
-                        <div class="font-bold text-amber-300 flex items-center gap-1.5 text-xs font-mono uppercase">
-                            <i class="fa-solid fa-circle-check text-emerald-400"></i> MIỄN PHÍ HỦY ĐƠN (HOÀN TIỀN 100%):
-                        </div>
-                        <p class="text-white text-xs font-bold leading-normal">
-                            🎉 Đơn hàng của bạn đang trong trạng thái <strong>CHỜ DUYỆT</strong> nên bạn được <strong>HOÀN LẠI 100% TIỀN</strong>. Cửa hàng không thu bất kỳ chi phí nào!
-                        </p>
-                        <p class="text-cyan-300 text-xs font-bold leading-normal">
-                            💡 Nếu bạn muốn đổi ngày giờ khác: Hãy chọn <strong>DỜI LỊCH</strong> hoàn toàn <strong>MIỄN PHÍ 100%</strong>!
-                        </p>
-                    `;
-                }
-                if (penaltyLabel) penaltyLabel.innerText = "Phí hủy đơn chờ duyệt:";
-                if (refundLabel) refundLabel.innerText = "Số tiền hoàn trả (100%):";
-                document.getElementById('cancel-disp-total').innerText = `${tot.toLocaleString()}đ`;
-                document.getElementById('cancel-disp-penalty').innerText = `0đ (Miễn phí)`;
-                document.getElementById('cancel-disp-refund').innerText = `${tot.toLocaleString()}đ (100%)`;
-                if (submitBtn) {
-                    submitBtn.innerHTML = '<i class="fa-solid fa-ban"></i> Xác Nhận Hủy Đơn (Hoàn 100%)';
-                    submitBtn.className = "w-full bg-gradient-to-r from-rose-700 to-red-800 hover:from-rose-600 hover:to-red-700 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg transition";
-                }
-            } else {
-                // ĐƠN ĐANG THUÊ (ACTIVE) -> ÁP DỤNG QUY ĐỊNH HỦY LỊCH PHẠT 50%
-                if (modalTitleEl) modalTitleEl.innerText = "Xác Nhận Hủy Lịch Thuê";
-                if (warnBox) {
-                    warnBox.className = "p-3.5 bg-rose-950/70 border-2 border-rose-500/80 rounded-2xl text-rose-200 leading-relaxed space-y-1.5 shadow-inner";
-                    warnBox.innerHTML = `
-                        <div class="font-bold text-amber-300 flex items-center gap-1.5 text-xs font-mono uppercase">
-                            <i class="fa-solid fa-triangle-exclamation text-yellow-400"></i> LƯU Ý QUY ĐỊNH HỦY LỊCH:
-                        </div>
-                        <p class="text-white text-xs font-bold leading-normal">
-                            ⚠️ Nếu bạn chọn <strong>HỦY LỊCH</strong>: Theo quy định bạn sẽ <strong>mất 50% số tiền</strong> (cửa hàng giữ lại 50% chi phí chuẩn bị đồ và hoàn lại 50%).
-                        </p>
-                        <p class="text-emerald-300 text-xs font-bold leading-normal">
-                            💡 Nếu bạn chọn <strong>DỜI LỊCH</strong>: Bạn được đổi sang ngày giờ khác hoàn toàn <strong>MIỄN PHÍ 100% không mất tiền</strong>!
-                        </p>
-                    `;
-                }
-                const penalty = Math.round(tot * 0.5);
-                const refund = tot - penalty;
-                if (penaltyLabel) penaltyLabel.innerText = "Phí phạt giữ lại (50%):";
-                if (refundLabel) refundLabel.innerText = "Số tiền hoàn trả (50%):";
-                document.getElementById('cancel-disp-total').innerText = `${tot.toLocaleString()}đ`;
-                document.getElementById('cancel-disp-penalty').innerText = `-${penalty.toLocaleString()}đ (50%)`;
-                document.getElementById('cancel-disp-refund').innerText = `${refund.toLocaleString()}đ (50%)`;
-                if (submitBtn) {
-                    submitBtn.innerHTML = '<i class="fa-solid fa-ban"></i> Chấp Nhận Hủy (Mất 50% Phí)';
-                    submitBtn.className = "w-full bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-700 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1 transition";
-                }
+            document.getElementById('cancel-disp-total').innerText = `${tot.toLocaleString()}đ`;
+            document.getElementById('cancel-disp-penalty').innerText = `-${penalty.toLocaleString()}đ (50%)`;
+            document.getElementById('cancel-disp-refund').innerText = `${refund.toLocaleString()}đ (50%)`;
+
+            const submitBtn = document.getElementById('btn-submit-cancel-pen');
+            if (submitBtn) {
+                submitBtn.innerHTML = '<i class="fa-solid fa-ban"></i> Chấp Nhận Hủy (Mất 50% Phí)';
+                submitBtn.className = "w-full bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-700 font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition";
             }
 
             // Reset hoặc điền sẵn tên khách
@@ -7814,9 +7813,7 @@
             } finally {
                 if (btn) {
                     btn.disabled = false;
-                    btn.innerHTML = pendingCancelIsWaitingApproval 
-                        ? '<i class="fa-solid fa-ban"></i> Xác Nhận Hủy Đơn (Hoàn 100%)' 
-                        : '<i class="fa-solid fa-ban"></i> Chấp Nhận Hủy (Mất 50% Phí)';
+                    btn.innerHTML = '<i class="fa-solid fa-ban"></i> Chấp Nhận Hủy (Mất 50% Phí)';
                 }
             }
         }
@@ -7882,6 +7879,8 @@
                     if (document.getElementById('adm-total-rentals')) document.getElementById('adm-total-rentals').innerText = stats.total_rentals || 0;
                     if (document.getElementById('adm-active-rentals')) document.getElementById('adm-active-rentals').innerText = stats.active_rentals || 0;
                     if (document.getElementById('adm-overdue-rentals')) document.getElementById('adm-overdue-rentals').innerText = stats.overdue_rentals || 0;
+                    if (document.getElementById('adm-pending-rentals')) document.getElementById('adm-pending-rentals').innerText = stats.pending_rentals || 0;
+                    if (document.getElementById('adm-count-pending-badge')) document.getElementById('adm-count-pending-badge').innerText = stats.pending_rentals || 0;
 
                     if (document.getElementById('widget-active-rentals')) document.getElementById('widget-active-rentals').innerText = stats.active_rentals || 0;
                     if (document.getElementById('widget-due-soon')) document.getElementById('widget-due-soon').innerText = (stats.recent_alerts || []).filter(a => a.alert_type === 'WARNING_DUE_SOON').length;
@@ -8654,8 +8653,17 @@
             }
         }
 
+        function filterRentalsWaitingApproval() {
+            switchAdminMainTab('rentals');
+            const sel = document.getElementById('adm-filter-status');
+            if (sel) {
+                sel.value = 'WAITING_APPROVAL';
+                fetchAdminRentals();
+            }
+        }
+
         async function fetchAdminRentals() {
-            const statusFilter = document.getElementById('adm-filter-status').value;
+            const statusFilter = document.getElementById('adm-filter-status') ? document.getElementById('adm-filter-status').value : '';
             const token = localStorage.getItem('tiduba_token');
             const res = await fetch(`/api/admin/rentals?status=${statusFilter}`, { headers: { 'Authorization': `Bearer ${token}` } });
             const data = await res.json();
@@ -11310,6 +11318,7 @@
                     if (document.getElementById('health-chat-id-revenue')) document.getElementById('health-chat-id-revenue').innerText = data.telegram.chat_id_revenue || '-1003930707954';
                     if (document.getElementById('health-chat-id-deposit')) document.getElementById('health-chat-id-deposit').innerText = data.telegram.chat_id_deposit || '-1004476055497';
                     if (document.getElementById('health-chat-id-cancel')) document.getElementById('health-chat-id-cancel').innerText = data.telegram.chat_id_cancel || '-1004467743740';
+                    if (document.getElementById('health-chat-id-pending')) document.getElementById('health-chat-id-pending').innerText = data.telegram.chat_id_pending || '-1003911311220';
                     if (document.getElementById('health-th-reminder')) document.getElementById('health-th-reminder').innerText = data.background_threads.reminder_worker_running ? '🟢 Đang chạy' : '🔴 Dừng';
                     if (document.getElementById('health-th-bot')) document.getElementById('health-th-bot').innerText = data.background_threads.telegram_bot_worker_running ? '🟢 Đang chạy' : '🔴 Dừng';
                     if (document.getElementById('health-th-keepalive')) document.getElementById('health-th-keepalive').innerText = data.background_threads.keepalive_worker_running ? '🟢 Đang chạy' : '🔴 Dừng';
@@ -11358,6 +11367,21 @@
                 });
                 const data = await res.json();
                 showToast(data.message || "Đã gửi test Group 5!");
+                fetchTelegramLogs();
+            } catch(e) { alert("Lỗi: " + e); }
+        }
+
+        async function testTelegramNotifyGroupPending() {
+            const token = localStorage.getItem('tiduba_token');
+            showToast("Đang gửi tin test tới Group Đơn Đang Chờ Duyệt...");
+            try {
+                const res = await fetch('/api/admin/telegram/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ message: "⏳ [TEST] Kết nối Group Đơn Đang Chờ Duyệt (-1003911311220) tự động 24/7!", chat_id: "-1003911311220" })
+                });
+                const data = await res.json();
+                showToast(data.message || "Đã gửi test Group Đơn Chờ Duyệt!");
                 fetchTelegramLogs();
             } catch(e) { alert("Lỗi: " + e); }
         }

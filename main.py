@@ -613,6 +613,20 @@ def init_db():
     except Exception:
         pass
 
+    # Tự động cập nhật cột pending_approval_chat_id cho telegram_config (-1003911311220)
+    # Group nhận thông báo đơn đang chờ duyệt (PENDING / HOLD)
+    try:
+        cur.execute("ALTER TABLE telegram_config ADD COLUMN pending_approval_chat_id TEXT DEFAULT '-1003911311220';")
+        conn.commit()
+    except Exception:
+        pass
+
+    try:
+        cur.execute("UPDATE telegram_config SET pending_approval_chat_id = '-1003911311220' WHERE (pending_approval_chat_id IS NULL OR pending_approval_chat_id = '')")
+        conn.commit()
+    except Exception:
+        pass
+
     # Tự động cập nhật cột payment_proof_img cho rentals nếu chưa có
     try:
         cur.execute("ALTER TABLE rentals ADD COLUMN payment_proof_img TEXT;")
@@ -2802,19 +2816,7 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
         f"━━━━━━━━━━━━━━━━━━\n"
         f"🔗 Quét trả đồ: {PUBLIC_DOMAIN}/return-qr?code={rental_code}"
     )
-    # Bắn thông báo tiền cọc vào Group -1004476055497 nếu có cọc
-    if deposit_amount > 0 or dep_type in ("CCCD", "ASSET", "CASH"):
-        notify_deposit_event("THU_COC", {
-            "rental_code": rental_code,
-            "customer_name": user["full_name"],
-            "customer_phone": user["phone"],
-            "item_name": item_name,
-            "deposit_paid": deposit_amount,
-            "deposit_type": dep_type,
-            "deposit_asset_desc": asset_desc
-        })
-    # Không gửi Telegram ở trạng thái HOLD (Chỉ gửi khi khách bấm nút 'TÔI ĐÃ CHUYỂN TIỀN kèm ảnh biên lai')
-
+    # Không gửi Telegram ở trạng thái HOLD (Chỉ gửi khi khách bấm nút 'TÔI ĐÃ CHUYỂN TIỀN' kèm ảnh biên lai)
     return {
         "success": True,
         "message": "Đã khóa giữ máy thành công trong 15 phút! Vui lòng quét mã VietQR MBBank để xác nhận đơn.",
@@ -2826,18 +2828,14 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
         "rental_type": rental_type,
         "rental_hours": hours,
         "rental_days": rental_days,
-        "hold_expires_at": hold_expires_at,
         "hold_countdown_seconds": 900,
+        "hold_expires_at": hold_expires_at,
         "total_price": total_price,
         "deposit_amount": deposit_amount,
-        "deposit_type": dep_type,
-        "deposit_asset_desc": asset_desc,
-        "discount_applied": 0,
-        "total_payable": total_payment,
+        "total_payment": total_payment,
+        "qr_url": qr_url,
         "qr_image_url": qr_url,
-        "bank_account": f"{BANK_CONFIG['bank_name']} - STK: {BANK_CONFIG['account_no']} ({BANK_CONFIG['account_name']})",
-        "start_time": req.start_time,
-        "end_time": effective_end_time
+        "customer_notes": req.customer_notes
     }
 
 
@@ -3341,18 +3339,16 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
     # Chỉ gửi thông báo ngay nếu là Admin bán tại quầy POS trực tiếp
     if is_admin_mode:
         _send_telegram_notification(tele_msg, rental_id=rental_id, event_type="NEW_RENTAL")
-
-    # Bắn thông báo tiền cọc vào Group -1004476055497 nếu có cọc
-    if final_deposit > 0 or dep_type in ("CCCD", "ASSET", "CASH"):
-        notify_deposit_event("THU_COC", {
-            "rental_code": rental_code,
-            "customer_name": target_user_name,
-            "customer_phone": target_user_phone,
-            "item_name": f"Gói {len(processed_items)} món",
-            "deposit_paid": final_deposit,
-            "deposit_type": dep_type,
-            "deposit_asset_desc": asset_desc
-        })
+        if req.is_direct_paid and (final_deposit > 0 or dep_type in ("CCCD", "ASSET", "CASH")):
+            notify_deposit_event("THU_COC", {
+                "rental_code": rental_code,
+                "customer_name": target_user_name,
+                "customer_phone": target_user_phone,
+                "item_name": f"Gói {len(processed_items)} món",
+                "deposit_paid": final_deposit,
+                "deposit_type": dep_type,
+                "deposit_asset_desc": asset_desc
+            })
 
     # Tạo trước nội dung bill K80 ESC/POS
     bill_data = {
@@ -3637,6 +3633,7 @@ def get_admin_dashboard_stats(admin: Dict[str, Any] = Depends(require_admin)):
     total_rentals = conn.execute("SELECT count(*) as c FROM rentals").fetchone()["c"]
     active_rentals = conn.execute("SELECT count(*) as c FROM rentals WHERE status = 'ACTIVE'").fetchone()["c"]
     overdue_rentals = conn.execute("SELECT count(*) as c FROM rentals WHERE status = 'OVERDUE'").fetchone()["c"]
+    pending_rentals = conn.execute("SELECT count(*) as c FROM rentals WHERE status IN ('PENDING', 'HOLD')").fetchone()["c"]
     available_items = conn.execute("SELECT count(*) as c FROM items WHERE availability = 'AVAILABLE'").fetchone()["c"]
     alerts = [dict(row) for row in conn.execute("SELECT * FROM alerts ORDER BY id DESC LIMIT 10").fetchall()]
 
@@ -3670,6 +3667,7 @@ def get_admin_dashboard_stats(admin: Dict[str, Any] = Depends(require_admin)):
         "total_rentals": total_rentals,
         "active_rentals": active_rentals,
         "overdue_rentals": overdue_rentals,
+        "pending_rentals": pending_rentals,
         "available_items": available_items,
         "revenue_7d": revenue_7d,
         "recent_alerts": alerts,
@@ -3698,8 +3696,11 @@ def get_all_rentals_admin(status: Optional[str] = None, admin: Dict[str, Any] = 
     """
     params = []
     if status:
-        query += " AND r.status = ?"
-        params.append(status)
+        if status in ("PENDING", "WAITING_APPROVAL", "HOLD_PENDING"):
+            query += " AND r.status IN ('PENDING', 'HOLD')"
+        else:
+            query += " AND r.status = ?"
+            params.append(status)
 
     query += " ORDER BY r.status = 'OVERDUE' DESC, r.id DESC"
     rentals = [dict(row) for row in conn.execute(query, params).fetchall()]
@@ -4178,16 +4179,11 @@ def customer_cancel_with_penalty(rental_id: int, req: Optional[CancelRentalWithP
     is_waiting_approval = (r["status"] in ("HOLD", "PENDING"))
     total_amount = (r["total_price"] or 0) + (r["deposit_paid"] or 0)
 
-    # Nếu đơn đang chờ duyệt (HOLD hoặc PENDING): Hoàn 100% (không phạt khách vì đơn chưa duyệt)
-    if is_waiting_approval:
-        penalty_amount = 0
-        refund_amount = total_amount
-        status_msg = f"Đơn đang ở chế độ chờ duyệt ({r['status']}), hoàn 100% ({total_amount:,}đ)"
-    else:
-        # Đơn ACTIVE: Áp dụng quy chế hủy lịch giữ lại 50%
-        penalty_amount = int(round(total_amount * 0.5))
-        refund_amount = total_amount - penalty_amount
-        status_msg = f"Giữ lại 50% phí ({penalty_amount:,}đ), hoàn 50% ({refund_amount:,}đ)"
+    # Quy chế hủy đơn / hủy lịch: Giữ lại 50% chi phí chuẩn bị đồ, hoàn 50% về STK ngân hàng
+    penalty_amount = int(round(total_amount * 0.5))
+    refund_amount = total_amount - penalty_amount
+    status_label = f"Đơn đang chờ duyệt ({r['status']})" if is_waiting_approval else r["status"]
+    status_msg = f"Hủy đơn [{status_label}]: Giữ lại 50% phí ({penalty_amount:,}đ), hoàn 50% ({refund_amount:,}đ)"
 
     r_dict = dict(r)
     b_name = (req.bank_name if req else "") or ""
@@ -4258,11 +4254,7 @@ def customer_cancel_with_penalty(rental_id: int, req: Optional[CancelRentalWithP
         photo_url=proof_img
     )
 
-    resp_msg = (
-        f"Đã hủy đơn thành công! Đơn hàng của bạn đang trong trạng thái chờ duyệt nên không mất phí, cửa hàng sẽ hoàn trả lại {refund_amount:,}đ về tài khoản ngân hàng của bạn."
-        if is_waiting_approval else
-        f"Đã hủy đơn thành công! Theo quy định, cửa hàng giữ lại 50% phí ({penalty_amount:,}đ) và sẽ hoàn lại 50% ({refund_amount:,}đ) về tài khoản ngân hàng của bạn."
-    )
+    resp_msg = f"Đã hủy đơn thành công! Theo quy định, cửa hàng giữ lại 50% chi phí chuẩn bị đồ ({penalty_amount:,}đ) và sẽ hoàn lại 50% ({refund_amount:,}đ) về tài khoản ngân hàng của bạn."
 
     return {
         "success": True,
@@ -4982,6 +4974,8 @@ def api_system_health(admin: Dict[str, Any] = Depends(require_admin)):
             "chat_id_overdue": cfg["overdue_chat_id"] if (cfg and "overdue_chat_id" in cfg.keys()) else "-1004498214603",
             "chat_id_revenue": cfg["revenue_chat_id"] if (cfg and "revenue_chat_id" in cfg.keys()) else "-1003930707954",
             "chat_id_deposit": cfg["deposit_chat_id"] if (cfg and "deposit_chat_id" in cfg.keys()) else "-1004476055497",
+            "chat_id_cancel": cfg["cancel_alert_chat_id"] if (cfg and "cancel_alert_chat_id" in cfg.keys()) else "-1004467743740",
+            "chat_id_pending": cfg["pending_approval_chat_id"] if (cfg and "pending_approval_chat_id" in cfg.keys()) else "-1003911311220",
             "today_revenue_reported": bool(today_revenue_log)
         },
         "background_threads": {
@@ -5932,56 +5926,74 @@ def submit_customer_payment_proof(req: CustomerPaymentProofRequest, user: Option
     note_addon = ' | Khách đã tải bill chuyển tiền' if req.proof_image_url else ' | Khách báo đã chuyển khoản qua VietQR MB'
     cur.execute("""
     UPDATE rentals 
-    SET payment_proof_img = COALESCE(?, payment_proof_img), customer_notes = COALESCE(customer_notes, '') || ?
+    SET status = CASE WHEN status = 'HOLD' THEN 'PENDING' ELSE status END,
+        payment_proof_img = COALESCE(?, payment_proof_img), 
+        customer_notes = COALESCE(customer_notes, '') || ?
     WHERE id = ?
     """, (req.proof_image_url, note_addon, req.rental_id))
     conn.commit()
     conn.close()
 
-    branch_code = rental["branch_code"] if ("branch_code" in rental.keys() and rental["branch_code"]) else "CN1"
+    r_dict = dict(rental)
+    branch_code = r_dict.get("branch_code") or "CN1"
     branch_info = STORE_BRANCHES.get(branch_code, STORE_BRANCHES["CN1"])
 
     bill_status_text = "📸 <i>Ảnh biên lai đính kèm bên dưới.</i>" if req.proof_image_url else "⚡ <i>Khách báo đã chuyển khoản (Vui lòng đối chiếu app MBBank).</i>"
 
+    dep_paid_val = r_dict.get("deposit_paid") or 0
+    total_pr_val = r_dict.get("total_price") or 0
+
     tele_msg = (
-        f"<b>📸 [THANH TOÁN] KHÁCH BÁO ĐÃ CHUYỂN KHOẢN!</b>\n"
+        f"<b>⏳ [ĐƠN CHỜ DUYỆT] KHÁCH BÁO ĐÃ CHUYỂN KHOẢN!</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
-        f"📋 <b>Mã đơn:</b> <code>{rental['rental_code']}</code>\n"
-        f"👤 <b>Khách hàng:</b> {rental['customer_name']} (<code>{rental['customer_phone']}</code>)\n"
-        f"📦 <b>Thiết bị:</b> {rental['item_name']}\n"
-        f"💵 <b>Số tiền cần trả:</b> <b>{rental['total_price']:,}đ</b>\n"
+        f"📋 <b>Mã đơn:</b> <code>{r_dict['rental_code']}</code> (PENDING)\n"
+        f"👤 <b>Khách hàng:</b> {r_dict['customer_name']} (<code>{r_dict['customer_phone']}</code>)\n"
+        f"📦 <b>Thiết bị:</b> {r_dict['item_name']}\n"
+        f"💵 <b>Số tiền cần trả:</b> <b>{total_pr_val:,}đ</b>\n"
+        f"🛡️ <b>Tiền cọc:</b> <b>{dep_paid_val:,}đ</b>\n"
         f"🏢 <b>Chi nhánh:</b> {branch_info['name']}\n"
         f"{bill_status_text}\n"
         f"━━━━━━━━━━━━━━━━━━\n"
         f"👇 <b>Admin bấm nút bên dưới để duyệt thanh toán ngay:</b>"
     )
 
-    # Tạo HMAC signature bảo mật cho link xác nhận
-    confirm_sig = hmac.new(TOKEN_SECRET.encode(), f"{rental['id']}:{rental['rental_code']}".encode(), hashlib.sha256).hexdigest()
-    confirm_url = f"https://tidubastore.onrender.com/api/telegram/quick_confirm?rental_id={rental['id']}&code={rental['rental_code']}&sig={confirm_sig}"
-    
     # Nút bấm Inline: Duyệt tiền, Hủy đơn, Hết đồ trực tiếp trong Telegram
     inline_kb = [
         [
-            {"text": "✅ Xác Nhận Đã Nhận Tiền", "callback_data": f"confirm_pay:{rental['id']}:{rental['rental_code']}"}
+            {"text": "✅ Xác Nhận Đã Nhận Tiền", "callback_data": f"confirm_pay:{r_dict['id']}:{r_dict['rental_code']}"}
         ],
         [
-            {"text": "❌ Hủy Đơn Này", "callback_data": f"cancel_order:{rental['id']}:{rental['rental_code']}"},
-            {"text": "🚫 Hết Đồ / Kho Bận", "callback_data": f"out_of_stock:{rental['id']}:{rental['rental_code']}"}
+            {"text": "❌ Hủy Đơn Này", "callback_data": f"cancel_order:{r_dict['id']}:{r_dict['rental_code']}"},
+            {"text": "🚫 Hết Đồ / Kho Bận", "callback_data": f"out_of_stock:{r_dict['id']}:{r_dict['rental_code']}"}
         ],
         [
-            {"text": "🔍 Xem Chi Tiết Trên Web", "url": f"https://tidubastore.onrender.com/return-qr?code={rental['rental_code']}"}
+            {"text": "🔍 Xem Chi Tiết Trên Web", "url": f"https://tidubastore.onrender.com/return-qr?code={r_dict['rental_code']}"}
         ]
     ]
-    tele_msg += "\n👇 <b>Admin bấm nút bên dưới để thao tác tức thì (Không cần mở web/app):</b>"
 
+    # YÊU CẦU 2: Thông báo đơn chờ duyệt gửi riêng qua nhóm -1003911311220 và KHÔNG gửi qua nhóm khác
     _send_telegram_notification(
         message=tele_msg,
-        rental_id=rental["id"],
-        event_type="PAYMENT",
+        rental_id=r_dict["id"],
+        event_type="PENDING_APPROVAL",
         photo_url=req.proof_image_url,
-        inline_keyboard=inline_kb
+        inline_keyboard=inline_kb,
+        override_chat_id="-1003911311220"
     )
+
+    # YÊU CẦU 4: Khi khách bấm nút 'Tôi đã chuyển tiền' thì MỚI BẮT ĐẦU thông báo vào nhóm tính tiền cọc (-1004476055497)
+    dep_type = r_dict.get("deposit_type") or "NONE"
+    dep_desc = r_dict.get("deposit_asset_desc") or ""
+    if dep_paid_val > 0 or dep_type in ("CCCD", "ASSET", "CASH"):
+        notify_deposit_event("THU_COC", {
+            "rental_code": r_dict["rental_code"],
+            "customer_name": r_dict["customer_name"],
+            "customer_phone": r_dict["customer_phone"],
+            "item_name": r_dict["item_name"],
+            "deposit_paid": dep_paid_val,
+            "deposit_type": dep_type,
+            "deposit_asset_desc": dep_desc
+        })
 
     return {
         "success": True,
@@ -6103,6 +6115,11 @@ def _send_telegram_notification(
         if not override_chat_id and cfg and "cancel_alert_chat_id" in cfg.keys() and cfg["cancel_alert_chat_id"]:
             if event_type == "CANCEL_PENDING":
                 active_chat_id = cfg["cancel_alert_chat_id"].strip()
+
+        # Nếu là sự kiện ĐƠN ĐANG CHỜ DUYỆT: Ưu tiên gửi sang Group chờ duyệt (-1003911311220)
+        if not override_chat_id and cfg and "pending_approval_chat_id" in cfg.keys() and cfg["pending_approval_chat_id"]:
+            if event_type in ("PENDING_APPROVAL", "NEW_RENTAL_PENDING"):
+                active_chat_id = cfg["pending_approval_chat_id"].strip()
 
         if active_token and active_chat_id:
             # Kiểm tra phân loại sự kiện theo cấu hình bật/tắt (nếu không phải TEST hoặc override)

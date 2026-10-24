@@ -33,7 +33,7 @@ client = TestClient(app)
 def ensure_items_available():
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("UPDATE rentals SET status = 'RETURNED' WHERE status IN ('ACTIVE', 'HOLD', 'OVERDUE')")
+    cur.execute("UPDATE rentals SET status = 'RETURNED' WHERE status IN ('ACTIVE', 'HOLD', 'OVERDUE', 'PENDING', 'APPROVED')")
     cur.execute("UPDATE items SET availability = 'AVAILABLE'")
     conn.commit()
     conn.close()
@@ -1020,7 +1020,7 @@ def test_reschedule_and_cancel_pending_orders_notify_cancel_group():
     assert resched.status_code == 200
     assert resched.json()["success"] is True
 
-    # 4. Hủy đơn khi đang chờ duyệt -> hoàn 100%, không phạt 50%
+    # 4. Hủy đơn khi đang chờ duyệt -> áp dụng quy chế hủy lịch giữ lại 50% phí, hoàn 50%
     cancel_res = client.post(f"/api/rentals/{r_id}/cancel_with_penalty", json={
         "bank_name": "MBBank",
         "account_no": "0987654321",
@@ -1029,7 +1029,9 @@ def test_reschedule_and_cancel_pending_orders_notify_cancel_group():
     assert cancel_res.status_code == 200
     data = cancel_res.json()
     assert data["success"] is True
-    assert data["penalty_amount"] == 0
+    assert data["penalty_amount"] > 0
+    assert data["refund_amount"] > 0
+    assert data["penalty_amount"] == data["refund_amount"]
     assert data["is_hold"] is True
 
 

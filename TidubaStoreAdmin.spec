@@ -53,6 +53,7 @@ a = Analysis(
         'openpyxl',
         'qrcode',
         'PIL',
+        'main',
         'kiotviet_service',
         'email_service',
         'revenue_card',
