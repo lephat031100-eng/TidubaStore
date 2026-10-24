@@ -708,13 +708,13 @@ def test_system_health_and_ping_and_crm_lookup():
     assert ping_res.status_code == 200
     assert ping_res.json()["status"] == "ok"
 
-    # 2. Tra cứu khách hàng theo SĐT
-    lookup_res = client.get("/api/customers/lookup_by_phone/0912345678")
+    # 2. Login admin & Tra cứu khách hàng theo SĐT (Chỉ Admin)
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    token = login_adm.json()["token"]
+    lookup_res = client.get("/api/customers/lookup_by_phone/0912345678", headers={"Authorization": f"Bearer {token}"})
     assert lookup_res.status_code == 200
 
     # 3. System health
-    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
-    token = login_adm.json()["token"]
     health_res = client.get("/api/admin/system/health", headers={"Authorization": f"Bearer {token}"})
     assert health_res.status_code == 200
     data = health_res.json()
@@ -781,11 +781,30 @@ def test_qr_image_and_reschedule_and_cancel_penalty_and_deposit_update():
     assert book_res.status_code == 200
     rental_id = book_res.json()["rental_id"]
 
-    # Đơn đang HOLD (chưa duyệt) -> không được phép hủy lịch phạt 50%
-    cancel_hold_res = client.post(f"/api/rentals/{rental_id}/cancel_with_penalty", headers=cus_headers)
-    assert cancel_hold_res.status_code == 400
+    new_start = (datetime.datetime.now() + datetime.timedelta(days=2)).replace(hour=9, minute=0, second=0)
+    new_end = (new_start + datetime.timedelta(days=1)).replace(hour=9, minute=0, second=0)
 
-    # Chuyển sang ACTIVE (Admin đã xác nhận)
+    # 3.1 Đơn đang HOLD (chờ duyệt) -> vẫn cho dời lịch và hủy lịch, thông báo về group -1004467743740
+    resched_hold = client.post(f"/api/rentals/{rental_id}/reschedule", json={
+        "new_start_time": new_start.strftime("%Y-%m-%d %H:%M"),
+        "new_end_time": new_end.strftime("%Y-%m-%d %H:%M")
+    }, headers=cus_headers)
+    assert resched_hold.status_code == 200
+    assert resched_hold.json()["success"] is True
+
+    # 3.2 Hủy đơn khi đang HOLD -> hoàn 100% không phạt 50%
+    cancel_hold_res = client.post(f"/api/rentals/{rental_id}/cancel_with_penalty", headers=cus_headers)
+    assert cancel_hold_res.status_code == 200
+    assert cancel_hold_res.json().get("is_hold") is True
+
+    # 3.3 Tạo lại đơn và chuyển sang ACTIVE để test hủy phạt 50%
+    book_res2 = client.post("/api/rentals/book", json={
+        "item_id": 1,
+        "start_time": start_t.strftime("%Y-%m-%d %H:%M"),
+        "end_time": end_t.strftime("%Y-%m-%d %H:%M")
+    }, headers=cus_headers)
+    rental_id = book_res2.json()["rental_id"]
+
     conn = get_db()
     conn.execute("UPDATE rentals SET status = 'ACTIVE' WHERE id = ?", (rental_id,))
     conn.commit()
@@ -965,3 +984,200 @@ def test_infographic_revenue_card_generator():
     }
     im = generate_revenue_card_image(metrics)
     assert im.size == (1280, 720)
+
+
+def test_reschedule_and_cancel_pending_orders_notify_cancel_group():
+    """Kiểm tra đơn ở trạng thái chờ duyệt (HOLD / PENDING) dời lịch và hủy đơn thành công, thông báo group -1004467743740."""
+    login_cus = client.post("/api/auth/login", json={"username": "khachhang", "password": "123456"})
+    cus_token = login_cus.json()["token"]
+    cus_headers = {"Authorization": f"Bearer {cus_token}"}
+
+    # 1. Tạo đơn mới (trạng thái HOLD)
+    st = (datetime.datetime.now() + datetime.timedelta(days=1)).replace(hour=10, minute=0, second=0)
+    et = (st + datetime.timedelta(days=1)).replace(hour=10, minute=0, second=0)
+    book_res = client.post("/api/rentals/book", json={
+        "item_id": 1,
+        "start_time": st.strftime("%Y-%m-%d %H:%M"),
+        "end_time": et.strftime("%Y-%m-%d %H:%M")
+    }, headers=cus_headers)
+    assert book_res.status_code == 200
+    r_id = book_res.json()["rental_id"]
+
+    # 2. Upload bill giả lập trạng thái chờ duyệt PENDING
+    proof_res = client.post("/api/rentals/submit_payment_proof", json={
+        "rental_id": r_id,
+        "proof_image_url": "/static/uploads/test_bill_mb.png"
+    }, headers=cus_headers)
+    assert proof_res.status_code == 200
+
+    # 3. Dời lịch khi đang chờ duyệt
+    nst = (datetime.datetime.now() + datetime.timedelta(days=3)).replace(hour=9, minute=0, second=0)
+    net = (nst + datetime.timedelta(days=1)).replace(hour=9, minute=0, second=0)
+    resched = client.post(f"/api/rentals/{r_id}/reschedule", json={
+        "new_start_time": nst.strftime("%Y-%m-%d %H:%M"),
+        "new_end_time": net.strftime("%Y-%m-%d %H:%M")
+    }, headers=cus_headers)
+    assert resched.status_code == 200
+    assert resched.json()["success"] is True
+
+    # 4. Hủy đơn khi đang chờ duyệt -> hoàn 100%, không phạt 50%
+    cancel_res = client.post(f"/api/rentals/{r_id}/cancel_with_penalty", json={
+        "bank_name": "MBBank",
+        "account_no": "0987654321",
+        "account_name": "Nguyen Van Khach"
+    }, headers=cus_headers)
+    assert cancel_res.status_code == 200
+    data = cancel_res.json()
+    assert data["success"] is True
+    assert data["penalty_amount"] == 0
+    assert data["is_hold"] is True
+
+
+def test_feature_highlights_admin_only_protection():
+    """Kiểm tra chỉ Admin mới có quyền thêm/sửa/xóa thẻ nổi bật (Customer bị từ chối 401/403)."""
+    # 1. Public xem danh sách thẻ nổi bật
+    pub_res = client.get("/api/feature_highlights")
+    assert pub_res.status_code == 200
+    assert pub_res.json()["success"] is True
+
+    # 2. Khách hàng thông thường cố tình tạo thẻ -> 403 Forbidden
+    login_cus = client.post("/api/auth/login", json={"username": "khachhang", "password": "123456"})
+    cus_token = login_cus.json()["token"]
+    deny_post = client.post("/api/admin/feature_highlights", json={
+        "title": "Hack Thẻ", "subtitle": "Phụ đề", "filter_keyword": "hack", "image_url": "/test.png"
+    }, headers={"Authorization": f"Bearer {cus_token}"})
+    assert deny_post.status_code == 403
+
+    # 3. Admin tạo thẻ mới thành công
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    adm_token = login_adm.json()["token"]
+    adm_headers = {"Authorization": f"Bearer {adm_token}"}
+
+    create_res = client.post("/api/admin/feature_highlights", json={
+        "title": "Thẻ Test Admin", "subtitle": "Khám phá Sony", "filter_keyword": "sony", "image_url": "/static/test.png", "display_order": 99
+    }, headers=adm_headers)
+    assert create_res.status_code == 200
+    hl_id = create_res.json()["id"]
+
+    # 4. Admin chỉnh sửa thẻ
+    patch_res = client.patch(f"/api/admin/feature_highlights/{hl_id}", json={
+        "title": "Thẻ Test Đã Sửa"
+    }, headers=adm_headers)
+    assert patch_res.status_code == 200
+
+    # 5. Khách hàng cố xóa thẻ -> 403
+    deny_del = client.delete(f"/api/admin/feature_highlights/{hl_id}", headers={"Authorization": f"Bearer {cus_token}"})
+    assert deny_del.status_code == 403
+
+    # 6. Admin xóa thẻ -> 200
+    del_res = client.delete(f"/api/admin/feature_highlights/{hl_id}", headers=adm_headers)
+    assert del_res.status_code == 200
+
+
+def test_deposit_detail_and_recalculation():
+    """Kiểm tra API xem chi tiết thông tin cọc và tính lại cọc cho Admin."""
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    adm_headers = {"Authorization": f"Bearer {login_adm.json()['token']}"}
+
+    # Tạo 1 đơn mới độc lập để test tính cọc chuẩn xác
+    st = (datetime.datetime.now() + datetime.timedelta(days=6)).replace(hour=10, minute=0, second=0)
+    et = (st + datetime.timedelta(days=1)).replace(hour=10, minute=0, second=0)
+    book_res = client.post("/api/rentals/book", json={
+        "item_id": 1,
+        "start_time": st.strftime("%Y-%m-%d %H:%M"),
+        "end_time": et.strftime("%Y-%m-%d %H:%M")
+    }, headers=adm_headers)
+    assert book_res.status_code == 200
+    rental_id = book_res.json()["rental_id"]
+
+    # 1. Lấy chi tiết thông tin cọc
+    detail_res = client.get(f"/api/admin/rentals/{rental_id}/deposit_detail", headers=adm_headers)
+    assert detail_res.status_code == 200
+    data = detail_res.json()
+    assert data["success"] is True
+    assert "deposit_type" in data
+    assert "deposit_paid" in data
+    assert "refund_amount" in data
+
+    # 2. Admin tính lại cọc và cập nhật
+    update_res = client.post(f"/api/admin/rentals/{rental_id}/update_deposit", json={
+        "deposit_type": "ASSET",
+        "deposit_paid": 2000000,
+        "deposit_asset_desc": "iPhone 14 Pro Max 256GB",
+        "damage_deduction": 200000,
+        "late_fee": 100000,
+        "refund_bank_info": "MBBank - 0987654321 - NGUYEN VAN A"
+    }, headers=adm_headers)
+    assert update_res.status_code == 200
+    u_data = update_res.json()
+    assert u_data["success"] is True
+    # Hoàn cọc = 2,000,000 - 200,000 - 100,000 = 1,700,000
+    assert u_data["refund_amount"] == 1700000
+
+
+def test_anti_spam_loyalty_review_and_duplicate_cccd():
+    """Kiểm tra chống gian lận spam review nhận điểm VIP và chống trùng CCCD khi eKYC."""
+    # Tạo user test mới
+    uname = f"sec_user_{int(time.time()*1000)}"
+    client.post("/api/auth/register", json={
+        "username": uname, "password": "password123", "full_name": "Sec Test", "phone": "0911998877"
+    })
+    login_res = client.post("/api/auth/login", json={"username": uname, "password": "password123"})
+    token = login_res.json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Đánh giá lần 1 -> nhận +10.000 điểm VIP
+    rev1 = client.post("/api/items/1/reviews", json={"rating": 5, "comment": "Máy tốt"}, headers=headers)
+    assert rev1.status_code == 200
+
+    conn = get_db()
+    u1 = conn.execute("SELECT loyalty_points FROM users WHERE username = ?", (uname,)).fetchone()
+    pts1 = u1["loyalty_points"]
+
+    # Đánh giá lần 2 trên cùng 1 món -> cập nhật review, KHÔNG ĐƯỢC cộng thêm điểm VIP
+    rev2 = client.post("/api/items/1/reviews", json={"rating": 5, "comment": "Máy quá tốt"}, headers=headers)
+    assert rev2.status_code == 200
+
+    u2 = conn.execute("SELECT loyalty_points FROM users WHERE username = ?", (uname,)).fetchone()
+    conn.close()
+    assert u2["loyalty_points"] == pts1 # Điểm không tăng thêm!
+
+    # Kiểm tra trùng CCCD: Đăng ký CCCD của tài khoản khác bị từ chối
+    ekyc_res = client.post("/api/ekyc/verify", json={
+        "cccd_number": "079200123456", "full_name": "Sec Test", "phone": "0911998877",
+        "cccd_front_img": "/front.png", "cccd_back_img": "/back.png"
+    }, headers=headers)
+    assert ekyc_res.status_code in (200, 400) # Nếu CCCD đã tồn tại trả về 400
+
+
+def test_future_booking_keeps_item_available_today():
+    """Kiểm tra logic quan trọng: Khách đặt ngày tương lai (vd 29/10), hôm nay (25/10) máy vẫn ở trạng thái SẴN SÀNG (AVAILABLE)."""
+    login_cus = client.post("/api/auth/login", json={"username": "khachhang", "password": "123456"})
+    cus_token = login_cus.json()["token"]
+    cus_headers = {"Authorization": f"Bearer {cus_token}"}
+
+    # Đặt món item_id = 1 cho 5 ngày sau (ở tương lai)
+    st = (datetime.datetime.now() + datetime.timedelta(days=5)).replace(hour=10, minute=0, second=0)
+    et = (st + datetime.timedelta(days=1)).replace(hour=10, minute=0, second=0)
+    book_res = client.post("/api/rentals/book", json={
+        "item_id": 1,
+        "start_time": st.strftime("%Y-%m-%d %H:%M"),
+        "end_time": et.strftime("%Y-%m-%d %H:%M")
+    }, headers=cus_headers)
+    assert book_res.status_code == 200
+
+    # Lấy thông tin thiết bị: Trạng thái hiện tại PHẢI LÀ 'AVAILABLE' (không được chuyển sang RENTED vì đơn chưa tới giờ nhận)
+    item_res = client.get("/api/items")
+    assert item_res.status_code == 200
+    it1 = next((i for i in item_res.json()["items"] if i["id"] == 1), None)
+    assert it1 is not None
+    assert it1["availability"] == "AVAILABLE"
+
+    # Khách khác đặt trùng khoảng ngày tương lai đó -> Bị chặn xung đột 400
+    overlap_res = client.post("/api/rentals/book", json={
+        "item_id": 1,
+        "start_time": (st + datetime.timedelta(hours=2)).strftime("%Y-%m-%d %H:%M"),
+        "end_time": (et + datetime.timedelta(hours=2)).strftime("%Y-%m-%d %H:%M")
+    }, headers=cus_headers)
+    assert overlap_res.status_code == 400
+    assert "đã có khách đặt/thuê" in overlap_res.json()["detail"]

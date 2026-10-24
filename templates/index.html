@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
@@ -79,6 +79,14 @@
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         button, a, select, input, textarea { touch-action: manipulation; }
         button { cursor: pointer !important; }
+
+        /* Ẩn hoàn toàn nút liên hệ nổi khi đang ở trong Admin hoặc POS KiotViet */
+        #sec-admin:not(.hidden) ~ #global-floating-contact,
+        #sec-kiotviet-pos:not(.hidden) ~ #global-floating-contact,
+        .admin-active #global-floating-contact,
+        .pos-active #global-floating-contact {
+            display: none !important;
+        }
 
         /* Tối ưu hóa Touch UI & Responsive cho Toàn bộ Thiết bị (Điện thoại, iPad, PC) */
         html, body {
@@ -246,21 +254,21 @@
                 </a>
 
                 <!-- Desktop Nav Links -->
-                <nav class="hidden lg:flex items-center gap-6 ml-6 text-sm font-medium text-[#4b5563]">
-                    <button onclick="filterCategory('CAMERA_GEAR')" class="hover:text-[#c86d51] transition flex items-center gap-1.5 py-1">
+                <nav class="hidden lg:flex items-center gap-5 ml-6 text-sm font-medium text-[#4b5563] whitespace-nowrap">
+                    <button onclick="filterCategory('CAMERA_GEAR')" class="hover:text-[#c86d51] transition flex items-center gap-1.5 py-1 whitespace-nowrap">
                         <i class="fa-solid fa-camera text-xs text-[#6b7280]"></i> Máy Ảnh & Gear
                     </button>
-                    <button onclick="filterCategory('COSTUME_FASHION')" class="hover:text-[#c86d51] transition flex items-center gap-1.5 py-1">
+                    <button onclick="filterCategory('COSTUME_FASHION')" class="hover:text-[#c86d51] transition flex items-center gap-1.5 py-1 whitespace-nowrap">
                         <i class="fa-solid fa-shirt text-xs text-[#6b7280]"></i> Trang Phục Concept
                     </button>
-                    <button onclick="openOrderTrackerModal()" class="hover:text-[#c86d51] transition flex items-center gap-1.5 py-1">
+                    <button onclick="openOrderTrackerModal()" class="hover:text-[#c86d51] transition flex items-center gap-1.5 py-1 whitespace-nowrap">
                         <i class="fa-solid fa-magnifying-glass text-xs text-[#6b7280]"></i> Tra Cứu Đơn
                     </button>
                 </nav>
             </div>
 
             <!-- Right Controls: Search, Account, Cart, Admin -->
-            <div class="flex items-center gap-2.5 sm:gap-3 text-xs font-semibold">
+            <div class="flex items-center gap-2 sm:gap-2.5 text-xs font-semibold whitespace-nowrap">
                 <!-- Search Quick Focus -->
                 <button onclick="focusSearchInput()" class="w-9 h-9 rounded-full bg-[#f6efe6] hover:bg-[#ede3d6] text-[#4b5563] flex items-center justify-center transition" title="Tìm kiếm">
                     <i class="fa-solid fa-magnifying-glass text-sm"></i>
@@ -272,28 +280,57 @@
                     <span id="cart-badge-count" class="hidden absolute -top-1 -right-1 bg-[#c86d51] text-white text-[10px] font-mono font-black px-1.5 py-0.2 rounded-full shadow">0</span>
                 </button>
 
-                <!-- Role Badge Phân Biệt Admin / Khách -->
-                <div id="role-badge" class="hidden text-xs font-mono px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 shadow-sm"></div>
+                <!-- Dropdown Menu Quản Trị Viên (Gọn gàng, loại bỏ hoàn toàn thanh nút bừa bộn cũ) -->
+                <div class="relative hidden" id="admin-header-nav-wrap">
+                    <button type="button" onclick="toggleAdminNavDropdown()" id="admin-nav-toggle-btn" class="bg-gradient-to-r from-purple-950 via-indigo-950 to-purple-950 hover:from-purple-900 hover:to-indigo-900 text-purple-200 border border-purple-500/70 px-3 py-1.5 rounded-xl font-bold font-mono text-xs flex items-center gap-2 shadow-sm transition">
+                        <i class="fa-solid fa-crown text-yellow-400"></i>
+                        <span class="hidden sm:inline">Quản Trị</span>
+                        <span id="admin-alerts-badge" class="hidden bg-rose-600 text-white px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold animate-pulse">0</span>
+                        <i class="fa-solid fa-chevron-down text-[10px] text-purple-300"></i>
+                    </button>
+                    <!-- Admin Dropdown Box -->
+                    <div id="admin-nav-dropdown-box" class="hidden absolute right-0 mt-2 w-56 rounded-2xl bg-slate-900 border border-purple-800/80 shadow-2xl py-2 z-50 text-xs font-mono">
+                        <div class="px-3.5 py-2 border-b border-slate-800 text-slate-300">
+                            <div class="text-[10px] text-purple-400 uppercase font-bold tracking-wider">Tài khoản Quản Trị</div>
+                            <div class="font-bold text-white text-xs truncate mt-0.5" id="admin-dropdown-name">Quản Lý Cửa Hàng</div>
+                        </div>
+                        <div class="py-1">
+                            <button type="button" onclick="switchToAdminMode(); closeAdminNavDropdown();" class="w-full text-left px-3.5 py-2 hover:bg-purple-950/70 text-purple-200 hover:text-white flex items-center gap-2.5 transition">
+                                <i class="fa-solid fa-chart-pie text-purple-400 w-4"></i>
+                                <span>Bảng Quản Trị Hệ Thống</span>
+                            </button>
+                            <button type="button" onclick="switchToKiotvietPos(); closeAdminNavDropdown();" class="w-full text-left px-3.5 py-2 hover:bg-emerald-950/70 text-emerald-300 hover:text-white flex items-center gap-2.5 transition">
+                                <i class="fa-solid fa-cash-register text-emerald-400 w-4"></i>
+                                <span>POS KiotViet Bán Hàng</span>
+                            </button>
+                            <button type="button" onclick="showSection('my-rentals'); closeAdminNavDropdown();" class="w-full text-left px-3.5 py-2 hover:bg-slate-800 text-slate-300 hover:text-white flex items-center gap-2.5 transition">
+                                <i class="fa-solid fa-clock-rotate-left text-cyan-400 w-4"></i>
+                                <span>Đơn Thuê Toàn Cửa Hàng</span>
+                            </button>
+                            <button type="button" onclick="openDepositManagementModal(); closeAdminNavDropdown();" class="w-full text-left px-3.5 py-2 hover:bg-amber-950/70 text-amber-300 hover:text-white flex items-center gap-2.5 transition">
+                                <i class="fa-solid fa-calculator text-amber-400 w-4"></i>
+                                <span>Quản Lý & Tính Lại Cọc</span>
+                            </button>
+                        </div>
+                        <div class="border-t border-slate-800 pt-1">
+                            <button type="button" onclick="openChangePasswordModal(); closeAdminNavDropdown();" class="w-full text-left px-3.5 py-1.5 hover:bg-slate-800 text-slate-400 hover:text-amber-300 flex items-center gap-2.5 transition text-[11px]">
+                                <i class="fa-solid fa-key w-4 text-slate-500"></i> Đổi Mật Khẩu
+                            </button>
+                            <button type="button" onclick="logout(); closeAdminNavDropdown();" class="w-full text-left px-3.5 py-1.5 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 flex items-center gap-2.5 transition text-[11px]">
+                                <i class="fa-solid fa-power-off w-4 text-rose-500"></i> Đăng Xuất
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
-                <!-- NÚT POS TÍNH TIỀN KIOTVIET (CHỈ CHO ADMIN) -->
-                <button onclick="switchToKiotvietPos()" id="nav-pos-btn" class="hidden bg-[#10b981] hover:bg-[#059669] text-white px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition font-bold shadow-sm">
-                    <i class="fa-solid fa-cash-register text-xs"></i> POS KiotViet
+                <!-- Đơn Thuê Của Tôi (Dành cho Khách Hàng) -->
+                <button onclick="showSection('my-rentals')" id="nav-my-rentals-btn" class="hidden sm:flex bg-[#f6efe6] hover:bg-[#ede3d6] text-[#374151] px-3 py-1.5 rounded-xl items-center gap-1.5 transition whitespace-nowrap text-xs font-medium">
+                    <i class="fa-solid fa-clock-rotate-left text-[#c86d51]"></i> <span>Đơn Thuê</span>
                 </button>
 
-                <!-- NÚT BẢNG QUẢN TRỊ (CHỈ CHO ADMIN) -->
-                <button onclick="switchToAdminMode()" id="nav-admin-btn" class="hidden bg-[#4f46e5] hover:bg-[#4338ca] text-white px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition font-bold shadow-sm">
-                    <i class="fa-solid fa-crown text-yellow-300 text-xs"></i> Bảng Quản Trị
-                    <span id="admin-alerts-badge" class="hidden bg-rose-600 text-white px-1.5 py-0.2 rounded-full text-[10px] font-mono">0</span>
-                </button>
-
-                <!-- Đơn Thuê Của Tôi -->
-                <button onclick="showSection('my-rentals')" id="nav-my-rentals-btn" class="hidden sm:flex bg-[#f6efe6] hover:bg-[#ede3d6] text-[#374151] px-3.5 py-2 rounded-xl items-center gap-1.5 transition">
-                    <i class="fa-solid fa-clock-rotate-left text-[#c86d51]"></i> Đơn Thuê
-                </button>
-
-                <!-- Auth User Account -->
+                <!-- Auth User Account Box -->
                 <div id="auth-box">
-                    <button onclick="openAuthModal()" class="w-9 h-9 sm:w-auto sm:px-4 sm:py-2 rounded-full sm:rounded-xl bg-[#c86d51] hover:bg-[#b55d42] text-white font-bold flex items-center justify-center gap-1.5 shadow-sm transition">
+                    <button onclick="openAuthModal()" class="w-9 h-9 sm:w-auto sm:px-3.5 sm:py-1.5 rounded-full sm:rounded-xl bg-[#c86d51] hover:bg-[#b55d42] text-white font-bold flex items-center justify-center gap-1.5 shadow-sm transition whitespace-nowrap">
                         <i class="fa-regular fa-user"></i>
                         <span class="hidden sm:inline text-xs">Tài Khoản</span>
                     </button>
@@ -389,14 +426,16 @@
             <div class="mt-4 space-y-2">
                 <div id="feature-highlights-admin-bar" class="hidden flex items-center justify-between text-xs font-mono pb-1">
                     <span class="text-amber-800 font-bold flex items-center gap-1.5">
-                        <i class="fa-solid fa-wand-magic-sparkles text-amber-600"></i> Quản Lý Thẻ Nổi Bật (Chỉnh Sửa / Xóa Trực Tiếp):
+                        <i class="fa-solid fa-wand-magic-sparkles text-amber-600"></i> Quản Lý Thẻ Nổi Bật:
                     </span>
                     <button type="button" onclick="openCreateHighlightModal()" class="bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-400 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 text-[11px] transition">
                         <i class="fa-solid fa-plus"></i> Thêm Thẻ Mới
                     </button>
                 </div>
-                <div id="feature-highlights-row" class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                    <!-- Nạp động từ API /api/feature_highlights -->
+                <div class="overflow-x-auto no-scrollbar -mx-1 px-1">
+                    <div id="feature-highlights-row" class="flex gap-3 pb-1" style="min-width: max-content;">
+                        <!-- Nạp động từ API /api/feature_highlights -->
+                    </div>
                 </div>
             </div>
 
@@ -508,39 +547,37 @@
         <!-- SECTION 3: ADMIN DASHBOARD (QUẢN LÝ ĐƠN, TRẢ ĐỒ, CHỈNH GIÁ)     -->
         <!-- ============================================================== -->
         <section id="sec-admin" class="hidden space-y-8">
-            <div class="bg-gradient-to-r from-purple-950/60 via-slate-900 to-gray-950 p-6 rounded-2xl border border-purple-700/50 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div>
-                    <span class="text-xs font-mono bg-purple-950 text-purple-300 border border-purple-600 px-2.5 py-0.5 rounded font-bold uppercase">ADMINISTRATOR CONTROL DESK</span>
-                    <h3 class="text-2xl font-black text-white mt-1">Hệ Thống Quản Lý Cửa Hàng Tiduba Store</h3>
-                    <p class="text-xs text-gray-300 mt-1">Duyệt đơn, chỉnh sửa ngày giờ trả, duyệt gia hạn, lập biên bản kiểm tra thiết bị và cập nhật kho máy ảnh / trang phục.</p>
+            <!-- Header Bảng Quản Trị: Tinh tế, không bị rối, gom nhóm tác vụ khoa học -->
+            <div class="bg-gradient-to-r from-slate-900 via-purple-950/40 to-slate-900 p-5 sm:p-6 rounded-3xl border border-purple-800/40 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 shadow-xl">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white text-xl shadow-lg shadow-purple-900/50 flex-shrink-0">
+                        <i class="fa-solid fa-crown text-yellow-300"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-xl sm:text-2xl font-black text-white tracking-tight">Trung Tâm Quản Trị Tiduba Store</h3>
+                            <span class="text-[10px] font-mono bg-purple-950 text-purple-300 border border-purple-600 px-2.5 py-0.5 rounded-full font-bold">PRO DASHBOARD</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-0.5">Duyệt đơn, kho hàng 1.045 món, đối soát tiền cọc, lịch đặt thuê và chốt doanh thu tự động.</p>
+                    </div>
                 </div>
-                <div class="flex flex-wrap items-center gap-2">
-                    <button onclick="openAdminScheduleModal()" class="bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-500 hover:to-indigo-600 text-white font-black px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-purple-950/80 transition" title="Xem lịch giờ khách đặt và giờ trả đồ theo timeline chi tiết">
-                        <i class="fa-solid fa-calendar-days text-yellow-300"></i> Lịch Đặt Thuê
+
+                <!-- 4 Nút Thao Tác Nhanh Trọng Tâm Nhất (Gọn gàng, loại bỏ hoàn toàn 9 nút bừa bộn cũ) -->
+                <div class="flex flex-wrap items-center gap-2 text-xs font-mono">
+                    <button onclick="openAddItemModal()" class="bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-gray-950 font-black px-4 py-2.5 rounded-xl shadow-md transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-plus"></i> Thêm Thiết Bị Mới
                     </button>
-                    <button onclick="openKiotvietHubModal()" class="bg-gradient-to-r from-teal-600 to-emerald-700 hover:from-teal-500 hover:to-emerald-600 text-white font-black px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-teal-950/80 transition" title="Kết nối trực tiếp kho hàng KiotViet và nạp hàng loạt sản phẩm vào web/app">
-                        <i class="fa-solid fa-boxes-packing text-yellow-300"></i> Kho KiotViet
+                    <button onclick="openQrReturnModal()" class="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-gray-950 font-black px-4 py-2.5 rounded-xl shadow-md transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-qrcode text-sm"></i> Quét QR Trả Đồ
                     </button>
-                    <button onclick="openSyncDataModal()" class="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white font-black px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-indigo-950/80 transition" title="Đồng bộ trực tiếp danh mục & sản phẩm giữa máy tính và Web Cloud không cần chạm vào code">
-                        <i class="fa-solid fa-cloud-arrow-up text-cyan-300"></i> Đồng Bộ Web Cloud
+                    <button onclick="triggerCloudSyncOneClick()" id="btn-sync-cloud-header" class="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white font-black px-4 py-2.5 rounded-xl shadow-md transition flex items-center gap-1.5" title="Đồng bộ 1-click toàn bộ dữ liệu kho hàng & đơn thuê lên Web Cloud tidubastore.onrender.com">
+                        <i class="fa-solid fa-cloud-arrow-up text-cyan-300"></i> <span class="hidden sm:inline">Đồng Bộ Web Cloud</span><span class="sm:hidden">Đồng Bộ Cloud</span>
                     </button>
-                    <button onclick="downloadAdminCsvReport()" class="bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-600/70 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md" title="Tải về file Excel / CSV toàn bộ đơn hàng và doanh thu">
-                        <i class="fa-solid fa-file-excel text-emerald-400"></i> Xuất Báo Cáo Excel
-                    </button>
-                    <button onclick="switchToKiotvietPos()" class="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-black px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-950/80 transition" title="Mở giao diện POS tính tiền KiotViet bán hàng tại quầy">
+                    <button onclick="switchToKiotvietPos()" class="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-black px-4 py-2.5 rounded-xl shadow-md transition flex items-center gap-1.5">
                         <i class="fa-solid fa-cash-register text-yellow-300"></i> POS KiotViet
                     </button>
-                    <button onclick="openCustomerWebInBrowser()" class="bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-600/70 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md" title="Mở trang web dành cho khách hàng trên trình duyệt mặc định">
-                        <i class="fa-solid fa-globe text-cyan-400"></i> Mở Web Khách (Trình Duyệt)
-                    </button>
-                    <button onclick="openQrReturnModal()" class="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-gray-950 font-black px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition">
-                        <i class="fa-solid fa-qrcode text-sm"></i> Quét / Nhập QR Trả Đồ
-                    </button>
-                    <button onclick="openAddItemModal()" class="bg-gradient-to-r from-amber-500 to-yellow-400 text-gray-950 font-black px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg transition">
-                        <i class="fa-solid fa-plus"></i> Thêm Thiết Bị / Đồ Mới
-                    </button>
-                    <button onclick="showSection('catalog')" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-2 rounded-xl text-xs font-bold transition">
-                        Xem Catalog
+                    <button onclick="showSection('catalog')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3.5 py-2.5 rounded-xl font-bold transition flex items-center gap-1">
+                        <i class="fa-solid fa-arrow-left"></i> Xem Web Khách
                     </button>
                 </div>
             </div>
@@ -549,20 +586,20 @@
             <!-- ADMIN MASTER SUB-NAV TABS (5 PHÂN HỆ QUẢN TRỊ SANG TRỌNG & GỌN GÀNG) -->
             <!-- ============================================================== -->
             <div class="bg-slate-900 border border-slate-700/80 rounded-2xl p-1.5 flex items-center gap-1.5 overflow-x-auto no-scrollbar shadow-xl text-xs font-mono">
-                <button type="button" onclick="switchAdminMainTab('overview')" id="adm-tab-btn-overview" class="flex-1 min-w-[160px] py-2.5 px-3 rounded-xl font-black text-xs transition flex items-center justify-center gap-2 whitespace-nowrap bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/80 border border-purple-400">
-                    <i class="fa-solid fa-chart-pie"></i> <span>1. Tổng Quan & Lịch</span>
+                <button type="button" onclick="switchAdminMainTab('overview')" id="adm-tab-btn-overview" class="flex-shrink-0 sm:flex-1 py-2 px-3 sm:py-2.5 sm:px-3.5 rounded-xl font-black text-xs transition flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/80 border border-purple-400">
+                    <i class="fa-solid fa-chart-pie"></i> <span>1. Tổng Quan</span>
                 </button>
-                <button type="button" onclick="switchAdminMainTab('rentals')" id="adm-tab-btn-rentals" class="flex-1 min-w-[160px] py-2.5 px-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 whitespace-nowrap text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent">
-                    <i class="fa-solid fa-file-invoice"></i> <span>2. Quản Lý Đơn Thuê</span>
+                <button type="button" onclick="switchAdminMainTab('rentals')" id="adm-tab-btn-rentals" class="flex-shrink-0 sm:flex-1 py-2 px-3 sm:py-2.5 sm:px-3.5 rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent">
+                    <i class="fa-solid fa-file-invoice"></i> <span>2. Đơn Thuê</span>
                 </button>
-                <button type="button" onclick="switchAdminMainTab('inventory')" id="adm-tab-btn-inventory" class="flex-1 min-w-[160px] py-2.5 px-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 whitespace-nowrap text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent">
-                    <i class="fa-solid fa-boxes-stacked"></i> <span>3. Kho Hàng (1.045 Món)</span>
+                <button type="button" onclick="switchAdminMainTab('inventory')" id="adm-tab-btn-inventory" class="flex-shrink-0 sm:flex-1 py-2 px-3 sm:py-2.5 sm:px-3.5 rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent">
+                    <i class="fa-solid fa-boxes-stacked"></i> <span id="adm-tab-inventory-label">3. Kho Hàng (<span id="adm-tab-inventory-count">1.045</span>)</span>
                 </button>
-                <button type="button" onclick="switchAdminMainTab('crm')" id="adm-tab-btn-crm" class="flex-1 min-w-[160px] py-2.5 px-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 whitespace-nowrap text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent">
-                    <i class="fa-solid fa-users"></i> <span>4. Khách Hàng CRM</span>
+                <button type="button" onclick="switchAdminMainTab('crm')" id="adm-tab-btn-crm" class="flex-shrink-0 sm:flex-1 py-2 px-3 sm:py-2.5 sm:px-3.5 rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent">
+                    <i class="fa-solid fa-users"></i> <span>4. Khách CRM</span>
                 </button>
-                <button type="button" onclick="switchAdminMainTab('settings')" id="adm-tab-btn-settings" class="flex-1 min-w-[160px] py-2.5 px-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 whitespace-nowrap text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent">
-                    <i class="fa-solid fa-sliders"></i> <span>5. Cài Đặt & Kết Nối</span>
+                <button type="button" onclick="switchAdminMainTab('settings')" id="adm-tab-btn-settings" class="flex-shrink-0 sm:flex-1 py-2 px-3 sm:py-2.5 sm:px-3.5 rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent">
+                    <i class="fa-solid fa-sliders"></i> <span>5. Cài Đặt</span>
                 </button>
             </div>
 
@@ -587,13 +624,21 @@
                         <div class="text-rose-400 text-[11px] font-bold">Đơn Quá Hạn</div>
                         <div class="text-lg font-black text-rose-400" id="adm-overdue-rentals">0</div>
                     </div>
-                    <div class="luxury-card p-3.5 rounded-xl space-y-1 border-l-4 border-l-cyan-500 bg-cyan-950/20">
-                        <div class="text-cyan-300 text-[11px] font-bold">Cọc Đang Giữ</div>
+                    <div onclick="openDepositManagementModal()" class="cursor-pointer luxury-card p-3.5 rounded-xl space-y-1 border-l-4 border-l-cyan-500 bg-cyan-950/20 hover:bg-cyan-950/40 transition group" title="Bấm để xem danh sách cọc và tính lại tiền cọc">
+                        <div class="text-cyan-300 text-[11px] font-bold flex items-center justify-between">
+                            <span>Cọc Đang Giữ</span>
+                            <i class="fa-solid fa-calculator text-[10px] text-cyan-400 group-hover:scale-110 transition"></i>
+                        </div>
                         <div class="text-lg font-black text-cyan-400" id="adm-holding-deposit">0đ</div>
+                        <div class="text-[9px] text-cyan-300/80 font-sans">Xem & tính lại cọc ➔</div>
                     </div>
-                    <div class="luxury-card p-3.5 rounded-xl space-y-1 border-l-4 border-l-amber-500 bg-amber-950/20">
-                        <div class="text-amber-300 text-[11px] font-bold">Thu Cọc Hôm Nay</div>
+                    <div onclick="openDepositManagementModal()" class="cursor-pointer luxury-card p-3.5 rounded-xl space-y-1 border-l-4 border-l-amber-500 bg-amber-950/20 hover:bg-amber-950/40 transition group" title="Bấm để xem danh sách cọc và tính lại tiền cọc">
+                        <div class="text-amber-300 text-[11px] font-bold flex items-center justify-between">
+                            <span>Thu Cọc Hôm Nay</span>
+                            <i class="fa-solid fa-shield-halved text-[10px] text-amber-400 group-hover:scale-110 transition"></i>
+                        </div>
                         <div class="text-lg font-black text-amber-400" id="adm-today-deposit">0đ</div>
+                        <div class="text-[9px] text-amber-300/80 font-sans">Chi tiết tiền cọc ➔</div>
                     </div>
                 </div>
                 <!-- Overdue Warnings Box (Danh sách đơn trễ hạn & sắp đến giờ trả) -->
@@ -683,13 +728,13 @@
                             <option value="CAMERA_GEAR">📷 Máy Ảnh & Gear</option>
                             <option value="COSTUME_FASHION">👗 Trang Phục Concept</option>
                         </select>
-                        <!-- Switch View Mode: 3 Chế Độ Lịch -->
+                        <!-- Switch View Mode: 3 Chế Độ Lịch Gọn Gàng -->
                         <div class="flex bg-gray-900 p-0.5 rounded-lg border border-gray-700 text-[11px]">
-                            <button type="button" onclick="switchScheduleViewMode('week')" id="sched-btn-mode-week" class="px-2.5 py-1 rounded-md font-bold bg-purple-600 text-white transition flex items-center gap-1">
-                                <i class="fa-solid fa-table-cells"></i> Lưới Tuần (Kiot)
+                            <button type="button" onclick="switchScheduleViewMode('timeline')" id="sched-btn-mode-timeline" class="px-2.5 py-1 rounded-md font-bold bg-purple-600 text-white transition flex items-center gap-1 shadow-sm">
+                                <i class="fa-solid fa-list-check"></i> Theo Ca Ngày
                             </button>
-                            <button type="button" onclick="switchScheduleViewMode('timeline')" id="sched-btn-mode-timeline" class="px-2.5 py-1 rounded-md font-bold text-gray-400 hover:text-white transition flex items-center gap-1">
-                                <i class="fa-solid fa-clock"></i> Theo Giờ
+                            <button type="button" onclick="switchScheduleViewMode('week')" id="sched-btn-mode-week" class="px-2.5 py-1 rounded-md font-bold text-gray-400 hover:text-white transition flex items-center gap-1">
+                                <i class="fa-solid fa-calendar-week"></i> Tuần 7 Ngày
                             </button>
                             <button type="button" onclick="switchScheduleViewMode('items')" id="sched-btn-mode-items" class="px-2.5 py-1 rounded-md font-bold text-gray-400 hover:text-white transition flex items-center gap-1">
                                 <i class="fa-solid fa-boxes-stacked"></i> Theo Thiết Bị
@@ -698,29 +743,35 @@
                     </div>
                 </div>
 
-                <!-- Chế độ 0: Lưới Lịch Tuần Độc Nhất KiotViet Salon Style (Hình 1) -->
-                <div id="sched-view-week" class="space-y-3">
+                <!-- Chế độ 1: Lịch Theo Ca Trong Ngày (Mặc Định - Cực Kỳ Gọn Gàng & Rõ Ràng) -->
+                <div id="sched-view-timeline" class="space-y-3">
+                    <div id="sched-timeline-container" class="space-y-2.5">
+                        <!-- Javascript renders chronological order list of the day -->
+                    </div>
+                </div>
+
+                <!-- Chế độ 2: Lưới Lịch Tuần 7 Ngày (Kanban Cards Tinh Tế) -->
+                <div id="sched-view-week" class="hidden space-y-3">
                     <div class="flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-gray-300 bg-gray-950 p-2.5 rounded-xl border border-gray-800">
                         <div class="flex items-center gap-2">
-                            <button type="button" onclick="stepAdminScheduleWeek(-1)" class="px-2 py-1 bg-gray-900 hover:bg-gray-800 rounded-lg border border-gray-700 text-white transition">
+                            <button type="button" onclick="stepAdminScheduleWeek(-1)" class="px-2.5 py-1 bg-gray-900 hover:bg-gray-800 rounded-lg border border-gray-700 text-white transition">
                                 <i class="fa-solid fa-chevron-left"></i> Tuần Trước
                             </button>
                             <span class="text-amber-400 font-bold px-1" id="sched-week-range-label">Tuần Đang Chọn</span>
-                            <button type="button" onclick="stepAdminScheduleWeek(1)" class="px-2 py-1 bg-gray-900 hover:bg-gray-800 rounded-lg border border-gray-700 text-white transition">
+                            <button type="button" onclick="stepAdminScheduleWeek(1)" class="px-2.5 py-1 bg-gray-900 hover:bg-gray-800 rounded-lg border border-gray-700 text-white transition">
                                 Tuần Sau <i class="fa-solid fa-chevron-right"></i>
                             </button>
                             <button type="button" onclick="setAdminScheduleToday()" class="px-2.5 py-1 bg-purple-950 text-purple-200 rounded-lg border border-purple-700 font-bold hover:bg-purple-900 transition">
                                 Tuần Này
                             </button>
                         </div>
-                        <div class="text-[11px] text-gray-400 flex items-center gap-1.5">
-                            <span class="w-3 h-0.5 bg-rose-500 rounded"></span>
-                            <span>Đường kẻ đỏ hiển thị mốc giờ hiện tại ở Việt Nam. Bấm vào ca đặt để xem bill / trả đồ.</span>
+                        <div class="text-[11px] text-gray-400">
+                            💡 Bấm vào từng ca để xem hóa đơn chi tiết & mã QR trả đồ.
                         </div>
                     </div>
-                    <div class="overflow-x-auto custom-scroll border border-gray-800 rounded-2xl bg-gray-950/90 shadow-inner">
-                        <div id="sched-week-grid" class="min-w-[880px] text-xs font-mono">
-                            <!-- Javascript render lưới 7 ngày với timeline giờ & đường kẻ đỏ thời gian thực -->
+                    <div class="border border-slate-800 rounded-2xl bg-slate-950/80 shadow-inner">
+                        <div id="sched-week-grid" class="w-full">
+                            <!-- Javascript renders 7-day clean cards -->
                         </div>
                     </div>
                 </div>
@@ -805,60 +856,57 @@
                     </button>
                 </div>
 
-                <!-- THANH THAO TÁC HÀNG LOẠT (MỞ LẠI HẾT / HẠ XUỐNG HẾT / XỬ LÝ MỤC ĐÃ CHỌN) -->
-                <div class="bg-gray-950 p-3 rounded-xl border border-gray-800 flex flex-wrap items-center justify-between gap-2.5 text-xs font-mono">
-                    <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-gray-400 text-[11px] font-bold">Thao tác toàn bộ kho:</span>
-                        <button type="button" onclick="adminBulkStatusAction('ALL_AVAILABLE')" class="bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-600 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 transition">
-                            <i class="fa-solid fa-arrow-up"></i> Mở Lại Tất Cả
-                        </button>
-                        <button type="button" onclick="adminBulkStatusAction('ALL_UNAVAILABLE')" class="bg-yellow-950 hover:bg-yellow-900 text-yellow-300 border border-yellow-700 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 transition">
-                            <i class="fa-solid fa-arrow-down"></i> Hạ Xuống Tất Cả
-                        </button>
-                        <button type="button" onclick="adminReclassifyAllKiotvietItems()" class="bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-600 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 transition" title="Tự động sửa toàn bộ sản phẩm KiotViet sang đúng nhóm Váy/Áo/Set/Máy ảnh trong 1 giây">
-                            <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> Phân Loại Lại Toàn Kho
-                        </button>
+                <!-- THANH CÔNG CỤ TÌM KIẾM & THAO TÁC KHO GỌN GÀNG CHO CẢ MOBILE & DESKTOP -->
+                <div class="bg-slate-900/95 p-3 rounded-2xl border border-slate-800 text-xs font-mono shadow-md space-y-2.5">
+                    <!-- Hàng 1: Tìm kiếm & Lọc trạng thái -->
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+                        <div class="relative flex-1">
+                            <input type="text" id="adm-item-search-kw" oninput="adminFilterInventoryTable()" placeholder="🔍 Tìm kiếm nhanh tên máy/váy, mã SP (SP0000xx), serial, brand..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-white font-mono text-xs focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <select id="adm-item-filter-avail" onchange="adminFilterInventoryTable()" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-amber-500 cursor-pointer flex-1 sm:flex-initial">
+                                <option value="ALL">Tất cả trạng thái kho</option>
+                                <option value="AVAILABLE">🟢 SẴN SÀNG</option>
+                                <option value="RENTED">🔴 ĐANG THUÊ</option>
+                                <option value="HIDDEN">🔒 ĐÃ ẨN</option>
+                                <option value="UNAVAILABLE">⚠️ TẠM NGƯNG</option>
+                            </select>
+                            <span class="text-amber-400 font-bold whitespace-nowrap text-xs bg-slate-950 border border-slate-700 px-2.5 py-2 rounded-xl" id="adm-inventory-filtered-count">-- món</span>
+                        </div>
                     </div>
 
-                    <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-gray-400 text-[11px] font-bold" id="adm-selected-count-label">Đã chọn: 0</span>
-                        <button type="button" onclick="adminBulkStatusAction('SET_AVAILABLE')" class="bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 transition">
-                            <i class="fa-solid fa-check"></i> Mở Đã Chọn
-                        </button>
-                        <button type="button" onclick="adminBulkStatusAction('SET_UNAVAILABLE')" class="bg-amber-950 hover:bg-amber-900 text-amber-300 border border-amber-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 transition">
-                            <i class="fa-solid fa-ban"></i> Hạ Đã Chọn
-                        </button>
-                        <button type="button" onclick="adminBulkStatusAction('SET_HIDDEN')" class="bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 transition" title="Ẩn hoàn toàn khỏi web khách">
-                            <i class="fa-solid fa-eye-slash"></i> Ẩn Đã Chọn
-                        </button>
-                        <button type="button" onclick="adminBulkStatusAction('SET_UNHIDDEN')" class="bg-teal-950 hover:bg-teal-900 text-teal-300 border border-teal-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 transition" title="Hiện lại lên web khách">
-                            <i class="fa-solid fa-eye"></i> Hiện Đã Chọn
-                        </button>
-                        <button type="button" onclick="adminBulkStatusAction('DELETE')" class="bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 transition">
-                            <i class="fa-solid fa-trash-can"></i> Xóa Đã Chọn
-                        </button>
+                    <!-- Hàng 2: Thao tác nhanh hàng loạt & Toàn bộ kho -->
+                    <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800 text-[11px]">
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <span class="text-cyan-300 font-bold" id="adm-selected-count-label">Đã chọn: 0</span>
+                            <button type="button" onclick="adminBulkStatusAction('SET_AVAILABLE')" class="bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-700 px-2 py-1 rounded-lg font-bold" title="Mở các món đã chọn">✓ Mở</button>
+                            <button type="button" onclick="adminBulkStatusAction('SET_UNAVAILABLE')" class="bg-amber-950 hover:bg-amber-900 text-amber-300 border border-amber-700 px-2 py-1 rounded-lg font-bold" title="Hạ các món đã chọn">⊘ Hạ</button>
+                            <button type="button" onclick="adminBulkStatusAction('SET_HIDDEN')" class="bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-700 px-2 py-1 rounded-lg font-bold" title="Ẩn khỏi web">🔒 Ẩn</button>
+                            <button type="button" onclick="adminBulkStatusAction('SET_UNHIDDEN')" class="bg-teal-950 hover:bg-teal-900 text-teal-300 border border-teal-700 px-2 py-1 rounded-lg font-bold" title="Hiện lại">👁️ Hiện</button>
+                            <button type="button" onclick="adminBulkStatusAction('DELETE')" class="bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-700 px-2 py-1 rounded-lg font-bold" title="Xóa các mục đã chọn">🗑️ Xóa</button>
+                        </div>
+
+                        <div class="flex items-center gap-1.5 ml-auto">
+                            <button type="button" onclick="adminBulkStatusAction('ALL_AVAILABLE')" class="bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-600 px-2.5 py-1 rounded-lg font-bold" title="Mở lại tất cả sản phẩm">
+                                <i class="fa-solid fa-arrow-up"></i> Mở Hết
+                            </button>
+                            <button type="button" onclick="adminBulkStatusAction('ALL_UNAVAILABLE')" class="bg-yellow-950 hover:bg-yellow-900 text-yellow-300 border border-yellow-700 px-2.5 py-1 rounded-lg font-bold" title="Hạ xuống tất cả sản phẩm">
+                                <i class="fa-solid fa-arrow-down"></i> Hạ Hết
+                            </button>
+                            <button type="button" onclick="adminReclassifyAllKiotvietItems()" class="bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-600 px-2.5 py-1 rounded-lg font-bold" title="Phân loại lại toàn kho">
+                                <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> Phân Loại
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <!-- THANH TÌM KIẾM NHANH KHO DÀNH CHO ADMIN (YÊU CẦU 4) -->
-                <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-gray-950 p-3 rounded-xl border border-gray-800 text-xs font-mono">
-                    <div class="relative flex-1">
-                        <input type="text" id="adm-item-search-kw" oninput="adminFilterInventoryTable()" placeholder="🔍 Tìm kiếm nhanh tên máy/váy, mã SP (SP0000xx), serial, thương hiệu, nhóm đồ..." class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3.5 py-2 text-white font-mono text-xs focus:outline-none focus:border-amber-500">
+                <div class="space-y-1">
+                    <div class="text-[10px] text-gray-400 font-mono sm:hidden flex items-center justify-between px-1">
+                        <span>← Vuốt ngang để xem đủ bảng →</span>
+                        <span class="text-cyan-300">8 cột thông tin</span>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <select id="adm-item-filter-avail" onchange="adminFilterInventoryTable()" class="bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-amber-500 cursor-pointer">
-                            <option value="ALL">Tất cả trạng thái kho</option>
-                            <option value="AVAILABLE">🟢 SẴN SÀNG</option>
-                            <option value="RENTED">🔴 ĐANG THUÊ</option>
-                            <option value="HIDDEN">🔒 ĐÃ ẨN KHỎI WEB</option>
-                            <option value="UNAVAILABLE">⚠️ TẠM NGƯNG</option>
-                        </select>
-                        <span class="text-amber-400 font-bold whitespace-nowrap text-[11px]" id="adm-inventory-filtered-count">-- món</span>
-                    </div>
-                </div>
-
-                <div class="overflow-x-auto custom-scroll">
-                    <table class="w-full text-left text-xs font-mono">
+                    <div class="overflow-x-auto custom-scroll border border-gray-800 rounded-2xl bg-gray-950/80">
+                        <table class="w-full text-left text-xs font-mono min-w-[760px]">
                         <thead class="bg-gray-950 text-gray-300 uppercase text-[11px] border-b border-gray-700">
                             <tr>
                                 <th class="p-3 w-8 text-center">
@@ -1015,7 +1063,7 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                     <!-- Card Group 1 -->
                     <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-800 space-y-2">
                         <div class="flex justify-between items-center font-bold">
@@ -1025,7 +1073,7 @@
                         <div class="text-[11px] text-gray-400 truncate">ID: <code class="text-white" id="health-chat-id-main">-5368352616</code></div>
                         <div class="text-[10px] text-gray-400 leading-tight">Nhận thông báo khi khách chuyển khoản, có 3 nút: Duyệt / Hủy / Hết đồ.</div>
                         <button onclick="testTelegramNotify()" class="w-full bg-gray-800 hover:bg-gray-700 text-cyan-300 py-1.5 rounded-lg text-[11px] font-bold transition">
-                            <i class="fa-solid fa-paper-plane"></i> Gửi Tin Test Group 1
+                            <i class="fa-solid fa-paper-plane"></i> Test Group 1
                         </button>
                     </div>
 
@@ -1050,7 +1098,7 @@
                     <!-- Card Group 3 -->
                     <div class="bg-gray-900/80 p-3 rounded-xl border border-emerald-900/60 space-y-2">
                         <div class="flex justify-between items-center font-bold">
-                            <span class="text-emerald-300">Group 3: Doanh Thu Ngày 21:00</span>
+                            <span class="text-emerald-300">Group 3: Doanh Thu 21h</span>
                             <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">HOẠT ĐỘNG</span>
                         </div>
                         <div class="text-[11px] text-gray-400 truncate">ID: <code class="text-emerald-300" id="health-chat-id-revenue">-1003930707954</code></div>
@@ -1081,6 +1129,19 @@
                                 <i class="fa-solid fa-paper-plane"></i> Test G4
                             </button>
                         </div>
+                    </div>
+
+                    <!-- Card Group 5: Hủy Đơn & Dời Lịch -->
+                    <div class="bg-gray-900/80 p-3 rounded-xl border border-rose-900/60 space-y-2">
+                        <div class="flex justify-between items-center font-bold">
+                            <span class="text-rose-300">Group 5: Hủy & Dời Lịch</span>
+                            <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">HOẠT ĐỘNG</span>
+                        </div>
+                        <div class="text-[11px] text-gray-400 truncate">ID: <code class="text-rose-300" id="health-chat-id-cancel">-1004467743740</code></div>
+                        <div class="text-[10px] text-gray-400 leading-tight">Báo ngay khi khách yêu cầu hủy lịch/dời lịch kèm STK hoàn tiền và ảnh biên lai.</div>
+                        <button onclick="testTelegramNotifyGroup5()" class="w-full bg-gray-800 hover:bg-gray-700 text-rose-300 py-1.5 rounded-lg text-[10px] font-bold transition">
+                            <i class="fa-solid fa-paper-plane"></i> Test Group 5
+                        </button>
                     </div>
                 </div>
 
@@ -1161,6 +1222,15 @@
                             <input type="text" id="telegram-deposit-chat-id" placeholder="vd: -1004476055497" class="w-full bg-gray-900 border border-cyan-600/60 rounded-lg p-2 text-cyan-200 font-mono text-xs">
                             <p class="text-[10px] text-gray-400 mt-1">
                                 💡 Tự động thông báo ngay khi thu tiền cọc, hoàn trả cọc và tổng tiền cọc đang giữ trong kho.
+                            </p>
+                        </div>
+                        <div>
+                            <label class="block text-rose-300 font-bold mb-1 flex items-center gap-1">
+                                <i class="fa-solid fa-ban"></i> Telegram Group Hủy Đơn & Dời Lịch (Group riêng):
+                            </label>
+                            <input type="text" id="telegram-cancel-chat-id" placeholder="vd: -1004467743740" class="w-full bg-gray-900 border border-rose-600/60 rounded-lg p-2 text-rose-200 font-mono text-xs">
+                            <p class="text-[10px] text-gray-400 mt-1">
+                                💡 Báo ngay khi khách yêu cầu hủy đơn hoặc dời lịch kèm STK hoàn tiền và ảnh biên lai chuyển khoản.
                             </p>
                         </div>
                         <div class="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-gray-300">
@@ -1400,6 +1470,42 @@
                         </thead>
                         <tbody id="adm-categories-tbody" class="divide-y divide-gray-800/80 bg-[#111827]">
                             <!-- Javascript nạp danh sách category chips -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ============================================================== -->
+            <!-- QUẢN LÝ THẺ NỔI BẬT ĐẦU TRANG (CHỈ ADMIN MỚI ĐƯỢC CHỈNH SỬA / XÓA) -->
+            <!-- ============================================================== -->
+            <div class="bg-[#111827] text-white rounded-2xl p-6 border border-amber-800/60 space-y-4 shadow-xl">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-700 pb-3">
+                    <div>
+                        <span class="text-xs font-mono bg-amber-950 text-amber-300 border border-amber-600 px-2.5 py-0.5 rounded font-bold uppercase">FEATURED HIGHLIGHTS (ADMIN ONLY)</span>
+                        <h4 class="text-base font-bold text-amber-300 mt-1 flex items-center gap-2">
+                            <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i> Quản Lý Thẻ Nổi Bật Đầu Trang Chủ
+                        </h4>
+                        <p class="text-xs text-gray-300 mt-0.5">Chỉ Quản Trị Viên (Admin) mới có quyền thêm, chỉnh sửa hình ảnh, từ khóa lọc và xóa các thẻ nổi bật.</p>
+                    </div>
+                    <button type="button" onclick="openCreateHighlightModal()" class="bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-gray-950 font-black py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 shadow-lg transition">
+                        <i class="fa-solid fa-plus"></i> Thêm Thẻ Nổi Bật Mới
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto custom-scroll">
+                    <table class="w-full text-left text-xs font-mono">
+                        <thead class="bg-gray-950 text-gray-300 uppercase text-[11px] border-b border-gray-700">
+                            <tr>
+                                <th class="p-3 text-amber-400">Ảnh Bìa</th>
+                                <th class="p-3 text-white">Tiêu Đề</th>
+                                <th class="p-3 text-purple-300">Phụ Đề</th>
+                                <th class="p-3 text-cyan-300">Từ Khóa Lọc</th>
+                                <th class="p-3 text-gray-300">Thứ Tự</th>
+                                <th class="p-3 text-right text-gray-300">Thao Tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adm-highlights-tbody" class="divide-y divide-gray-800/80 bg-[#111827]">
+                            <!-- Javascript nạp danh sách thẻ nổi bật -->
                         </tbody>
                     </table>
                 </div>
@@ -1765,25 +1871,45 @@
     </footer>
 
     <!-- ============================================================== -->
-    <!-- FLOATING CONTACT & QUICK ACTIONS (HOTLINE, TELEGRAM, MAPS)     -->
+    <!-- FLOATING CONTACT SPEED DIAL (GỌN GÀNG, KHÔNG CHE KHUẤT NỘI DUNG) -->
     <!-- ============================================================== -->
-    <div class="floating-contact-stack fixed bottom-20 md:bottom-6 right-3 md:right-6 z-40 flex flex-col items-end gap-2.5">
-        <!-- Nút Tra Cứu Đơn Nhanh -->
-        <button onclick="openOrderTrackerModal()" class="w-11 h-11 md:w-12 md:h-12 rounded-full bg-white hover:bg-[#faf7f2] text-[#0369a1] border border-[#bae6fd] flex items-center justify-center text-base md:text-lg shadow-md transition hover:scale-110" title="Tra cứu tiến độ & chi nhánh đơn hàng">
-            <i class="fa-solid fa-magnifying-glass"></i>
+    <div id="global-floating-contact" class="fixed bottom-20 md:bottom-6 right-3 md:right-6 z-40 flex flex-col items-end gap-2">
+        <!-- Menu mở rộng (Ẩn theo mặc định, bấm nút chính để bung ra) -->
+        <div id="floating-contact-menu" class="hidden flex flex-col items-end gap-2 transition-all duration-300">
+            <!-- Tra Cứu Đơn Nhanh -->
+            <button type="button" onclick="openOrderTrackerModal(); toggleFloatingContactMenu();" class="flex items-center gap-2 bg-white/95 hover:bg-sky-50 text-[#0369a1] border border-sky-200 px-3 py-1.5 rounded-full shadow-lg transition text-xs font-bold font-mono">
+                <span>Tra cứu đơn</span>
+                <span class="w-7 h-7 rounded-full bg-sky-100 flex items-center justify-center text-[#0369a1]">
+                    <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                </span>
+            </button>
+            <!-- Gọi Hotline -->
+            <a href="tel:0977078981" class="flex items-center gap-2 bg-white/95 hover:bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-full shadow-lg transition text-xs font-bold font-mono">
+                <span>0977.078.981</span>
+                <span class="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+                    <i class="fa-solid fa-phone text-xs"></i>
+                </span>
+            </a>
+            <!-- Nhắn Tin Messenger -->
+            <a href="https://www.facebook.com/tidubachuyenchothueothietkeo" target="_blank" class="flex items-center gap-2 bg-white/95 hover:bg-blue-50 text-[#1877f2] border border-blue-200 px-3 py-1.5 rounded-full shadow-lg transition text-xs font-bold font-mono">
+                <span>Chat Facebook</span>
+                <span class="w-7 h-7 rounded-full bg-[#1877f2] text-white flex items-center justify-center">
+                    <i class="fa-brands fa-facebook-messenger text-xs"></i>
+                </span>
+            </a>
+            <!-- Chỉ Đường Google Maps -->
+            <a href="https://maps.app.goo.gl/rVJwRPcvrSHhcrDN6" target="_blank" class="flex items-center gap-2 bg-white/95 hover:bg-amber-50 text-[#c86d51] border border-amber-200 px-3 py-1.5 rounded-full shadow-lg transition text-xs font-bold font-mono">
+                <span>Bản đồ shop</span>
+                <span class="w-7 h-7 rounded-full bg-[#c86d51] text-white flex items-center justify-center">
+                    <i class="fa-solid fa-location-dot text-xs"></i>
+                </span>
+            </a>
+        </div>
+
+        <!-- Nút Tròn Chính (Chỉ 1 nút duy nhất gọn gàng, không che khuất sản phẩm) -->
+        <button type="button" onclick="toggleFloatingContactMenu()" id="floating-contact-trigger-btn" class="w-11 h-11 md:w-12 md:h-12 rounded-full bg-gradient-to-tr from-[#c86d51] to-[#e07e60] text-white flex items-center justify-center text-lg md:text-xl shadow-xl hover:scale-105 active:scale-95 transition" title="Liên hệ & Hỗ trợ">
+            <i class="fa-solid fa-headset" id="floating-trigger-icon"></i>
         </button>
-        <!-- Nút Gọi Hotline -->
-        <a href="tel:0977078981" class="w-11 h-11 md:w-12 md:h-12 rounded-full bg-[#10b981] hover:bg-[#059669] text-white flex items-center justify-center text-lg md:text-xl shadow-md transition hover:scale-110" title="Gọi Hotline: 0977.078.981">
-            <i class="fa-solid fa-phone"></i>
-        </a>
-        <!-- Nút Nhắn Tin Page Facebook (Theo Yêu Cầu) -->
-        <a href="https://www.facebook.com/tidubachuyenchothueothietkeo" target="_blank" class="w-11 h-11 md:w-12 md:h-12 rounded-full bg-[#1877f2] hover:bg-[#166fe5] text-white flex items-center justify-center text-lg md:text-xl shadow-md transition hover:scale-110" title="Nhắn tin Page Facebook Tiduba Store">
-            <i class="fa-brands fa-facebook-messenger"></i>
-        </a>
-        <!-- Nút Chỉ Đường Google Map CN1 (Pleiku, Gia Lai) -->
-        <a href="https://maps.app.goo.gl/rVJwRPcvrSHhcrDN6" target="_blank" class="w-11 h-11 md:w-12 md:h-12 rounded-full bg-[#c86d51] hover:bg-[#b55d42] text-white flex items-center justify-center text-base md:text-lg shadow-md transition hover:scale-110" title="Chỉ đường tới CN1: 183A Huỳnh Thúc Kháng, Pleiku, Gia Lai">
-            <i class="fa-solid fa-location-dot"></i>
-        </a>
     </div>
 
     <!-- ============================================================== -->
@@ -2808,7 +2934,7 @@
                         <i class="fa-solid fa-triangle-exclamation"></i>
                     </span>
                     <div>
-                        <h3 class="text-base font-bold text-white">Xác Nhận Hủy Lịch Thuê</h3>
+                        <h3 class="text-base font-bold text-white" id="cancel-modal-title">Xác Nhận Hủy Lịch Thuê</h3>
                         <p class="text-[11px] text-gray-400 font-mono" id="cancel-modal-code">Đơn: TDB-XXXXXX</p>
                     </div>
                 </div>
@@ -2818,8 +2944,8 @@
             </div>
             <input type="hidden" id="cancel-rental-id" value="">
             <div class="space-y-3 text-xs font-sans">
-                <!-- CẢNH BÁO MẤT 50% TIỀN -->
-                <div class="p-3.5 bg-rose-950/70 border-2 border-rose-500/80 rounded-2xl text-rose-200 leading-relaxed space-y-1.5 shadow-inner">
+                <!-- CẢNH BÁO QUY ĐỊNH HỦY LỊCH / HOÀN TIỀN -->
+                <div id="cancel-warning-box" class="p-3.5 bg-rose-950/70 border-2 border-rose-500/80 rounded-2xl text-rose-200 leading-relaxed space-y-1.5 shadow-inner">
                     <div class="font-bold text-amber-300 flex items-center gap-1.5 text-xs font-mono uppercase">
                         <i class="fa-solid fa-triangle-exclamation text-yellow-400"></i> LƯU Ý QUY ĐỊNH HỦY LỊCH:
                     </div>
@@ -2833,9 +2959,9 @@
 
                 <div class="bg-gray-950 p-3 rounded-xl border border-gray-800 space-y-1.5 font-mono text-xs">
                     <div class="flex justify-between text-gray-400"><span>Tổng tiền đơn:</span><strong class="text-white" id="cancel-disp-total">0đ</strong></div>
-                    <div class="flex justify-between text-rose-400"><span>Phí phạt giữ lại (50%):</span><strong id="cancel-disp-penalty">-0đ</strong></div>
+                    <div class="flex justify-between text-rose-400"><span id="cancel-label-penalty">Phí phạt giữ lại:</span><strong id="cancel-disp-penalty">-0đ</strong></div>
                     <div class="flex justify-between text-emerald-400 font-bold border-t border-gray-800 pt-1">
-                        <span>Số tiền hoàn trả (50%):</span><strong id="cancel-disp-refund">0đ</strong>
+                        <span id="cancel-label-refund">Số tiền hoàn trả:</span><strong id="cancel-disp-refund">0đ</strong>
                     </div>
                 </div>
 
@@ -2884,6 +3010,163 @@
                 </button>
                 <button type="button" onclick="submitCancelRentalWithPenalty()" id="btn-submit-cancel-pen" class="w-full bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-700 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1 transition">
                     <i class="fa-solid fa-ban"></i> Chấp Nhận Hủy (Mất 50% Phí)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DEPOSIT MANAGEMENT & RECALCULATION MODAL (ADMIN TÍNH LẠI CỌC & ĐỐI SOÁT CỌC) -->
+    <div id="deposit-management-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-5" style="display: none;">
+        <div class="bg-slate-900 border border-cyan-500/60 rounded-3xl max-w-4xl w-full p-5 sm:p-6 space-y-4 shadow-2xl font-sans text-left max-h-[94vh] flex flex-col overflow-hidden">
+            <!-- Header Modal -->
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3 flex-shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-10 h-10 rounded-2xl bg-cyan-950 text-cyan-400 border border-cyan-600 flex items-center justify-center text-lg font-bold shadow-sm">
+                        <i class="fa-solid fa-calculator text-yellow-300"></i>
+                    </span>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-base sm:text-lg font-bold text-white">Quản Lý & Tính Lại Tiền Cọc</h3>
+                            <span class="text-[10px] font-mono bg-cyan-950 text-cyan-300 border border-cyan-600 px-2 py-0.5 rounded-full font-bold">Group -1004476055497</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 font-mono">Đối soát cọc đang giữ, tính lại tiền khấu trừ rơi vỡ/hư hại, phí trễ và hoàn cọc tức thì.</p>
+                    </div>
+                </div>
+                <button onclick="closeDepositManagementModal()" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Body Modal (Scrollable) -->
+            <div class="flex-1 overflow-y-auto custom-scroll space-y-4 pr-1 text-xs font-mono">
+                <!-- 4 Thẻ Chỉ Số Cọc Trực Quan -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div class="bg-slate-950 p-3 rounded-xl border border-cyan-700/60">
+                        <div class="text-[10px] text-slate-400 uppercase font-bold">Tổng Cọc Đang Giữ</div>
+                        <div class="text-base sm:text-lg font-black text-cyan-400 mt-0.5" id="dep-modal-holding-cash">0đ</div>
+                    </div>
+                    <div class="bg-slate-950 p-3 rounded-xl border border-emerald-700/60">
+                        <div class="text-[10px] text-slate-400 uppercase font-bold">Cọc Thu Hôm Nay</div>
+                        <div class="text-base sm:text-lg font-black text-emerald-400 mt-0.5" id="dep-modal-today-in">0đ</div>
+                    </div>
+                    <div class="bg-slate-950 p-3 rounded-xl border border-teal-700/60">
+                        <div class="text-[10px] text-slate-400 uppercase font-bold">Cọc Đã Hoàn Hôm Nay</div>
+                        <div class="text-base sm:text-lg font-black text-teal-400 mt-0.5" id="dep-modal-today-out">0đ</div>
+                    </div>
+                    <div class="bg-slate-950 p-3 rounded-xl border border-amber-700/60 flex flex-col justify-between">
+                        <div class="text-[10px] text-slate-400 uppercase font-bold">Phân Loại Cọc</div>
+                        <div class="text-[11px] text-amber-300 font-bold" id="dep-modal-breakdown">0 Tiền | 0 Giấy tờ</div>
+                    </div>
+                </div>
+
+                <!-- KHUNG TÍNH LẠI CỌC CHO 1 ĐƠN CỤ THỂ (HIỆN KHI BẤM 'TÍNH LẠI CỌC') -->
+                <div id="dep-recalc-box" class="hidden bg-slate-950 p-4 rounded-2xl border-2 border-amber-500/80 space-y-3 font-sans">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <div class="text-xs font-bold text-amber-300 flex items-center gap-1.5 font-mono">
+                            <i class="fa-solid fa-calculator text-yellow-400"></i>
+                            <span id="dep-recalc-title">TÍNH LẠI CỌC ĐƠN #TDB-XXXXXX</span>
+                        </div>
+                        <button type="button" onclick="closeDepositRecalcBox()" class="text-slate-400 hover:text-white text-xs font-mono">✕ Đóng khung tính</button>
+                    </div>
+
+                    <input type="hidden" id="dep-recalc-rental-id" value="">
+                    <input type="hidden" id="dep-recalc-rental-code" value="">
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-mono">
+                        <div>
+                            <label class="block text-slate-300 mb-1">Tiền cọc ban đầu (VNĐ):</label>
+                            <input type="number" id="dep-calc-deposit-paid" oninput="onLiveRecalculateDeposit()" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white font-bold font-mono focus:border-amber-400">
+                        </div>
+                        <div>
+                            <label class="block text-rose-300 mb-1">Khấu trừ hư hại / rơi vỡ / phụ kiện (VNĐ):</label>
+                            <input type="number" id="dep-calc-damage" oninput="onLiveRecalculateDeposit()" placeholder="0" class="w-full bg-slate-900 border border-rose-600/80 rounded-xl p-2 text-rose-300 font-bold font-mono focus:border-rose-400">
+                        </div>
+                        <div>
+                            <label class="block text-rose-300 mb-1">Phí trễ hạn khấu trừ (VNĐ):</label>
+                            <input type="number" id="dep-calc-late-fee" oninput="onLiveRecalculateDeposit()" placeholder="0" class="w-full bg-slate-900 border border-rose-600/80 rounded-xl p-2 text-rose-300 font-bold font-mono focus:border-rose-400">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
+                        <div>
+                            <label class="block text-slate-300 mb-1">Hình thức cọc:</label>
+                            <select id="dep-calc-type" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white font-mono">
+                                <option value="CASH">💵 Cọc tiền mặt / Chuyển khoản</option>
+                                <option value="CCCD">🪪 Giữ giấy tờ (CCCD/GPLX)</option>
+                                <option value="ASSET">📱 Cọc tài sản (Điện thoại, Xe, Laptop...)</option>
+                                <option value="NONE">👑 Miễn cọc VIP</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-slate-300 mb-1">Mô tả cọc / Tình trạng máy khi nhận lại:</label>
+                            <input type="text" id="dep-calc-desc" placeholder="vd: Trầy thấu kính nhẹ, thiếu cáp sạc..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white font-sans">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-slate-300 text-xs font-mono mb-1">STK ngân hàng nhận tiền hoàn cọc của khách:</label>
+                        <input type="text" id="dep-calc-bank-info" placeholder="MBBank - 0987654321 - NGUYEN VAN A" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white font-mono text-xs">
+                    </div>
+
+                    <!-- BOX TỔNG KẾT TÍNH LẠI CỌC -->
+                    <div class="p-3 bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-between text-xs font-mono">
+                        <div class="text-slate-400">
+                            Công thức: <span class="text-white">Cọc ban đầu</span> - <span class="text-rose-400">Khấu trừ hư hại</span> - <span class="text-rose-400">Phí trễ</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-slate-400 text-[11px] block">TIỀN THỰC TẾ HOÀN LẠI KHÁCH:</span>
+                            <strong class="text-emerald-400 text-base sm:text-lg font-black" id="dep-calc-result-amount">0đ</strong>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-end gap-2 pt-1 font-mono">
+                        <button type="button" onclick="submitSaveRecalculatedDeposit()" class="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1.5 shadow-md">
+                            <i class="fa-solid fa-floppy-disk"></i> Lưu & Báo Telegram (-1004476055497)
+                        </button>
+                        <button type="button" onclick="openQrRefundFromRecalc()" class="bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-600 font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1.5">
+                            <i class="fa-solid fa-qrcode"></i> Sinh Mã VietQR Hoàn Cọc
+                        </button>
+                    </div>
+                </div>
+
+                <!-- BẢNG DANH SÁCH CÁC ĐƠN ĐANG CỌC -->
+                <div class="space-y-2">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <span class="font-bold text-slate-300 text-xs">Danh sách các đơn đang cọc thiết bị / trang phục:</span>
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="dep-modal-search" oninput="filterDepositModalTable()" placeholder="Tìm mã đơn, tên khách, SĐT..." class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white w-52">
+                            <button type="button" onclick="loadDepositSummaryData()" class="text-cyan-400 hover:underline text-[11px]"><i class="fa-solid fa-rotate"></i> Tải lại</button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto custom-scroll border border-slate-800 rounded-2xl bg-slate-950/80">
+                        <table class="w-full text-left text-xs font-mono">
+                            <thead class="bg-slate-950 text-slate-400 text-[10px] uppercase border-b border-slate-800">
+                                <tr>
+                                    <th class="p-2.5">Mã Đơn</th>
+                                    <th class="p-2.5">Khách Hàng</th>
+                                    <th class="p-2.5">Thiết Bị</th>
+                                    <th class="p-2.5">Loại Cọc</th>
+                                    <th class="p-2.5">Tiền Cọc Thu</th>
+                                    <th class="p-2.5">Mô Tả Cọc</th>
+                                    <th class="p-2.5 text-right">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dep-modal-tbody" class="divide-y divide-slate-800/80">
+                                <!-- Javascript renders holding deposit rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Modal -->
+            <div class="flex items-center justify-between pt-3 border-t border-slate-800 flex-shrink-0 text-xs font-mono">
+                <button type="button" onclick="triggerDepositReportNow()" class="bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-700 px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-paper-plane"></i> Gửi Báo Cáo Sang Group (-1004476055497)
+                </button>
+                <button type="button" onclick="closeDepositManagementModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl font-bold transition">
+                    Đóng
                 </button>
             </div>
         </div>
@@ -3518,6 +3801,35 @@
         let selectedComboForBooking = null;
         let currentReviewItemId = null;
 
+        function toggleFloatingContactMenu() {
+            const menu = document.getElementById('floating-contact-menu');
+            const icon = document.getElementById('floating-trigger-icon');
+            if (menu) {
+                const isHidden = menu.classList.contains('hidden');
+                if (isHidden) {
+                    menu.classList.remove('hidden');
+                    if (icon) icon.className = 'fa-solid fa-xmark';
+                } else {
+                    menu.classList.add('hidden');
+                    if (icon) icon.className = 'fa-solid fa-headset';
+                }
+            }
+        }
+
+        function closeFloatingContactMenu() {
+            const menu = document.getElementById('floating-contact-menu');
+            const icon = document.getElementById('floating-trigger-icon');
+            if (menu) menu.classList.add('hidden');
+            if (icon) icon.className = 'fa-solid fa-headset';
+        }
+
+        document.addEventListener('click', function(e) {
+            const wrap = document.getElementById('global-floating-contact');
+            if (wrap && !wrap.contains(e.target)) {
+                closeFloatingContactMenu();
+            }
+        });
+
         function showSection(secName) {
             ['catalog', 'my-rentals', 'admin', 'kiotviet-pos'].forEach(s => {
                 const el = document.getElementById(`sec-${s}`);
@@ -3526,6 +3838,21 @@
                     else el.classList.add('hidden');
                 }
             });
+
+            // Gán class lên body để CSS ẩn triệt để nút liên hệ nổi
+            document.body.classList.toggle('admin-active', secName === 'admin');
+            document.body.classList.toggle('pos-active', secName === 'kiotviet-pos');
+
+            // Ẩn nút liên hệ nổi khi vào Admin Panel hoặc POS KiotViet để không che khuất bảng điều khiển
+            const floatContact = document.getElementById('global-floating-contact');
+            if (floatContact) {
+                if (secName === 'admin' || secName === 'kiotviet-pos') {
+                    floatContact.classList.add('hidden');
+                } else {
+                    floatContact.classList.remove('hidden');
+                }
+            }
+
             if (secName === 'my-rentals') fetchMyRentals();
             if (secName === 'admin') {
                 if (typeof switchAdminMainTab === 'function') {
@@ -3708,27 +4035,27 @@
                             <span class="absolute bottom-2.5 left-2.5 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg flex items-center gap-1 shadow-sm backdrop-blur-sm">
                                 <i class="fa-regular fa-images"></i> Xem ảnh
                             </span>
-                            ${isAdminView ? `
-                                <button onclick="event.stopPropagation(); adminToggleItemAvailability(${item.id})" class="absolute bottom-2 right-2 text-[10px] font-bold px-2.5 py-1 rounded-lg border shadow-sm transition ${isUnavail ? 'bg-[#10b981] hover:bg-[#059669] text-white border-[#059669]' : isAvail ? 'bg-white hover:bg-rose-50 text-rose-600 border-rose-300' : ''} ${isRented ? 'hidden' : ''}" title="${isUnavail ? 'Kích hoạt lại sản phẩm' : 'Hạ sản phẩm xuống tạm ngưng'}">
-                                    ${isUnavail ? '<i class="fa-solid fa-circle-up"></i> Kích Hoạt' : '<i class="fa-solid fa-circle-down"></i> Hạ Xuống'}
-                                </button>
-                            ` : ''}
                         </div>
-                        <div class="p-3.5 sm:p-4 space-y-2.5 flex-1 flex flex-col justify-between">
+                        <div class="p-3 sm:p-4 space-y-2 flex-1 flex flex-col justify-between">
                             <div>
                                 <div class="text-[11px] font-sans text-[#78716c] flex items-center justify-between">
                                     <span>${item.brand}</span>
                                     <span class="font-mono text-[10px]">${item.serial_or_size}</span>
                                 </div>
                                 <h4 onclick="openProductGalleryModal(${item.id})" class="cursor-pointer text-sm font-bold text-[#1c1917] mt-1 line-clamp-2 leading-snug hover:text-[#c86d51] transition" title="Bấm để xem album ảnh phóng to">${item.name}</h4>
-                                <div class="text-[11px] text-[#78716c] mt-1 flex items-center justify-between">
+                                <div class="text-[11px] text-[#78716c] mt-1.5 flex items-center justify-between">
                                     <span class="flex items-center gap-1 text-[#b45309] font-medium"><i class="fa-solid fa-sparkles text-[10px]"></i> ${item.condition_status}</span>
-                                    <button onclick="openReviewsModal(${item.id}, '${encodeURIComponent(item.name)}')" class="text-[#c86d51] hover:underline flex items-center gap-0.5 font-medium">
-                                        ⭐ 5.0 (Xem)
-                                    </button>
+                                    <div class="flex items-center gap-1.5">
+                                        <button onclick="openCalendarModal(${item.id}, '${encodeURIComponent(item.name)}')" class="text-slate-600 hover:text-[#c86d51] bg-[#f5ede3] hover:bg-[#ede2d4] px-1.5 py-0.5 rounded flex items-center gap-1 font-medium text-[10px] transition" title="Xem lịch bận">
+                                            <i class="fa-regular fa-calendar-days text-[10px] text-[#c86d51]"></i> Lịch
+                                        </button>
+                                        <button onclick="openReviewsModal(${item.id}, '${encodeURIComponent(item.name)}')" class="text-[#c86d51] hover:underline flex items-center gap-0.5 font-medium">
+                                            ⭐ 5.0
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="pt-2.5 border-t border-[#f2ece4] space-y-2">
+                            <div class="pt-2 border-t border-[#f2ece4] space-y-2">
                                 <div class="flex items-center justify-between text-xs font-mono">
                                     <div>
                                         <span class="text-[#c86d51] font-black text-base">${Number(item.price_24h).toLocaleString()}đ</span>
@@ -3738,31 +4065,26 @@
                                         Giữ giấy tờ gốc
                                     </div>
                                 </div>
-                                <div class="flex gap-1.5">
-                                    <button onclick="openCalendarModal(${item.id}, '${encodeURIComponent(item.name)}')" class="bg-[#f5ede3] hover:bg-[#ede2d4] text-[#44403c] border border-[#e5dcd3] p-2 rounded-xl text-xs transition flex items-center justify-center" title="Xem lịch bận">
-                                        <i class="fa-solid fa-calendar-days text-[#c86d51]"></i>
-                                    </button>
-                                    <a href="https://www.facebook.com/tidubachuyenchothueothietkeo" target="_blank" class="bg-[#eff6ff] hover:bg-[#dbeafe] text-[#1877f2] border border-[#bfdbfe] p-2 rounded-xl text-xs transition flex items-center justify-center shadow-sm" title="Nhắn tin Page Facebook tư vấn">
-                                        <i class="fa-brands fa-facebook-messenger text-sm text-[#1877f2]"></i>
-                                    </a>
+                                <div class="flex items-center gap-1.5">
                                     ${isUnavail
-                                        ? `<span class="flex-1 bg-[#f5f5f4] text-[#78716c] py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 font-sans"><i class="fa-solid fa-ban"></i> Tạm Ngưng</span>`
+                                        ? `<span class="w-full bg-[#f5f5f4] text-[#78716c] py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 font-sans font-bold"><i class="fa-solid fa-ban"></i> Tạm Ngưng</span>`
                                         : `
                                             ${isAvail ? `
-                                                <button onclick="addToCart(${item.id})" class="bg-[#fef3c7] hover:bg-[#fde68a] text-[#92400e] border border-[#fcd34d] px-3 py-2 rounded-xl text-xs transition flex items-center justify-center gap-1 font-bold shadow-sm" title="Thêm vào giỏ hàng Shopee">
-                                                    <i class="fa-solid fa-cart-plus text-sm"></i>
+                                                <button onclick="addToCart(${item.id})" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#fef3c7] hover:bg-[#fde68a] text-[#92400e] border border-[#fcd34d] flex items-center justify-center text-sm shadow-sm transition flex-shrink-0" title="Thêm vào giỏ hàng">
+                                                    <i class="fa-solid fa-cart-plus"></i>
                                                 </button>
                                             ` : ''}
-                                            <button onclick="openBookingModal(${item.id})" class="flex-1 ${isAvail ? 'bg-[#c86d51] hover:bg-[#b55d42] text-white font-bold shadow-sm' : 'bg-rose-50 text-rose-700 border border-rose-300 cursor-not-allowed font-bold'} py-2 rounded-xl text-xs transition flex items-center justify-center gap-1.5" ${!isAvail ? 'disabled' : ''}>
-                                                <i class="fa-solid ${isAvail ? 'fa-bolt' : 'fa-clock'}"></i> ${isAvail ? 'Thuê Ngay' : 'Đang Thuê'}
+                                            <button onclick="openBookingModal(${item.id})" class="flex-1 h-9 sm:h-10 ${isAvail ? 'bg-[#c86d51] hover:bg-[#b55d42] text-white font-bold shadow-sm' : 'bg-rose-50 text-rose-700 border border-rose-300 cursor-not-allowed font-bold'} px-2 sm:px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5 whitespace-nowrap" ${!isAvail ? 'disabled' : ''}>
+                                                <i class="fa-solid ${isAvail ? 'fa-bolt' : 'fa-clock'}"></i>
+                                                <span>${isAvail ? 'Thuê Ngay' : 'Đang Thuê'}</span>
                                             </button>
                                         `
                                     }
                                 </div>
                                 ${isAdminView ? `
-                                    <div class="mt-2 pt-2 border-t border-[#f2ece4] flex items-center justify-between text-[11px] font-sans">
+                                    <div class="mt-1.5 pt-1.5 border-t border-[#f2ece4] flex items-center justify-between text-[11px] font-sans">
                                         <button onclick="openEditItemModal(${item.id})" class="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1">
-                                            <i class="fa-solid fa-pen-to-square"></i> Sửa Món
+                                            <i class="fa-solid fa-pen-to-square"></i> Sửa
                                         </button>
                                         <div class="flex items-center gap-1">
                                             <button onclick="adminToggleItemAvailability(${item.id})" class="text-[10px] font-bold px-2 py-0.5 rounded border ${isUnavail ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-rose-50 text-rose-700 border-rose-300'}">
@@ -5745,21 +6067,8 @@
             document.getElementById('qr-modal').style.display = 'none';
         }
 
-        async function cancelUnpaidRentalFromMyRentals(rentalId, code) {
-            if (!confirm(`Xác nhận hủy đơn hàng #${code}? Thiết bị sẽ được nhả lại vào kho ngay lập tức.`)) return;
-            const token = localStorage.getItem('tiduba_token');
-            try {
-                const res = await fetch(`/api/rentals/${rentalId}/cancel_unpaid`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await res.json();
-                showToast(data.message || "Đã hủy đơn hàng thành công!");
-                fetchMyRentals();
-                fetchCatalog();
-            } catch(e) {
-                alert("Lỗi khi hủy đơn: " + e);
-            }
+        function cancelUnpaidRentalFromMyRentals(rentalId, code, total = 0) {
+            openCancelModalWithPenalty(rentalId, code, total, true);
         }
 
         function keepRentalAndCloseQrModal() {
@@ -7156,6 +7465,8 @@
             container.innerHTML = rentals.map(r => {
                 const isOverdue = r.status === 'OVERDUE';
                 const isHold = r.status === 'HOLD';
+                const isPending = r.status === 'PENDING';
+                const isWaitingApproval = isHold || isPending;
                 const isActive = r.status === 'ACTIVE';
                 const isReturned = r.status === 'RETURNED';
                 const isCancelled = r.status === 'CANCELLED';
@@ -7163,7 +7474,7 @@
                 let statusBadgeText = r.status;
                 let statusBadgeClass = 'bg-yellow-950 text-yellow-300 border-yellow-700';
 
-                if (isHold) {
+                if (isHold || isPending) {
                     statusBadgeText = '⏳ Đang Chờ Admin Duyệt Tiền';
                     statusBadgeClass = 'bg-amber-950 text-amber-300 border-amber-600 font-bold';
                 } else if (isActive) {
@@ -7181,7 +7492,7 @@
                 }
 
                 return `
-                    <div class="luxury-card rounded-2xl p-5 border ${isOverdue ? 'border-rose-500/60' : isHold ? 'border-amber-500/60' : 'border-gray-800'} space-y-4">
+                    <div class="luxury-card rounded-2xl p-5 border ${isOverdue ? 'border-rose-500/60' : isWaitingApproval ? 'border-amber-500/60' : 'border-gray-800'} space-y-4">
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-800 pb-3">
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="text-xs font-mono font-bold text-amber-400">${r.rental_code}</span>
@@ -7200,6 +7511,7 @@
                                     <div class="text-xs text-gray-400 font-mono">Hạn trả: <strong class="${isOverdue ? 'text-rose-400' : 'text-amber-400'}">${r.end_time}</strong></div>
                                     ${r.late_fee > 0 ? `<div class="text-xs text-rose-400 font-bold font-mono">Phí phạt trễ hạn: +${r.late_fee.toLocaleString()}đ</div>` : ''}
                                     ${r.extension_status === 'REQUESTED' ? `<div class="text-xs text-cyan-400 font-mono">⏳ Đang chờ Quản lý duyệt gia hạn thêm giờ...</div>` : ''}
+                                    ${r.payment_proof_img ? `<div class="mt-1"><a href="${r.payment_proof_img}" target="_blank" class="text-[11px] text-cyan-300 underline font-mono flex items-center gap-1 font-bold"><i class="fa-solid fa-receipt"></i> Đã tải ảnh bill chuyển khoản</a></div>` : ''}
                                 </div>
                             </div>
                             <div class="text-right space-y-1">
@@ -7223,17 +7535,25 @@
                                 <button onclick="openK80BillModal('${r.rental_code}')" class="bg-amber-950/80 hover:bg-amber-900 text-yellow-300 border border-amber-600 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition font-bold" title="Xem hóa đơn và lưu về máy">
                                     <i class="fa-solid fa-receipt text-yellow-400"></i> Xem & Lưu Bill K80
                                 </button>
-                                ${isActive ? `
+
+                                <!-- Nút Dời Lịch (Miễn Phí) cho cả Đang Chờ Duyệt (HOLD/PENDING) và Đang Thuê (ACTIVE) -->
+                                ${isActive || isWaitingApproval ? `
                                     <button onclick="openRescheduleModal(${r.id}, '${r.rental_code}', '${r.start_time}', '${r.end_time}')" class="bg-blue-950/80 hover:bg-blue-900 text-cyan-300 border border-blue-600 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition font-bold" title="Đổi ngày giờ thuê miễn phí 100%">
                                         <i class="fa-solid fa-calendar-plus text-cyan-400"></i> Dời Lịch (Miễn Phí)
                                     </button>
-                                    <button onclick="openCancelModalWithPenalty(${r.id}, '${r.rental_code}', ${r.total_price})" class="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-700 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition font-bold" title="Hủy lịch thuê (mất 50% phí)">
-                                        <i class="fa-solid fa-ban text-rose-400"></i> Hủy Lịch
+                                ` : ''}
+
+                                <!-- Nút Hủy Đơn khi Đang Chờ Duyệt (HOLD/PENDING): Mở Modal Hoàn 100% Tiền -->
+                                ${isWaitingApproval ? `
+                                    <button onclick="openCancelModalWithPenalty(${r.id}, '${r.rental_code}', ${r.total_price + (r.deposit_paid || 0)}, true)" class="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-700 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition font-bold" title="Hủy đơn đang chờ duyệt (Hoàn 100% tiền cọc & thuê)">
+                                        <i class="fa-solid fa-ban text-rose-400"></i> Hủy Đơn Chờ Duyệt
                                     </button>
                                 ` : ''}
-                                ${isHold ? `
-                                    <button onclick="cancelUnpaidRentalFromMyRentals(${r.id}, '${r.rental_code}')" class="text-rose-400 hover:text-rose-300 border border-rose-800/80 bg-rose-950/40 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition" title="Hủy đơn chưa thanh toán / chưa duyệt">
-                                        <i class="fa-solid fa-trash-can"></i> Hủy Đơn Chưa Duyệt
+
+                                <!-- Nút Hủy Lịch khi Đang Thuê (ACTIVE - Có phạt 50%) -->
+                                ${isActive ? `
+                                    <button onclick="openCancelModalWithPenalty(${r.id}, '${r.rental_code}', ${r.total_price + (r.deposit_paid || 0)}, false)" class="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-700 px-3 py-1.5 rounded-lg text-xs font-mono flex items-center gap-1.5 transition font-bold" title="Hủy lịch thuê (mất 50% phí)">
+                                        <i class="fa-solid fa-ban text-rose-400"></i> Hủy Lịch
                                     </button>
                                 ` : ''}
                             </div>
@@ -7344,20 +7664,78 @@
 
         let pendingCancelRentalId = null;
         let pendingCancelCode = '';
+        let pendingCancelIsWaitingApproval = false;
 
-        function openCancelModalWithPenalty(rentalId, code, total) {
+        function openCancelModalWithPenalty(rentalId, code, total, isWaitingApproval = false) {
             pendingCancelRentalId = rentalId;
             pendingCancelCode = code;
+            pendingCancelIsWaitingApproval = Boolean(isWaitingApproval);
+
             document.getElementById('cancel-rental-id').value = rentalId;
             document.getElementById('cancel-modal-code').innerText = `Đơn hàng: #${code}`;
 
             const tot = Number(total) || 0;
-            const penalty = Math.round(tot * 0.5);
-            const refund = tot - penalty;
+            const modalTitleEl = document.getElementById('cancel-modal-title');
+            const warnBox = document.getElementById('cancel-warning-box');
+            const submitBtn = document.getElementById('btn-submit-cancel-pen');
+            const penaltyLabel = document.getElementById('cancel-label-penalty');
+            const refundLabel = document.getElementById('cancel-label-refund');
 
-            document.getElementById('cancel-disp-total').innerText = `${tot.toLocaleString()}đ`;
-            document.getElementById('cancel-disp-penalty').innerText = `-${penalty.toLocaleString()}đ (50%)`;
-            document.getElementById('cancel-disp-refund').innerText = `${refund.toLocaleString()}đ (50%)`;
+            if (pendingCancelIsWaitingApproval) {
+                // ĐƠN ĐANG CHỜ DUYỆT (HOLD / PENDING) -> HOÀN 100% TIỀN
+                if (modalTitleEl) modalTitleEl.innerText = "Xác Nhận Hủy Đơn Chờ Duyệt";
+                if (warnBox) {
+                    warnBox.className = "p-3.5 bg-amber-950/70 border-2 border-amber-500/80 rounded-2xl text-amber-200 leading-relaxed space-y-1.5 shadow-inner";
+                    warnBox.innerHTML = `
+                        <div class="font-bold text-amber-300 flex items-center gap-1.5 text-xs font-mono uppercase">
+                            <i class="fa-solid fa-circle-check text-emerald-400"></i> MIỄN PHÍ HỦY ĐƠN (HOÀN TIỀN 100%):
+                        </div>
+                        <p class="text-white text-xs font-bold leading-normal">
+                            🎉 Đơn hàng của bạn đang trong trạng thái <strong>CHỜ DUYỆT</strong> nên bạn được <strong>HOÀN LẠI 100% TIỀN</strong>. Cửa hàng không thu bất kỳ chi phí nào!
+                        </p>
+                        <p class="text-cyan-300 text-xs font-bold leading-normal">
+                            💡 Nếu bạn muốn đổi ngày giờ khác: Hãy chọn <strong>DỜI LỊCH</strong> hoàn toàn <strong>MIỄN PHÍ 100%</strong>!
+                        </p>
+                    `;
+                }
+                if (penaltyLabel) penaltyLabel.innerText = "Phí hủy đơn chờ duyệt:";
+                if (refundLabel) refundLabel.innerText = "Số tiền hoàn trả (100%):";
+                document.getElementById('cancel-disp-total').innerText = `${tot.toLocaleString()}đ`;
+                document.getElementById('cancel-disp-penalty').innerText = `0đ (Miễn phí)`;
+                document.getElementById('cancel-disp-refund').innerText = `${tot.toLocaleString()}đ (100%)`;
+                if (submitBtn) {
+                    submitBtn.innerHTML = '<i class="fa-solid fa-ban"></i> Xác Nhận Hủy Đơn (Hoàn 100%)';
+                    submitBtn.className = "w-full bg-gradient-to-r from-rose-700 to-red-800 hover:from-rose-600 hover:to-red-700 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg transition";
+                }
+            } else {
+                // ĐƠN ĐANG THUÊ (ACTIVE) -> ÁP DỤNG QUY ĐỊNH HỦY LỊCH PHẠT 50%
+                if (modalTitleEl) modalTitleEl.innerText = "Xác Nhận Hủy Lịch Thuê";
+                if (warnBox) {
+                    warnBox.className = "p-3.5 bg-rose-950/70 border-2 border-rose-500/80 rounded-2xl text-rose-200 leading-relaxed space-y-1.5 shadow-inner";
+                    warnBox.innerHTML = `
+                        <div class="font-bold text-amber-300 flex items-center gap-1.5 text-xs font-mono uppercase">
+                            <i class="fa-solid fa-triangle-exclamation text-yellow-400"></i> LƯU Ý QUY ĐỊNH HỦY LỊCH:
+                        </div>
+                        <p class="text-white text-xs font-bold leading-normal">
+                            ⚠️ Nếu bạn chọn <strong>HỦY LỊCH</strong>: Theo quy định bạn sẽ <strong>mất 50% số tiền</strong> (cửa hàng giữ lại 50% chi phí chuẩn bị đồ và hoàn lại 50%).
+                        </p>
+                        <p class="text-emerald-300 text-xs font-bold leading-normal">
+                            💡 Nếu bạn chọn <strong>DỜI LỊCH</strong>: Bạn được đổi sang ngày giờ khác hoàn toàn <strong>MIỄN PHÍ 100% không mất tiền</strong>!
+                        </p>
+                    `;
+                }
+                const penalty = Math.round(tot * 0.5);
+                const refund = tot - penalty;
+                if (penaltyLabel) penaltyLabel.innerText = "Phí phạt giữ lại (50%):";
+                if (refundLabel) refundLabel.innerText = "Số tiền hoàn trả (50%):";
+                document.getElementById('cancel-disp-total').innerText = `${tot.toLocaleString()}đ`;
+                document.getElementById('cancel-disp-penalty').innerText = `-${penalty.toLocaleString()}đ (50%)`;
+                document.getElementById('cancel-disp-refund').innerText = `${refund.toLocaleString()}đ (50%)`;
+                if (submitBtn) {
+                    submitBtn.innerHTML = '<i class="fa-solid fa-ban"></i> Chấp Nhận Hủy (Mất 50% Phí)';
+                    submitBtn.className = "w-full bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-700 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1 transition";
+                }
+            }
 
             // Reset hoặc điền sẵn tên khách
             const ownerInp = document.getElementById('cancel-account-name');
@@ -7373,6 +7751,7 @@
         function closeCancelPenaltyModal() {
             document.getElementById('cancel-penalty-modal').style.display = 'none';
             pendingCancelRentalId = null;
+            pendingCancelIsWaitingApproval = false;
         }
 
         function switchToRescheduleFromCancelModal() {
@@ -7402,8 +7781,6 @@
                 if (nameEl) nameEl.focus();
                 return;
             }
-
-            if (!confirm(`Xác nhận hủy lịch thuê đơn #${pendingCancelCode}?\nCửa hàng giữ lại 50% chi phí và sẽ chuyển hoàn 50% tiền còn lại về STK: ${accountNo} (${bankName}).`)) return;
 
             const btn = document.getElementById('btn-submit-cancel-pen');
             if (btn) {
@@ -7437,7 +7814,9 @@
             } finally {
                 if (btn) {
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-ban"></i> Chấp Nhận Hủy (Mất 50% Phí)';
+                    btn.innerHTML = pendingCancelIsWaitingApproval 
+                        ? '<i class="fa-solid fa-ban"></i> Xác Nhận Hủy Đơn (Hoàn 100%)' 
+                        : '<i class="fa-solid fa-ban"></i> Chấp Nhận Hủy (Mất 50% Phí)';
                 }
             }
         }
@@ -7489,67 +7868,146 @@
         // ADMIN PANEL: QUẢN LÝ, GIA HẠN & LẬP BIÊN BẢN KIỂM TRA
         // ==============================================================
         async function fetchAdminDashboard() {
-            try {
-                const token = localStorage.getItem('tiduba_token');
-                const [statsRes, rentalsRes, itemsRes] = await Promise.all([
-                    fetch('/api/admin/dashboard_stats', { headers: { 'Authorization': `Bearer ${token}` } }),
-                    fetch('/api/admin/rentals', { headers: { 'Authorization': `Bearer ${token}` } }),
-                    fetch('/api/items')
-                ]);
-                const stats = await statsRes.json();
-                const rentalsData = await rentalsRes.json();
-                const itemsData = await itemsRes.json();
+            const token = localStorage.getItem('tiduba_token');
+            const authHeaders = token ? { 'Authorization': `Bearer ${token}` } : {};
 
-                document.getElementById('adm-total-revenue').innerText = `${Number(stats.total_revenue).toLocaleString()}đ`;
-                document.getElementById('adm-total-rentals').innerText = stats.total_rentals;
-                document.getElementById('adm-active-rentals').innerText = stats.active_rentals;
-                document.getElementById('adm-overdue-rentals').innerText = stats.overdue_rentals;
+            // 1. Tải toàn bộ kho hàng độc lập ngay lập tức (không bao giờ bị nghẽn)
+            fetchAdminInventory();
 
-                document.getElementById('widget-active-rentals').innerText = stats.active_rentals;
-                document.getElementById('widget-due-soon').innerText = (stats.recent_alerts || []).filter(a => a.alert_type === 'WARNING_DUE_SOON').length;
-                document.getElementById('widget-overdue').innerText = stats.overdue_rentals;
+            // 2. Tải số liệu thống kê Dashboard
+            fetch('/api/admin/dashboard_stats', { headers: authHeaders })
+                .then(r => r.json())
+                .then(stats => {
+                    if (document.getElementById('adm-total-revenue')) document.getElementById('adm-total-revenue').innerText = `${Number(stats.total_revenue || 0).toLocaleString()}đ`;
+                    if (document.getElementById('adm-total-rentals')) document.getElementById('adm-total-rentals').innerText = stats.total_rentals || 0;
+                    if (document.getElementById('adm-active-rentals')) document.getElementById('adm-active-rentals').innerText = stats.active_rentals || 0;
+                    if (document.getElementById('adm-overdue-rentals')) document.getElementById('adm-overdue-rentals').innerText = stats.overdue_rentals || 0;
 
-                renderAdminRevenueBars(stats.revenue_7d || []);
-                renderAdminAlerts(stats.recent_alerts || []);
-                renderAdminRentals(rentalsData.rentals || []);
-                renderAdminInventoryTable(itemsData.items || []);
-                fetchAdminCategoriesList();
-                fetchSiteSettingsForm();
-                fetchAdminBlacklist();
-                fetchAdminScheduleCalendar();
+                    if (document.getElementById('widget-active-rentals')) document.getElementById('widget-active-rentals').innerText = stats.active_rentals || 0;
+                    if (document.getElementById('widget-due-soon')) document.getElementById('widget-due-soon').innerText = (stats.recent_alerts || []).filter(a => a.alert_type === 'WARNING_DUE_SOON').length;
+                    if (document.getElementById('widget-overdue')) document.getElementById('widget-overdue').innerText = stats.overdue_rentals || 0;
 
-                // Tải dữ liệu tổng tiền cọc
-                fetch('/api/admin/deposits/summary', { headers: { 'Authorization': `Bearer ${token}` } })
-                    .then(r => r.json())
-                    .then(d => {
-                        if (d.success && d.data) {
-                            if (document.getElementById('adm-holding-deposit')) {
-                                document.getElementById('adm-holding-deposit').innerText = `${Number(d.data.total_holding_cash).toLocaleString()}đ`;
-                            }
-                            if (document.getElementById('adm-today-deposit')) {
-                                document.getElementById('adm-today-deposit').innerText = `${Number(d.data.total_deposit_today).toLocaleString()}đ`;
-                            }
+                    renderAdminRevenueBars(stats.revenue_7d || []);
+                    renderAdminAlerts(stats.recent_alerts || []);
+                }).catch(err => console.error("Lỗi stats:", err));
+
+            // 3. Tải danh sách đơn thuê
+            fetch('/api/admin/rentals', { headers: authHeaders })
+                .then(r => r.json())
+                .then(rentalsData => {
+                    renderAdminRentals(rentalsData.rentals || []);
+                }).catch(err => console.error("Lỗi rentals:", err));
+
+            fetchAdminCategoriesList();
+            fetchFeatureHighlights();
+            fetchSiteSettingsForm();
+            fetchAdminBlacklist();
+            fetchAdminScheduleCalendar();
+
+            // Tải dữ liệu tổng tiền cọc
+            fetch('/api/admin/deposits/summary', { headers: authHeaders })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success && d.data) {
+                        if (document.getElementById('adm-holding-deposit')) {
+                            document.getElementById('adm-holding-deposit').innerText = `${Number(d.data.total_holding_cash).toLocaleString()}đ`;
                         }
-                    }).catch(() => {});
-            } catch (err) {
-                console.error("Lỗi lấy dữ liệu Admin:", err);
-            }
+                        if (document.getElementById('adm-today-deposit')) {
+                            document.getElementById('adm-today-deposit').innerText = `${Number(d.data.total_deposit_today).toLocaleString()}đ`;
+                        }
+                    }
+                }).catch(() => {});
         }
 
         let rawAdminInventoryItems = [];
         let adminInventoryCurrentLimit = 50;
+        let isFetchingAdminInventory = false;
+
+        function updateInventoryTabCount(count) {
+            const num = Number(count) || 0;
+            const el = document.getElementById('adm-tab-inventory-count');
+            if (el) el.innerText = num.toLocaleString('vi-VN');
+            const el2 = document.getElementById('adm-tab-inventory-label');
+            if (el2) el2.innerText = `3. Kho Hàng (${num.toLocaleString('vi-VN')} Món)`;
+        }
+
+        async function fetchAdminInventory(force = false) {
+            // 1. Nếu đã có dữ liệu và không bắt buộc tải lại -> hiển thị ngay
+            if (!force && rawAdminInventoryItems && rawAdminInventoryItems.length > 0) {
+                adminFilterInventoryTable();
+                return;
+            }
+
+            // 2. Tự động lấy ngay từ allItems nếu allItems đã được nạp ở catalog -> không bao giờ để bảng bị trống 0 món!
+            if (typeof allItems !== 'undefined' && Array.isArray(allItems) && allItems.length > 0 && (!rawAdminInventoryItems || rawAdminInventoryItems.length === 0)) {
+                rawAdminInventoryItems = [...allItems];
+                updateInventoryTabCount(allItems.length);
+                adminFilterInventoryTable();
+            }
+
+            if (isFetchingAdminInventory) return;
+            isFetchingAdminInventory = true;
+
+            const tbody = document.getElementById('adm-items-inventory-tbody');
+            if (tbody && (!rawAdminInventoryItems || rawAdminInventoryItems.length === 0)) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-amber-400 font-mono text-xs"><i class="fa-solid fa-spinner animate-spin text-base mr-2"></i>Đang nạp toàn bộ thiết bị & trang phục kho hàng...</td></tr>`;
+            }
+
+            try {
+                const token = localStorage.getItem('tiduba_token');
+                const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+                const res = await fetch('/api/items?include_hidden=true', { headers });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && Array.isArray(data.items) && data.items.length > 0) {
+                        rawAdminInventoryItems = data.items;
+                        if (typeof allItems === 'undefined' || !allItems || allItems.length === 0) {
+                            allItems = data.items;
+                        }
+                        updateInventoryTabCount(data.items.length);
+                        adminFilterInventoryTable();
+                        isFetchingAdminInventory = false;
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.error("Lỗi nạp kho hàng Admin:", err);
+            } finally {
+                isFetchingAdminInventory = false;
+            }
+
+            // Fallback sang allItems nếu fetch lỗi
+            if (typeof allItems !== 'undefined' && Array.isArray(allItems) && allItems.length > 0) {
+                rawAdminInventoryItems = [...allItems];
+                updateInventoryTabCount(allItems.length);
+                adminFilterInventoryTable();
+            }
+        }
 
         function renderAdminInventoryTable(items) {
-            rawAdminInventoryItems = items || [];
+            if (items && Array.isArray(items) && items.length > 0) {
+                rawAdminInventoryItems = items;
+                updateInventoryTabCount(items.length);
+            } else if ((!rawAdminInventoryItems || rawAdminInventoryItems.length === 0) && typeof allItems !== 'undefined' && Array.isArray(allItems) && allItems.length > 0) {
+                rawAdminInventoryItems = [...allItems];
+                updateInventoryTabCount(allItems.length);
+            }
             adminFilterInventoryTable();
         }
 
         function adminFilterInventoryTable(resetLimit = true) {
             if (resetLimit) adminInventoryCurrentLimit = 50;
+
+            // Nếu rawAdminInventoryItems rỗng mà allItems đã có dữ liệu -> nạp ngay lập tức!
+            if ((!rawAdminInventoryItems || rawAdminInventoryItems.length === 0) && typeof allItems !== 'undefined' && Array.isArray(allItems) && allItems.length > 0) {
+                rawAdminInventoryItems = [...allItems];
+                updateInventoryTabCount(allItems.length);
+            }
+
             const searchKw = normalizeSearchText(document.getElementById('adm-item-search-kw') ? document.getElementById('adm-item-search-kw').value : '');
             const filterAvail = document.getElementById('adm-item-filter-avail') ? document.getElementById('adm-item-filter-avail').value : 'ALL';
 
-            let filtered = rawAdminInventoryItems;
+            let filtered = rawAdminInventoryItems || [];
             if (filterAvail !== 'ALL') {
                 filtered = filtered.filter(i => i.availability === filterAvail);
             }
@@ -7565,13 +8023,18 @@
             }
 
             const countBadge = document.getElementById('adm-inventory-filtered-count');
-            if (countBadge) countBadge.innerText = `${filtered.length} / ${rawAdminInventoryItems.length} món`;
+            if (countBadge) countBadge.innerText = `${filtered.length} / ${(rawAdminInventoryItems || []).length} món`;
 
             const tbody = document.getElementById('adm-items-inventory-tbody');
             if (!tbody) return;
 
             if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-gray-500 font-mono text-xs">Không tìm thấy thiết bị hoặc trang phục nào khớp với từ khóa tìm kiếm.</td></tr>`;
+                if (!rawAdminInventoryItems || rawAdminInventoryItems.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-amber-400 font-mono text-xs"><i class="fa-solid fa-spinner animate-spin text-base mr-2"></i>Đang nạp dữ liệu kho hàng... <button onclick="fetchAdminInventory(true)" class="underline text-cyan-300 ml-2">Tải lại</button></td></tr>`;
+                    fetchAdminInventory(true);
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-gray-500 font-mono text-xs">Không tìm thấy thiết bị hoặc trang phục nào khớp với từ khóa tìm kiếm.</td></tr>`;
+                }
                 return;
             }
 
@@ -8040,12 +8503,16 @@
             const maxVal = Math.max(1, ...daysData.map(d => d.revenue));
 
             container.innerHTML = daysData.map(d => {
-                const heightPct = Math.max(10, Math.round((d.revenue / maxVal) * 85));
+                const hasRev = d.revenue > 0;
+                const heightPct = hasRev ? Math.max(12, Math.round((d.revenue / maxVal) * 82)) : 5;
+                const barColor = hasRev 
+                    ? "bg-gradient-to-t from-amber-600 via-amber-500 to-yellow-400 shadow-md shadow-amber-950" 
+                    : "bg-slate-800/80";
                 return `
                     <div class="flex flex-col items-center justify-end h-full group">
-                        <div class="text-[9px] text-amber-300 font-bold mb-1 opacity-0 group-hover:opacity-100 transition whitespace-nowrap">${Number(d.revenue).toLocaleString()}đ</div>
-                        <div class="w-full bg-gradient-to-t from-amber-600 to-yellow-400 rounded-t-md transition-all duration-500 shadow-md group-hover:from-amber-500 group-hover:to-yellow-300" style="height: ${heightPct}%;"></div>
-                        <span class="text-gray-400 text-[10px] mt-1.5 font-mono">${d.date}</span>
+                        <div class="text-[9px] font-mono font-bold mb-1 transition whitespace-nowrap ${hasRev ? 'text-amber-300' : 'text-slate-600'}">${hasRev ? Number(d.revenue).toLocaleString() + 'đ' : '0đ'}</div>
+                        <div class="w-8 sm:w-12 max-w-[44px] ${barColor} rounded-t-lg transition-all duration-500" style="height: ${heightPct}%;"></div>
+                        <span class="text-slate-400 text-[10px] mt-1.5 font-mono font-semibold">${d.date}</span>
                     </div>
                 `;
             }).join('');
@@ -8120,6 +8587,9 @@
                         </button>
                         <button onclick="openRefundQrModal(${r.id})" class="bg-teal-950 hover:bg-teal-900 text-teal-300 border border-teal-600 px-2 py-1 rounded-lg text-xs font-bold transition" title="Mã VietQR hoàn trả tiền cọc cho khách">
                             <i class="fa-solid fa-hand-holding-dollar text-emerald-400"></i> Hoàn Cọc
+                        </button>
+                        <button onclick="openDepositRecalcBoxDirect(${r.id}, '${r.rental_code}')" class="bg-gradient-to-r from-amber-700 to-yellow-600 hover:from-amber-600 hover:to-yellow-500 text-slate-950 px-2 py-1 rounded-lg text-xs font-bold transition shadow-sm flex items-center gap-1" title="Xem chi tiết thông tin cọc & tính lại cọc thực tế">
+                            <i class="fa-solid fa-calculator"></i> Cọc & Tính Lại
                         </button>
                         <button onclick="openInspectionModal(${r.id})" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700 px-2 py-1 rounded-lg text-xs font-bold transition" title="Lập biên bản kiểm tra cảm biến/lens">
                             <i class="fa-solid fa-clipboard-check"></i> Kiểm Tra
@@ -8960,65 +9430,56 @@
             await autoLoginAdminIfNeeded();
         }
 
+        function toggleAdminNavDropdown() {
+            const el = document.getElementById('admin-nav-dropdown-box');
+            if (el) el.classList.toggle('hidden');
+        }
+        function closeAdminNavDropdown() {
+            const el = document.getElementById('admin-nav-dropdown-box');
+            if (el) el.classList.add('hidden');
+        }
+        document.addEventListener('click', function(e) {
+            const wrap = document.getElementById('admin-header-nav-wrap');
+            if (wrap && !wrap.contains(e.target)) {
+                closeAdminNavDropdown();
+            }
+        });
+
         function updateAuthUI() {
             const authBox = document.getElementById('auth-box');
             const mobUser = document.getElementById('mobile-user-btn');
             const loyaltyBox = document.getElementById('nav-loyalty-box');
             const pointsVal = document.getElementById('user-points-val');
-            const adminBtn = document.getElementById('nav-admin-btn');
             const ekycBtn = document.getElementById('nav-ekyc-btn');
-            const roleBadge = document.getElementById('role-badge');
+            const adminNavWrap = document.getElementById('admin-header-nav-wrap');
+            const myRentalsNavBtn = document.getElementById('nav-my-rentals-btn');
+            const adminDropdownName = document.getElementById('admin-dropdown-name');
 
             if (currentUser) {
                 const isAdmin = currentUser.role === 'admin';
 
-                // Hiển thị huy hiệu phân biệt Admin / Khách cực kỳ rõ ràng
-                if (roleBadge) {
-                    roleBadge.classList.remove('hidden');
-                    if (isAdmin) {
-                        roleBadge.innerHTML = `
-                            <span class="bg-gradient-to-r from-purple-900 to-indigo-950 text-purple-200 border border-purple-500/80 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl font-black font-mono text-[10px] sm:text-xs flex items-center gap-1 shadow-md whitespace-nowrap">
-                                <i class="fa-solid fa-crown text-yellow-400"></i> <span class="hidden sm:inline">QUẢN TRỊ VIÊN (ADMIN)</span><span class="sm:hidden">Admin</span>
-                            </span>
-                        `;
-                    } else {
-                        roleBadge.innerHTML = `
-                            <span class="bg-cyan-950 text-cyan-300 border border-cyan-700/80 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl font-bold font-mono text-[10px] sm:text-xs flex items-center gap-1 shadow-md whitespace-nowrap">
-                                <i class="fa-solid fa-user-check text-cyan-400"></i> <span class="hidden sm:inline">KHÁCH HÀNG</span><span class="sm:hidden">Khách</span>
-                            </span>
+                if (isAdmin) {
+                    if (adminNavWrap) adminNavWrap.classList.remove('hidden');
+                    if (adminDropdownName) adminDropdownName.innerText = currentUser.full_name || currentUser.username;
+                    if (myRentalsNavBtn) myRentalsNavBtn.classList.add('hidden');
+                    if (authBox) authBox.innerHTML = ''; // Gọn gàng, toàn bộ menu admin và đăng xuất nằm trong dropdown
+                } else {
+                    if (adminNavWrap) adminNavWrap.classList.add('hidden');
+                    if (myRentalsNavBtn) myRentalsNavBtn.classList.remove('hidden');
+                    if (authBox) {
+                        authBox.innerHTML = `
+                            <div class="flex items-center gap-1.5 bg-[#f6efe6] px-2.5 py-1 rounded-xl border border-[#e8ded2] text-xs font-mono">
+                                <span class="text-[#1c1917] font-bold truncate max-w-[120px]">${currentUser.full_name || currentUser.username}</span>
+                                <button onclick="openChangePasswordModal()" class="text-gray-400 hover:text-amber-600 px-1" title="Đổi mật khẩu"><i class="fa-solid fa-key text-[10px]"></i></button>
+                                <button onclick="logout()" class="text-gray-400 hover:text-rose-600 px-1" title="Đăng xuất"><i class="fa-solid fa-power-off text-[10px]"></i></button>
+                            </div>
                         `;
                     }
-                }
-
-                if (authBox) {
-                    authBox.innerHTML = `
-                        <div class="flex items-center gap-2">
-                            <span class="text-amber-300 font-mono font-bold text-xs truncate max-w-[120px]">${currentUser.full_name}</span>
-                            <button onclick="openChangePasswordModal()" class="text-gray-400 hover:text-amber-400 text-xs px-1" title="Đổi mật khẩu"><i class="fa-solid fa-key"></i></button>
-                            <button onclick="logout()" class="text-gray-400 hover:text-rose-400 text-xs px-1" title="Đăng xuất"><i class="fa-solid fa-power-off"></i></button>
-                        </div>
-                    `;
                 }
                 if (mobUser) mobUser.innerText = isAdmin ? `👑 ${currentUser.username}` : `👤 ${currentUser.username}`;
                 if (loyaltyBox) loyaltyBox.classList.remove('hidden');
                 if (pointsVal) pointsVal.innerText = `${Number(currentUser.loyalty_points || 0).toLocaleString()}đ`;
 
-                // Nút Admin & Nút KiotViet POS chỉ hiện với role=admin
-                if (adminBtn) {
-                    if (isAdmin) {
-                        adminBtn.classList.remove('hidden');
-                    } else {
-                        adminBtn.classList.add('hidden');
-                    }
-                }
-                const posBtn = document.getElementById('nav-pos-btn');
-                if (posBtn) {
-                    if (isAdmin) {
-                        posBtn.classList.remove('hidden');
-                    } else {
-                        posBtn.classList.add('hidden');
-                    }
-                }
                 // eKYC chỉ hiện với khách hàng
                 if (ekycBtn) {
                     if (isAdmin) {
@@ -9281,124 +9742,103 @@
             const pad = n => String(n).padStart(2, '0');
             const now = new Date();
             const todayStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
-            const currentHour = now.getHours();
-            const currentMin = now.getMinutes();
 
-            // 7 ngày trong tuần
             const daysOfWeek = [];
-            const dayNames = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"];
+            const dayNames = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
             for (let i = 0; i < 7; i++) {
                 const d = new Date(monDate.getTime() + i * 86400000);
                 const dStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
                 daysOfWeek.push({
                     name: dayNames[i],
                     dateStr: dStr,
-                    dayDisplay: `${dayNames[i]}, ${pad(d.getDate())}/${pad(d.getMonth()+1)}`,
-                    isToday: dStr === todayStr
+                    isToday: dStr === todayStr,
+                    dayNum: pad(d.getDate()),
+                    monthNum: pad(d.getMonth() + 1)
                 });
             }
 
-            // Khung giờ từ 08:00 đến 21:00
-            const hours = [];
-            for (let h = 8; h <= 21; h++) {
-                hours.push(`${pad(h)}:00`);
-            }
+            let html = `<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 p-3">`;
 
-            let html = `
-                <div class="grid grid-cols-8 bg-gray-900 border-b border-gray-800 text-center font-bold">
-                    <div class="p-2.5 text-gray-400 border-r border-gray-800">GIỜ</div>
-                    ${daysOfWeek.map(d => `
-                        <div class="p-2.5 border-r border-gray-800 transition ${d.isToday ? 'bg-purple-950/80 text-amber-300 font-black border-b-2 border-b-amber-400' : 'text-gray-300'}">
-                            ${d.dayDisplay}
-                            ${d.isToday ? `<span class="block text-[9px] text-emerald-400 font-mono">(Hôm Nay)</span>` : ''}
-                        </div>
-                    `).join('')}
-                </div>
-            `;
+            daysOfWeek.forEach(day => {
+                // Lọc tất cả đơn liên quan đến ngày này
+                const dayEvents = events.filter(ev => {
+                    const st = ev.start_time || '';
+                    const et = ev.end_time || '';
+                    if (!st || !et) return false;
+                    const sp = st.split(' ')[0];
+                    const ep = et.split(' ')[0];
+                    return (sp === day.dateStr || ep === day.dateStr || (day.dateStr > sp && day.dateStr < ep));
+                });
 
-            // Render từng hàng giờ
-            hours.forEach(hourStr => {
-                const hNum = parseInt(hourStr.split(':')[0]);
-                const isCurrentHour = (hNum === currentHour);
+                const todayHeaderClass = day.isToday 
+                    ? "bg-gradient-to-r from-purple-900 to-indigo-900 text-white" 
+                    : "bg-slate-900 text-slate-300";
 
                 html += `
-                    <div class="grid grid-cols-8 border-b border-gray-800/80 min-h-[58px] relative hover:bg-gray-900/40 transition">
-                        <!-- Cột hiển thị giờ bên trái -->
-                        <div class="p-2 border-r border-gray-800 text-gray-400 text-center font-bold flex flex-col items-center justify-center bg-gray-950/90 text-[10px]">
-                            ${isCurrentHour ? `<span class="px-1.5 py-0.5 rounded bg-rose-950 text-rose-300 font-mono font-black border border-rose-600 animate-pulse">${pad(currentHour)}:${pad(currentMin)}</span>` : hourStr}
+                    <div class="rounded-2xl border ${day.isToday ? 'border-purple-600 bg-slate-950/90 shadow-lg shadow-purple-950/50' : 'border-slate-800/80 bg-slate-900/60'} flex flex-col min-h-[280px] overflow-hidden">
+                        <!-- Header Ngày -->
+                        <div class="p-3 border-b border-slate-800 flex items-center justify-between ${todayHeaderClass}">
+                            <div>
+                                <div class="font-bold text-xs uppercase tracking-wider">${day.name}</div>
+                                <div class="text-[11px] font-mono text-slate-400 font-bold">${day.dayNum}/${day.monthNum}</div>
+                            </div>
+                            ${day.isToday ? `<span class="bg-emerald-500 text-slate-950 text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase">Hôm Nay</span>` : `<span class="text-[10px] font-mono font-bold text-slate-500">${dayEvents.length} ca</span>`}
                         </div>
-                `;
 
-                // 7 cột cho 7 ngày
-                daysOfWeek.forEach(day => {
-                    // Lọc sự kiện trong ô ngày + giờ này
-                    const slotEvents = events.filter(ev => {
-                        const st = ev.start_time || '';
-                        const et = ev.end_time || '';
-                        if (!st || !et) return false;
-                        const evStartDay = st.split(' ')[0];
-                        const evEndDay = et.split(' ')[0];
-                        const evStartH = parseInt(st.split(' ')[1] ? st.split(' ')[1].split(':')[0] : 0);
-                        const evEndH = parseInt(et.split(' ')[1] ? et.split(' ')[1].split(':')[0] : 24);
-
-                        if (day.dateStr < evStartDay || day.dateStr > evEndDay) return false;
-                        if (day.dateStr === evStartDay && day.dateStr === evEndDay) {
-                            return hNum >= evStartH && hNum <= evEndH;
-                        }
-                        if (day.dateStr === evStartDay) return hNum >= evStartH;
-                        if (day.dateStr === evEndDay) return hNum <= evEndH;
-                        return true;
-                    });
-
-                    // Đường kẻ đỏ thời gian thực chạy qua ô nếu là ngày hôm nay và đúng giờ này (Giống KiotViet Image 1)
-                    const showRedLine = day.isToday && isCurrentHour;
-                    const lineTopPercent = Math.round((currentMin / 60) * 100);
-
-                    html += `
-                        <div class="p-1 border-r border-gray-800/60 relative flex flex-col gap-1 min-h-[58px] ${day.isToday ? 'bg-purple-950/10' : ''}">
-                            ${showRedLine ? `
-                                <div class="absolute left-0 right-0 z-20 border-t-2 border-rose-500 pointer-events-none shadow-sm flex items-center" style="top: ${lineTopPercent}%;">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500 -ml-1"></span>
+                        <!-- Danh sách ca đặt trong ngày -->
+                        <div class="p-2 flex-1 space-y-2 overflow-y-auto max-h-[360px] custom-scroll">
+                            ${dayEvents.length === 0 ? `
+                                <div class="h-32 flex flex-col items-center justify-center text-slate-600 text-[11px] font-sans">
+                                    <i class="fa-regular fa-calendar-check text-slate-700 text-lg mb-1"></i>
+                                    <span>Trống lịch</span>
                                 </div>
-                            ` : ''}
+                            ` : dayEvents.map(ev => {
+                                const sp = (ev.start_time || '').split(' ');
+                                const ep = (ev.end_time || '').split(' ');
+                                const isPickup = (sp[0] === day.dateStr);
+                                const isReturn = (ep[0] === day.dateStr);
+                                
+                                let pillType = "⏳ Đang thuê";
+                                let pillColor = "border-purple-600/60 bg-purple-950/40 text-purple-200";
 
-                            ${slotEvents.map(ev => {
-                                const isStartSlot = ev.start_time.startsWith(`${day.dateStr} ${hourStr.slice(0,2)}`);
-                                if (!isStartSlot && slotEvents.length > 1) {
-                                    return `
-                                        <div onclick="previewQrBill('${ev.rental_code}')" class="cursor-pointer bg-purple-950/40 border-l-2 border-purple-500 p-1 rounded text-[9px] text-gray-300 truncate" title="${ev.item_name}">
-                                            ↳ #${ev.rental_code}
-                                        </div>
-                                    `;
+                                if (isPickup) {
+                                    pillType = "📥 Nhận: " + (sp[1] || '');
+                                    pillColor = "border-cyan-600/70 bg-cyan-950/50 text-cyan-200";
+                                } else if (isReturn) {
+                                    pillType = "📤 Trả: " + (ep[1] || '');
+                                    pillColor = "border-amber-600/70 bg-amber-950/50 text-amber-200";
                                 }
-                                const isRet = ev.status === 'RETURNED';
-                                const isOverdue = ev.status === 'OVERDUE';
-                                let cardBg = "bg-gradient-to-r from-purple-950 to-indigo-950 border-purple-600 text-purple-200";
-                                if (isOverdue) cardBg = "bg-rose-950/90 border-rose-500 text-rose-200 font-black animate-pulse";
-                                else if (isRet) cardBg = "bg-teal-950/90 border-teal-600 text-teal-200";
+
+                                if (ev.status === 'RETURNED') {
+                                    pillType = "✓ Đã trả xong";
+                                    pillColor = "border-teal-700/60 bg-teal-950/40 text-teal-300";
+                                } else if (ev.status === 'OVERDUE') {
+                                    pillType = "⚠ Quá hạn";
+                                    pillColor = "border-rose-600 bg-rose-950/80 text-rose-200 animate-pulse";
+                                }
 
                                 return `
-                                    <div onclick="previewQrBill('${ev.rental_code}')" class="cursor-pointer ${cardBg} border rounded-lg p-1.5 shadow-md hover:scale-[1.02] transition space-y-0.5" title="Bấm để xem hóa đơn & nhận trả đồ">
-                                        <div class="flex items-center justify-between font-bold text-[9px]">
-                                            <span class="text-amber-300 font-mono">#${ev.rental_code}</span>
-                                            <span>${ev.status === 'RETURNED' ? '✓ Trả' : ev.status}</span>
+                                    <div onclick="previewQrBill('${ev.rental_code}')" class="cursor-pointer p-2.5 rounded-xl border ${pillColor} hover:brightness-125 transition space-y-1 shadow-sm group" title="Bấm để xem hóa đơn & QR">
+                                        <div class="flex items-center justify-between text-[10px] font-mono">
+                                            <span class="font-bold">${pillType}</span>
+                                            <span class="text-amber-400 font-bold group-hover:underline">${ev.rental_code.replace('TDB-', '#')}</span>
                                         </div>
-                                        <div class="font-bold text-white text-[10px] truncate leading-tight">${ev.item_name}</div>
-                                        <div class="text-[9px] text-gray-300 truncate">${ev.customer_name} (📞 ${ev.customer_phone})</div>
-                                        <div class="text-[8px] text-cyan-300 font-mono">${ev.start_time.split(' ')[1] || ''} ➔ ${ev.end_time.split(' ')[1] || ''}</div>
+                                        <div class="text-xs font-bold text-white truncate font-sans">${ev.item_name}</div>
+                                        <div class="flex items-center justify-between text-[10px] text-slate-400 font-sans">
+                                            <span class="truncate max-w-[85px]">${ev.customer_name}</span>
+                                            <span class="font-mono text-emerald-400">${Number(ev.total_price || 0).toLocaleString()}đ</span>
+                                        </div>
                                     </div>
                                 `;
                             }).join('')}
                         </div>
-                    `;
-                });
-
-                html += `</div>`;
+                    </div>
+                `;
             });
 
+            html += `</div>`;
             gridContainer.innerHTML = html;
         }
-
         function renderScheduleTimelineView(events) {
             const container = document.getElementById('sched-timeline-container');
             if (!container) return;
@@ -9628,6 +10068,7 @@
                     if (document.getElementById('telegram-overdue-chat-id')) document.getElementById('telegram-overdue-chat-id').value = cfg.overdue_chat_id || '-1004498214603';
                     if (document.getElementById('telegram-revenue-chat-id')) document.getElementById('telegram-revenue-chat-id').value = cfg.revenue_chat_id || '-1003930707954';
                     if (document.getElementById('telegram-deposit-chat-id')) document.getElementById('telegram-deposit-chat-id').value = cfg.deposit_chat_id || '-1004476055497';
+                    if (document.getElementById('telegram-cancel-chat-id')) document.getElementById('telegram-cancel-chat-id').value = cfg.cancel_chat_id || '-1004467743740';
                     if (document.getElementById('tele-chk-new')) document.getElementById('tele-chk-new').checked = !!cfg.auto_notify_new_rental;
                     if (document.getElementById('tele-chk-pay')) document.getElementById('tele-chk-pay').checked = !!cfg.auto_notify_payment;
                     if (document.getElementById('tele-chk-return')) document.getElementById('tele-chk-return').checked = !!cfg.auto_notify_return;
@@ -9644,6 +10085,7 @@
                 overdue_chat_id: document.getElementById('telegram-overdue-chat-id') ? document.getElementById('telegram-overdue-chat-id').value.trim() : '-1004498214603',
                 revenue_chat_id: document.getElementById('telegram-revenue-chat-id') ? document.getElementById('telegram-revenue-chat-id').value.trim() : '-1003930707954',
                 deposit_chat_id: document.getElementById('telegram-deposit-chat-id') ? document.getElementById('telegram-deposit-chat-id').value.trim() : '-1004476055497',
+                cancel_chat_id: document.getElementById('telegram-cancel-chat-id') ? document.getElementById('telegram-cancel-chat-id').value.trim() : '-1004467743740',
                 is_active: 1,
                 auto_notify_new_rental: document.getElementById('tele-chk-new').checked ? 1 : 0,
                 auto_notify_payment: document.getElementById('tele-chk-pay').checked ? 1 : 0,
@@ -10145,8 +10587,38 @@
         }
 
         // ==============================================================
-        // PERSISTENT DATABASE ENGINE: BACKUP & RESTORE FILE .db
+        // PERSISTENT DATABASE ENGINE: BACKUP & RESTORE FILE .db & SYNC CLOUD
         // ==============================================================
+        async function triggerCloudSyncOneClick() {
+            const btn = document.getElementById('btn-sync-cloud-header');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Đang đồng bộ...';
+            }
+            showToast("Đang đồng bộ dữ liệu lên Web Cloud tidubastore.onrender.com...");
+            try {
+                const token = localStorage.getItem('tiduba_token');
+                const res = await fetch('/api/admin/sync_cloud', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(data.message);
+                    alert(data.message);
+                } else {
+                    alert(data.message || "Lỗi đồng bộ Cloud!");
+                }
+            } catch(e) {
+                alert("Lỗi kết nối đồng bộ: " + e);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up text-cyan-300"></i> <span class="hidden sm:inline">Đồng Bộ Web Cloud</span><span class="sm:hidden">Đồng Bộ Cloud</span>';
+                }
+            }
+        }
+
         async function fetchDatabaseStorageStatus() {
             const token = localStorage.getItem('tiduba_token');
             if (!token) return;
@@ -10461,33 +10933,68 @@
             }
 
             if (list.length === 0) {
-                row.innerHTML = `<div class="col-span-4 p-4 text-center text-gray-400 text-xs font-mono">Chưa có thẻ nổi bật nào.</div>`;
+                row.innerHTML = `<div class="p-4 text-center text-gray-400 text-xs font-mono w-full">Chưa có thẻ nổi bật nào.</div>`;
+                row.style.minWidth = '';
                 return;
             }
 
             row.innerHTML = list.map(hl => `
-                <div class="relative aspect-[16/10] rounded-2xl overflow-hidden shadow-sm group border border-[#efe8df] bg-black">
-                    <img src="${hl.image_url}" alt="${hl.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent cursor-pointer" onclick="filterHighlight('${hl.filter_keyword}')"></div>
+                <div class="relative flex-shrink-0 rounded-2xl overflow-hidden shadow-md group border border-[#efe8df] bg-black cursor-pointer"
+                     style="width: 220px; height: 140px;"
+                     onclick="filterHighlight('${hl.filter_keyword}')">
+                    <img src="${hl.image_url}" alt="${hl.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500 opacity-90">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent"></div>
                     <div class="absolute bottom-2.5 left-3 text-white pointer-events-none">
-                        <span class="text-xs md:text-sm font-bold block">${hl.title}</span>
+                        <span class="text-[13px] font-bold block leading-tight">${hl.title}</span>
                         <span class="text-[10px] text-gray-300 font-mono">${hl.subtitle}</span>
                     </div>
                     ${isAdmin ? `
-                        <div class="absolute top-2 right-2 flex items-center gap-1 z-10">
-                            <button onclick="openEditHighlightModal(${hl.id})" class="w-7 h-7 rounded-lg bg-black/70 hover:bg-black text-amber-300 flex items-center justify-center text-xs transition shadow" title="Sửa thẻ">
+                        <div class="absolute top-2 right-2 flex items-center gap-1 z-10" onclick="event.stopPropagation()">
+                            <button onclick="openEditHighlightModal(${hl.id})" class="w-6 h-6 rounded-md bg-black/70 hover:bg-black text-amber-300 flex items-center justify-center text-[10px] transition shadow" title="Sửa thẻ">
                                 <i class="fa-solid fa-pen"></i>
                             </button>
-                            <button onclick="deleteFeatureHighlight(${hl.id})" class="w-7 h-7 rounded-lg bg-black/70 hover:bg-rose-900 text-rose-300 flex items-center justify-center text-xs transition shadow" title="Xóa thẻ">
+                            <button onclick="deleteFeatureHighlight(${hl.id})" class="w-6 h-6 rounded-md bg-black/70 hover:bg-rose-900 text-rose-300 flex items-center justify-center text-[10px] transition shadow" title="Xóa thẻ">
                                 <i class="fa-solid fa-trash-can"></i>
                             </button>
                         </div>
                     ` : ''}
                 </div>
             `).join('');
+
+            // Đồng thời cập nhật bảng quản lý thẻ nổi bật trong Admin Panel (Tab 5)
+            const admTbody = document.getElementById('adm-highlights-tbody');
+            if (admTbody) {
+                if (list.length === 0) {
+                    admTbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500 text-xs">Chưa có thẻ nổi bật nào. Bấm nút phía trên để thêm mới!</td></tr>`;
+                } else {
+                    admTbody.innerHTML = list.map(hl => `
+                        <tr class="hover:bg-slate-800/60 transition">
+                            <td class="p-3">
+                                <img src="${hl.image_url}" class="w-14 h-9 object-cover rounded-lg border border-slate-700">
+                            </td>
+                            <td class="p-3 font-bold text-white font-sans">${hl.title}</td>
+                            <td class="p-3 text-slate-300 font-sans">${hl.subtitle}</td>
+                            <td class="p-3 text-cyan-300 font-bold font-mono">${hl.filter_keyword}</td>
+                            <td class="p-3 text-amber-400 font-bold font-mono">${hl.display_order}</td>
+                            <td class="p-3 text-right space-x-1.5 whitespace-nowrap">
+                                <button type="button" onclick="openEditHighlightModal(${hl.id})" class="bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 px-2.5 py-1 rounded-lg text-xs font-bold transition">
+                                    <i class="fa-solid fa-pen"></i> Sửa
+                                </button>
+                                <button type="button" onclick="deleteFeatureHighlight(${hl.id})" class="bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-700 px-2.5 py-1 rounded-lg text-xs font-bold transition">
+                                    <i class="fa-solid fa-trash-can"></i> Xóa
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+            }
         }
 
         function openCreateHighlightModal() {
+            if (!currentUser || currentUser.role !== 'admin') {
+                alert("Chỉ Quản trị viên (Admin) mới có quyền thêm thẻ nổi bật!");
+                return;
+            }
             document.getElementById('hl-edit-id').value = '';
             document.getElementById('hl-modal-title').innerText = 'Thêm Thẻ Nổi Bật Mới';
             document.getElementById('hl-inp-title').value = '';
@@ -10499,6 +11006,10 @@
         }
 
         function openEditHighlightModal(id) {
+            if (!currentUser || currentUser.role !== 'admin') {
+                alert("Chỉ Quản trị viên (Admin) mới có quyền chỉnh sửa thẻ nổi bật!");
+                return;
+            }
             const hl = allHighlights.find(h => h.id === id);
             if (!hl) return;
             document.getElementById('hl-edit-id').value = hl.id;
@@ -10516,6 +11027,10 @@
         }
 
         async function submitSaveFeatureHighlight() {
+            if (!currentUser || currentUser.role !== 'admin') {
+                alert("Chỉ Quản trị viên (Admin) mới có quyền lưu thẻ nổi bật!");
+                return;
+            }
             const id = document.getElementById('hl-edit-id').value;
             const title = document.getElementById('hl-inp-title').value.trim();
             const subtitle = document.getElementById('hl-inp-subtitle').value.trim();
@@ -10552,7 +11067,11 @@
         }
 
         async function deleteFeatureHighlight(id) {
-            if (!confirm("Bạn có chắc chắn muốn xóa thẻ nổi bật này khỏi đầu trang?")) return;
+            if (!currentUser || currentUser.role !== 'admin') {
+                alert("Chỉ Quản trị viên (Admin) mới có quyền xóa thẻ nổi bật!");
+                return;
+            }
+            if (!confirm("Bạn có chắc chắn muốn xóa thẻ nổi bật này không?")) return;
             const token = localStorage.getItem('tiduba_token');
             try {
                 const res = await fetch(`/api/admin/feature_highlights/${id}`, {
@@ -10789,6 +11308,8 @@
                     if (document.getElementById('health-chat-id-main')) document.getElementById('health-chat-id-main').innerText = data.telegram.chat_id_main || '--';
                     if (document.getElementById('health-chat-id-overdue')) document.getElementById('health-chat-id-overdue').innerText = data.telegram.chat_id_overdue || '-1004498214603';
                     if (document.getElementById('health-chat-id-revenue')) document.getElementById('health-chat-id-revenue').innerText = data.telegram.chat_id_revenue || '-1003930707954';
+                    if (document.getElementById('health-chat-id-deposit')) document.getElementById('health-chat-id-deposit').innerText = data.telegram.chat_id_deposit || '-1004476055497';
+                    if (document.getElementById('health-chat-id-cancel')) document.getElementById('health-chat-id-cancel').innerText = data.telegram.chat_id_cancel || '-1004467743740';
                     if (document.getElementById('health-th-reminder')) document.getElementById('health-th-reminder').innerText = data.background_threads.reminder_worker_running ? '🟢 Đang chạy' : '🔴 Dừng';
                     if (document.getElementById('health-th-bot')) document.getElementById('health-th-bot').innerText = data.background_threads.telegram_bot_worker_running ? '🟢 Đang chạy' : '🔴 Dừng';
                     if (document.getElementById('health-th-keepalive')) document.getElementById('health-th-keepalive').innerText = data.background_threads.keepalive_worker_running ? '🟢 Đang chạy' : '🔴 Dừng';
@@ -10824,6 +11345,244 @@
                 showToast(data.message || "Đã gửi test Group 3!");
                 fetchTelegramLogs();
             } catch(e) { alert("Lỗi: " + e); }
+        }
+
+        async function testTelegramNotifyGroup5() {
+            const token = localStorage.getItem('tiduba_token');
+            showToast("Đang gửi tin test tới Group Hủy Đơn & Dời Lịch...");
+            try {
+                const res = await fetch('/api/admin/telegram/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ message: "⚠️ [TEST] Kết nối Group Hủy Đơn & Dời Lịch (-1004467743740) tự động 24/7!", chat_id: "-1004467743740" })
+                });
+                const data = await res.json();
+                showToast(data.message || "Đã gửi test Group 5!");
+                fetchTelegramLogs();
+            } catch(e) { alert("Lỗi: " + e); }
+        }
+
+        // ==============================================================
+        // DEPOSIT MANAGEMENT & RECALCULATION CONTROLLER (ADMIN)
+        // ==============================================================
+        let rawHoldingDeposits = [];
+
+        function openDepositManagementModal() {
+            document.getElementById('deposit-management-modal').style.display = 'flex';
+            loadDepositSummaryData();
+        }
+
+        function closeDepositManagementModal() {
+            document.getElementById('deposit-management-modal').style.display = 'none';
+            closeDepositRecalcBox();
+        }
+
+        async function loadDepositSummaryData() {
+            const token = localStorage.getItem('tiduba_token');
+            if (!currentUser || currentUser.role !== 'admin' || !token) return;
+
+            try {
+                const res = await fetch('/api/admin/deposits/summary', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const json = await res.json();
+                if (!json.success || !json.data) return;
+
+                const d = json.data;
+                rawHoldingDeposits = d.holding_rentals || [];
+
+                if (document.getElementById('dep-modal-holding-cash')) {
+                    document.getElementById('dep-modal-holding-cash').innerText = `${Number(d.total_holding_cash).toLocaleString()}đ`;
+                }
+                if (document.getElementById('dep-modal-today-in')) {
+                    document.getElementById('dep-modal-today-in').innerText = `${Number(d.total_deposit_today).toLocaleString()}đ`;
+                }
+                if (document.getElementById('dep-modal-today-out')) {
+                    document.getElementById('dep-modal-today-out').innerText = `${Number(d.total_refunded_today).toLocaleString()}đ`;
+                }
+                if (document.getElementById('dep-modal-breakdown')) {
+                    document.getElementById('dep-modal-breakdown').innerText = `${d.cash_count} Tiền | ${d.cccd_count} Giấy tờ | ${d.asset_count} Đồ`;
+                }
+
+                // Cập nhật lên dashboard chính
+                if (document.getElementById('adm-holding-deposit')) {
+                    document.getElementById('adm-holding-deposit').innerText = `${Number(d.total_holding_cash).toLocaleString()}đ`;
+                }
+                if (document.getElementById('adm-today-deposit')) {
+                    document.getElementById('adm-today-deposit').innerText = `${Number(d.total_deposit_today).toLocaleString()}đ`;
+                }
+
+                renderDepositModalTable(rawHoldingDeposits);
+            } catch(e) {
+                console.error("Lỗi tải thông tin cọc:", e);
+            }
+        }
+
+        function filterDepositModalTable() {
+            const kw = normalizeSearchText(document.getElementById('dep-modal-search') ? document.getElementById('dep-modal-search').value : '');
+            let filtered = rawHoldingDeposits;
+            if (kw) {
+                filtered = filtered.filter(r => {
+                    const cNorm = normalizeSearchText(r.rental_code);
+                    const nNorm = normalizeSearchText(r.customer_name);
+                    const pNorm = normalizeSearchText(r.customer_phone);
+                    const iNorm = normalizeSearchText(r.item_name);
+                    return cNorm.includes(kw) || nNorm.includes(kw) || pNorm.includes(kw) || iNorm.includes(kw);
+                });
+            }
+            renderDepositModalTable(filtered);
+        }
+
+        function renderDepositModalTable(list) {
+            const tbody = document.getElementById('dep-modal-tbody');
+            if (!tbody) return;
+
+            if (list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-500 font-mono text-xs">Hiện tại không có đơn nào đang giữ cọc hoặc tài sản.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = list.map(r => {
+                const depTypeLabels = {
+                    "CCCD": "🪪 Giấy tờ (CCCD)",
+                    "ASSET": "📱 Tài sản",
+                    "CASH": "💵 Tiền mặt / CK",
+                    "NONE": "👑 Miễn cọc VIP"
+                };
+                const depTypeStr = depTypeLabels[r.deposit_type] || r.deposit_type;
+                const depPaidStr = (r.deposit_paid || 0) > 0 ? `${Number(r.deposit_paid).toLocaleString()}đ` : "0đ";
+
+                return `
+                    <tr class="hover:bg-slate-900/60 transition">
+                        <td class="p-2.5 font-bold text-amber-400">${r.rental_code}</td>
+                        <td class="p-2.5">
+                            <div class="text-white font-bold">${r.customer_name}</div>
+                            <div class="text-[10px] text-slate-400 font-mono">${r.customer_phone}</div>
+                        </td>
+                        <td class="p-2.5 text-slate-200 text-xs">${r.item_name}</td>
+                        <td class="p-2.5">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${r.deposit_type === 'CASH' ? 'bg-cyan-950 text-cyan-300 border border-cyan-700' : r.deposit_type === 'ASSET' ? 'bg-amber-950 text-amber-300 border border-amber-700' : 'bg-slate-800 text-slate-300'}">
+                                ${depTypeStr}
+                            </span>
+                        </td>
+                        <td class="p-2.5 font-bold text-emerald-400">${depPaidStr}</td>
+                        <td class="p-2.5 text-slate-400 text-xs truncate max-w-[150px]">${r.deposit_asset_desc || '--'}</td>
+                        <td class="p-2.5 text-right whitespace-nowrap space-x-1">
+                            <button onclick="openDepositRecalcBox(${r.id}, '${r.rental_code}')" class="bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 px-2.5 py-1 rounded-lg text-xs font-bold transition shadow-sm" title="Tính toán lại tiền cọc khấu trừ và hoàn trả">
+                                <i class="fa-solid fa-calculator"></i> Tính Lại Cọc
+                            </button>
+                            <button onclick="previewQrBill('${r.rental_code}')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded-lg text-xs transition font-bold" title="Xem chi tiết đơn">
+                                <i class="fa-solid fa-receipt"></i> Bill
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function openDepositRecalcBoxDirect(rentalId, code) {
+            openDepositManagementModal();
+            setTimeout(() => {
+                openDepositRecalcBox(rentalId, code);
+            }, 150);
+        }
+
+        async function openDepositRecalcBox(rentalId, code) {
+            const token = localStorage.getItem('tiduba_token');
+            try {
+                const res = await fetch(`/api/admin/rentals/${rentalId}/deposit_detail`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const d = await res.json();
+                if (!d.success) {
+                    alert(d.detail || "Không lấy được thông tin cọc!");
+                    return;
+                }
+
+                document.getElementById('dep-recalc-rental-id').value = rentalId;
+                document.getElementById('dep-recalc-rental-code').value = d.rental_code || code;
+                document.getElementById('dep-recalc-title').innerText = `TÍNH LẠI CỌC ĐƠN #${d.rental_code || code} - ${d.customer_name} (📞 ${d.customer_phone})`;
+
+                document.getElementById('dep-calc-deposit-paid').value = d.deposit_paid || 0;
+                document.getElementById('dep-calc-damage').value = d.damage_deduction || 0;
+                document.getElementById('dep-calc-late-fee').value = d.late_fee || 0;
+                document.getElementById('dep-calc-bank-info').value = d.refund_bank_info || '';
+                document.getElementById('dep-calc-type').value = d.deposit_type || 'CCCD';
+                document.getElementById('dep-calc-desc').value = d.deposit_asset_desc || '';
+
+                onLiveRecalculateDeposit();
+                const box = document.getElementById('dep-recalc-box');
+                if (box) {
+                    box.classList.remove('hidden');
+                    box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            } catch(e) {
+                alert("Lỗi tải thông tin cọc: " + e);
+            }
+        }
+
+        function closeDepositRecalcBox() {
+            const box = document.getElementById('dep-recalc-box');
+            if (box) box.classList.add('hidden');
+        }
+
+        function onLiveRecalculateDeposit() {
+            const depPaid = parseInt(document.getElementById('dep-calc-deposit-paid').value) || 0;
+            const damage = parseInt(document.getElementById('dep-calc-damage').value) || 0;
+            const lateFee = parseInt(document.getElementById('dep-calc-late-fee').value) || 0;
+
+            const refundResult = Math.max(0, depPaid - damage - lateFee);
+            const resEl = document.getElementById('dep-calc-result-amount');
+            if (resEl) {
+                resEl.innerText = `${refundResult.toLocaleString()}đ`;
+            }
+        }
+
+        async function submitSaveRecalculatedDeposit() {
+            const token = localStorage.getItem('tiduba_token');
+            const rentalId = document.getElementById('dep-recalc-rental-id').value;
+            const code = document.getElementById('dep-recalc-rental-code').value;
+
+            const depType = document.getElementById('dep-calc-type').value;
+            const depPaid = parseInt(document.getElementById('dep-calc-deposit-paid').value) || 0;
+            const damage = parseInt(document.getElementById('dep-calc-damage').value) || 0;
+            const lateFee = parseInt(document.getElementById('dep-calc-late-fee').value) || 0;
+            const desc = document.getElementById('dep-calc-desc').value.trim();
+            const bankInfo = document.getElementById('dep-calc-bank-info').value.trim();
+
+            showToast("Đang lưu và đồng bộ tiền cọc...");
+            try {
+                const res = await fetch(`/api/admin/rentals/${rentalId}/update_deposit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({
+                        deposit_type: depType,
+                        deposit_paid: depPaid,
+                        deposit_asset_desc: desc,
+                        damage_deduction: damage,
+                        late_fee: lateFee,
+                        refund_bank_info: bankInfo
+                    })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast(data.message);
+                    alert(data.message);
+                    loadDepositSummaryData();
+                    closeDepositRecalcBox();
+                } else {
+                    alert(data.detail || "Lỗi lưu tiền cọc!");
+                }
+            } catch(e) {
+                alert("Lỗi kết nối: " + e);
+            }
+        }
+
+        function openQrRefundFromRecalc() {
+            const rentalId = document.getElementById('dep-recalc-rental-id').value;
+            if (rentalId) {
+                openRefundQrModal(rentalId);
+            }
         }
 
         let catalogQuickFilter = 'all';
@@ -10864,10 +11623,10 @@
                 const pane = document.getElementById(`adm-pane-${t}`);
                 if (btn && pane) {
                     if (t === tabKey) {
-                        btn.className = "flex-1 min-w-[160px] py-2.5 px-3 rounded-xl font-black text-xs transition flex items-center justify-center gap-2 whitespace-nowrap bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/80 border border-purple-400";
+                        btn.className = "flex-shrink-0 sm:flex-1 py-2 px-3 sm:py-2.5 sm:px-3.5 rounded-xl font-black text-xs transition flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/80 border border-purple-400";
                         pane.classList.remove('hidden');
                     } else {
-                        btn.className = "flex-1 min-w-[160px] py-2.5 px-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 whitespace-nowrap text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent";
+                        btn.className = "flex-shrink-0 sm:flex-1 py-2 px-3 sm:py-2.5 sm:px-3.5 rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent";
                         pane.classList.add('hidden');
                     }
                 }
@@ -10878,7 +11637,7 @@
             } else if (tabKey === 'rentals') {
                 fetchAdminRentals();
             } else if (tabKey === 'inventory') {
-                adminFilterInventoryTable();
+                fetchAdminInventory();
             } else if (tabKey === 'crm') {
                 fetchAdminCustomers();
                 fetchAdminBlacklist();

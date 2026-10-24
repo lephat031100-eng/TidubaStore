@@ -599,6 +599,27 @@ def init_db():
     except Exception:
         pass
 
+    # Tự động cập nhật cột cancel_alert_chat_id cho telegram_config (-1004467743740)
+    # Group nhận thông báo hủy đơn / dời lịch khi đơn đang chờ duyệt (PENDING)
+    try:
+        cur.execute("ALTER TABLE telegram_config ADD COLUMN cancel_alert_chat_id TEXT DEFAULT '-1004467743740';")
+        conn.commit()
+    except Exception:
+        pass
+
+    try:
+        cur.execute("UPDATE telegram_config SET cancel_alert_chat_id = '-1004467743740' WHERE (cancel_alert_chat_id IS NULL OR cancel_alert_chat_id = '')")
+        conn.commit()
+    except Exception:
+        pass
+
+    # Tự động cập nhật cột payment_proof_img cho rentals nếu chưa có
+    try:
+        cur.execute("ALTER TABLE rentals ADD COLUMN payment_proof_img TEXT;")
+        conn.commit()
+    except Exception:
+        pass
+
     # Bảng Lưu Log Nhắc Hẹn & Quá Hạn (Tránh gửi lặp lại)
     cur.execute("""
     CREATE TABLE IF NOT EXISTS reminder_logs (
@@ -1254,13 +1275,18 @@ def sync_items_availability(conn: Optional[sqlite3.Connection] = None):
             WHERE status = 'HOLD' AND hold_expires_at < ?
         """, (now_str,))
 
-        # 2. Tìm tất cả item_id đang có đơn thuê ACTIVE, APPROVED, OVERDUE hoặc HOLD còn hạn
+        # 2. Tìm tất cả item_id đang có đơn thuê THỰC SỰ ĐANG DIỄN RA TẠI THỜI ĐIỂM HIỆN TẠI (now_str):
+        # - Đơn quá hạn chưa trả: status = 'OVERDUE'
+        # - Hoặc đơn ACTIVE / APPROVED / PENDING mà start_time <= now_str (đã đến hoặc qua giờ giao máy) VÀ chưa trả
+        # - Hoặc đơn HOLD còn hạn 15 phút VÀ start_time <= now_str
+        # (LƯU Ý: Khách đặt trước cho tương lai ví dụ 29/10 thì thời điểm hiện tại 25/10 thiết bị vẫn SẴN SÀNG ở shop)
         rented_ids = set()
         active_rentals = cur.execute("""
             SELECT item_id, items_json FROM rentals 
-            WHERE status IN ('ACTIVE', 'APPROVED', 'OVERDUE')
-               OR (status = 'HOLD' AND hold_expires_at >= ?)
-        """, (now_str,)).fetchall()
+            WHERE (status = 'OVERDUE')
+               OR (status IN ('ACTIVE', 'APPROVED', 'PENDING') AND start_time <= ? AND (end_time >= ? OR status != 'RETURNED'))
+               OR (status = 'HOLD' AND hold_expires_at >= ? AND start_time <= ?)
+        """, (now_str, now_str, now_str, now_str)).fetchall()
 
         for r in active_rentals:
             if r["item_id"]:
@@ -1277,9 +1303,10 @@ def sync_items_availability(conn: Optional[sqlite3.Connection] = None):
             ri_rows = cur.execute("""
                 SELECT ri.item_id FROM rental_items ri
                 JOIN rentals r ON ri.rental_id = r.id
-                WHERE r.status IN ('ACTIVE', 'APPROVED', 'OVERDUE')
-                   OR (r.status = 'HOLD' AND r.hold_expires_at >= ?)
-            """, (now_str,)).fetchall()
+                WHERE (r.status = 'OVERDUE')
+                   OR (r.status IN ('ACTIVE', 'APPROVED', 'PENDING') AND r.start_time <= ? AND (r.end_time >= ? OR r.status != 'RETURNED'))
+                   OR (r.status = 'HOLD' AND r.hold_expires_at >= ? AND r.start_time <= ?)
+            """, (now_str, now_str, now_str, now_str)).fetchall()
             for row in ri_rows:
                 if row["item_id"]:
                     rented_ids.add(row["item_id"])
@@ -1472,6 +1499,17 @@ def api_send_otp(req: SendOtpRequest):
 
     conn = get_db()
     cur = conn.cursor()
+
+    # Rate limiting: tối đa 3 OTP / phút cho mỗi target để chống spam
+    one_minute_ago = (now - datetime.timedelta(minutes=1)).strftime("%Y-%m-%d %H:%M:%S")
+    recent_count = cur.execute(
+        "SELECT COUNT(*) as c FROM otp_verifications WHERE target = ? AND created_at >= ?",
+        (clean_target, one_minute_ago)
+    ).fetchone()
+    if recent_count and recent_count["c"] >= 3:
+        conn.close()
+        raise HTTPException(status_code=429, detail="Quá nhiều yêu cầu OTP. Vui lòng thử lại sau 1 phút!")
+
     cur.execute("DELETE FROM otp_verifications WHERE target = ? AND verified = 0", (clean_target,))
     cur.execute("""
         INSERT INTO otp_verifications (target, target_type, otp_code, verified, expires_at, created_at)
@@ -1493,17 +1531,16 @@ def api_send_otp(req: SendOtpRequest):
         else:
             return {
                 "success": True,
-                "message": f"Mã OTP xác thực tài khoản: {otp_code} (Hiệu lực 5 phút). Admin hãy cấu hình Gmail SMTP trong Bảng Quản Trị để tự động gửi thư trực tiếp.",
+                "message": f"Mã OTP đã được tạo (Hiệu lực 5 phút). Admin hãy cấu hình Gmail SMTP trong Bảng Quản Trị để tự động gửi thư trực tiếp.",
                 "target": clean_target,
                 "target_type": "email",
-                "demo_otp": otp_code,
                 "notice": send_msg
             }
 
     conn.close()
     return {
         "success": True,
-        "message": f"Mã OTP xác thực cho số điện thoại {clean_target} là: {otp_code} (Hiệu lực 5 phút).",
+        "message": f"Đã tạo mã OTP xác thực cho số điện thoại {clean_target}. Mã có hiệu lực 5 phút.",
         "target": clean_target,
         "target_type": "phone",
         "demo_otp": otp_code
@@ -1834,12 +1871,20 @@ def verify_ekyc(req: EkycVerificationRequest, user: Optional[Dict[str, Any]] = D
             detail=f"CẢNH BÁO BẢO VỆ TÀI SẢN: Thông tin của bạn nằm trong Danh Sách Đen Blacklist nội bộ ({bl['reason']}). Hệ thống từ chối cung cấp dịch vụ thuê thiết bị."
         )
 
+    # 1.1 Kiểm tra trùng CCCD: Chặn chiếm đoạt hoặc mạo danh số CCCD của tài khoản khác
+    clean_cccd = req.cccd_number.strip()
+    if clean_cccd:
+        exist_cccd = cur.execute("SELECT id FROM users WHERE cccd_number = ? AND id != ?", (clean_cccd, user["id"])).fetchone()
+        if exist_cccd:
+            conn.close()
+            raise HTTPException(status_code=400, detail="Số CCCD này đã được đăng ký và xác thực bởi một tài khoản khác trong hệ thống!")
+
     # 2. Cập nhật trạng thái đã eKYC chính chủ
     cur.execute("""
     UPDATE users 
     SET cccd_number = ?, full_name = ?, phone = ?, cccd_front_img = ?, cccd_back_img = ?, face_liveness_verified = 1
     WHERE id = ?
-    """, (req.cccd_number.strip(), req.full_name.strip(), req.phone.strip(), req.cccd_front_img, req.cccd_back_img, user["id"]))
+    """, (clean_cccd, req.full_name.strip(), req.phone.strip(), req.cccd_front_img, req.cccd_back_img, user["id"]))
     conn.commit()
     conn.close()
 
@@ -1879,7 +1924,7 @@ def send_contract_otp(rental_id: int, user: Optional[Dict[str, Any]] = Depends(g
     return {
         "success": True,
         "message": f"Mã OTP ký hợp đồng điện tử đã được gửi về số điện thoại {user['phone']}.",
-        "demo_otp_code": otp_code # Cung cấp để test nhanh
+        "demo_otp_code": otp_code
     }
 
 
@@ -1934,17 +1979,17 @@ def build_escpos_thermal_bill_text(order_data: dict) -> str:
     items_block = ""
     if items_list and isinstance(items_list, list) and len(items_list) > 0:
         for idx, itm in enumerate(items_list, 1):
-            nm = itm.get('name') or itm.get('item_name', 'Thiết bị')
-            sn = itm.get('serial_or_size', '')
-            pr = itm.get('price', 0)
-            items_block += f"{idx}. {nm[:30]:<30}  1     {pr:>11,}\n"
+            nm = itm.get('name') or itm.get('item_name') or 'Thiết bị'
+            sn = itm.get('serial_or_size') or ''
+            pr = itm.get('price') or 0
+            items_block += f"{idx}. {str(nm)[:30]:<30}  1     {pr:>11,}\n"
             if sn:
                 items_block += f"   SN/Size: {sn}\n"
     else:
-        it_name = order_data.get('item_name', 'Thiết bị / Trang phục')
-        it_sn = order_data.get('serial_or_size', '')
-        pr = order_data.get('total_price', 0)
-        items_block = f"1. {it_name[:30]:<30}  1     {pr:>11,}\n"
+        it_name = order_data.get('item_name') or 'Thiết bị / Trang phục'
+        it_sn = order_data.get('serial_or_size') or ''
+        pr = order_data.get('total_price') or 0
+        items_block = f"1. {str(it_name)[:30]:<30}  1     {pr:>11,}\n"
         if it_sn:
             items_block += f"   Serial/Size: {it_sn}\n"
 
@@ -2539,11 +2584,28 @@ def post_item_review(item_id: int, req: PostReviewRequest, user: Optional[Dict[s
     cur = conn.cursor()
     now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
 
+    # Giới hạn rating từ 1 đến 5 sao
+    clean_rating = max(1, min(5, req.rating or 5))
+
+    # Chống gian lận / exploit điểm VIP: Kiểm tra xem user này đã đánh giá thiết bị này chưa
+    existing_rev = cur.execute("SELECT id FROM reviews WHERE item_id = ? AND user_id = ?", (item_id, user["id"])).fetchone()
+    if existing_rev:
+        # Nếu đã đánh giá, chỉ cập nhật nội dung nhận xét và không cộng thêm điểm VIP
+        cur.execute("""
+        UPDATE reviews 
+        SET rating = ?, comment = ?, photo_sample_url = ?, created_at = ?
+        WHERE id = ?
+        """, (clean_rating, req.comment, req.photo_sample_url, now_str, existing_rev["id"]))
+        conn.commit()
+        conn.close()
+        return {"success": True, "message": "Đã cập nhật đánh giá của bạn cho thiết bị này!"}
+
     cur.execute("""
     INSERT INTO reviews (item_id, user_id, user_name, rating, comment, photo_sample_url, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (item_id, user["id"], user["full_name"], req.rating, req.comment, req.photo_sample_url, now_str))
+    """, (item_id, user["id"], user["full_name"], clean_rating, req.comment, req.photo_sample_url, now_str))
 
+    # Chỉ cộng điểm thưởng VIP 1 lần duy nhất cho lần đánh giá đầu tiên
     cur.execute("UPDATE users SET loyalty_points = loyalty_points + 10000 WHERE id = ?", (user["id"],))
     conn.commit()
     conn.close()
@@ -2608,9 +2670,9 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
         if not item:
             conn.close()
             raise HTTPException(status_code=404, detail="Thiết bị không tồn tại!")
-        if item["availability"] != "AVAILABLE":
+        if item["availability"] in ("UNAVAILABLE", "HIDDEN"):
             conn.close()
-            raise HTTPException(status_code=400, detail="Thiết bị này hiện đang có người thuê hoặc đang trong 15 phút khóa cọc!")
+            raise HTTPException(status_code=400, detail="Thiết bị này hiện đang tạm ngưng phục vụ hoặc ẩn khỏi web!")
         price_4h = item["price_4h"]
         price_8h = item["price_8h"]
         price_24h = item["price_24h"]
@@ -2665,11 +2727,14 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
     # Kiểm tra xung đột lịch đặt thuê (Khóa theo ngày/giờ)
     if req.item_id:
         conflict = cur.execute("""
-            SELECT r.rental_code, r.start_time, r.end_time FROM rentals r
-            WHERE r.item_id = ? 
-              AND r.status IN ('ACTIVE', 'HOLD', 'APPROVED')
-              AND (r.start_time < ? AND r.end_time > ?)
-        """, (req.item_id, effective_end_time, req.start_time)).fetchone()
+            SELECT r.rental_code, r.start_time, r.end_time, r.status FROM rentals r
+            WHERE (r.item_id = ? OR r.items_json LIKE ?) 
+              AND r.status IN ('ACTIVE', 'HOLD', 'APPROVED', 'PENDING', 'OVERDUE')
+              AND (
+                  r.status = 'OVERDUE'
+                  OR (r.start_time < ? AND r.end_time > ?)
+              )
+        """, (req.item_id, f'%\"item_id\": {req.item_id}%', effective_end_time, req.start_time)).fetchone()
         if conflict:
             conn.close()
             raise HTTPException(
@@ -2698,12 +2763,15 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
         asset_desc, selected_branch, req.refund_bank_info, req.customer_notes, now_str
     ))
 
-    # Khóa thiết bị sang RENTED
-    if req.item_id:
+    # Chỉ đánh dấu RENTED nếu đơn thuê đang diễn ra NGAY BÂY GIỜ
+    st_clean = req.start_time.replace("T", " ")
+    et_clean = effective_end_time.replace("T", " ")
+    if req.item_id and st_clean <= now_str <= et_clean:
         cur.execute("UPDATE items SET availability = 'RENTED' WHERE id = ?", (req.item_id,))
 
     conn.commit()
     rental_id = cur.lastrowid
+    sync_items_availability(conn)
     conn.close()
 
     total_payment = total_price
@@ -2799,8 +2867,10 @@ def cancel_unpaid_rental(rental_id: int, user: Optional[Dict[str, Any]] = Depend
         conn.close()
         raise HTTPException(status_code=403, detail="Không có quyền hủy đơn này!")
 
+    old_status = rental["status"]
+
     # Cập nhật trạng thái CANCELLED
-    cur.execute("UPDATE rentals SET status = 'CANCELLED', customer_notes = COALESCE(customer_notes, '') || ' | Khách đóng cửa sổ VietQR (Chưa thanh toán)' WHERE id = ?", (rental_id,))
+    cur.execute("UPDATE rentals SET status = 'CANCELLED', customer_notes = COALESCE(customer_notes, '') || ' | Khách hủy đơn khi đang chờ duyệt (' || ? || ')' WHERE id = ?", (old_status, rental_id))
 
     # Nhả kho thiết bị đơn lẻ hoặc nhiều món
     if rental["items_json"]:
@@ -2816,15 +2886,66 @@ def cancel_unpaid_rental(rental_id: int, user: Optional[Dict[str, Any]] = Depend
 
     conn.commit()
     conn.close()
+
+    # Thông báo Telegram tức thì tới Group Hủy đơn / Dời lịch (-1004467743740)
+    try:
+        conn2 = get_db()
+        r_full = conn2.execute("""
+            SELECT r.*, COALESCE(i.name, c.name, 'Đơn Thuê Nhiều Món') as item_name
+            FROM rentals r
+            LEFT JOIN items i ON r.item_id = i.id
+            LEFT JOIN combos c ON r.combo_id = c.id
+            WHERE r.id = ?
+        """, (rental_id,)).fetchone()
+        conn2.close()
+        r_dict = dict(r_full) if r_full else dict(rental)
+        proof_img = r_dict.get("payment_proof_img") or None
+        item_name = r_dict.get("item_name") or "Thiết bị / Trang phục"
+        rental_code = r_dict.get("rental_code") or f"#{rental_id}"
+        cus_name = (user.get("full_name") if user else "") or "Khách hàng"
+        cus_phone = (user.get("phone") if user else "") or ""
+        total_price = r_dict.get("total_price") or 0
+        deposit_paid = r_dict.get("deposit_paid") or 0
+        start_time = r_dict.get("start_time") or ""
+        end_time = r_dict.get("end_time") or ""
+
+        cancel_msg = (
+            f"<b>🚨 [CẢNH BÁO] KHÁCH HỦY ĐƠN ĐANG CHỜ DUYỆT!</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"⚠️ <b>TRẠNG THÁI: ĐANG CHỜ DUYỆT ({old_status})</b>\n"
+            f"👉 Khách vừa bấm yêu cầu HỦY ĐƠN khi đơn đang trong quá trình chờ duyệt!\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"📋 <b>Mã đơn:</b> <code>{rental_code}</code>\n"
+            f"👤 <b>Khách hàng:</b> {cus_name} (<code>{cus_phone}</code>)\n"
+            f"📦 <b>Thiết bị:</b> {item_name}\n"
+            f"💵 <b>Tiền thuê:</b> {total_price:,}đ\n"
+            f"🛡️ <b>Tiền cọc:</b> {deposit_paid:,}đ\n"
+            f"⏰ <b>Lịch thuê:</b> {start_time} ➔ {end_time}\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"{'📸 <b>Hình chuyển khoản của khách đính kèm bên dưới.</b>' if proof_img else '⚡ <i>Không có hình chuyển khoản (khách chưa upload bill).</i>'}\n"
+            f"🔔 <b>Vui lòng kiểm tra app MBBank để đối soát / hoàn tiền cho khách nếu khách đã chuyển khoản!</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"<i>Đơn đã tự động chuyển về CANCELLED và nhả kho thiết bị.</i>"
+        )
+        _send_telegram_notification(
+            cancel_msg,
+            rental_id=rental_id,
+            event_type="CANCEL_PENDING",
+            override_chat_id="-1004467743740",
+            photo_url=proof_img
+        )
+    except Exception as e:
+        print(f"[CANCEL PENDING NOTIFY ERROR] {e}")
+
     return {"success": True, "message": "Đã hủy đơn nháp chưa thanh toán và nhả kho thiết bị."}
 
 
 @app.get("/api/rentals/track/{rental_code}")
-def track_rental_order(rental_code: str):
+def track_rental_order(rental_code: str, user: Optional[Dict[str, Any]] = Depends(get_current_user)):
     """
     Tra cứu trạng thái đơn hàng công khai:
     - Hỗ trợ tra cứu theo Mã đơn: TDB-XXXXXX
-    - Hỗ trợ tra cứu theo Số điện thoại: 0977xxxxxx (trả về danh sách đơn của SĐT đó)
+    - Hỗ trợ tra cứu theo Số điện thoại: 0977xxxxxx (chỉ admin hoặc chính chủ)
     - Bảo mật: Che bớt tên và số điện thoại, tuyệt đối không lộ CCCD.
     """
     kw = rental_code.strip()
@@ -3025,9 +3146,9 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
             if not item:
                 conn.close()
                 raise HTTPException(status_code=404, detail=f"Thiết bị #{item_req.item_id} không tồn tại!")
-            if item["availability"] != "AVAILABLE" and not (is_admin_mode and req.is_direct_paid):
+            if item["availability"] in ("UNAVAILABLE", "HIDDEN") and not (is_admin_mode and req.is_direct_paid):
                 conn.close()
-                raise HTTPException(status_code=400, detail=f"Thiết bị '{item['name']}' hiện đang có người thuê!")
+                raise HTTPException(status_code=400, detail=f"Thiết bị '{item['name']}' hiện đang tạm ngưng phục vụ hoặc ẩn khỏi web!")
             price_4h = item["price_4h"]
             price_8h = item["price_8h"]
             price_24h = item["price_24h"]
@@ -3088,10 +3209,13 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
         # Kiểm tra xung đột lịch thuê theo ngày/giờ
         if item_req.item_id and not is_admin_mode:
             conflict = cur.execute("""
-                SELECT r.rental_code, r.start_time, r.end_time FROM rentals r
+                SELECT r.rental_code, r.start_time, r.end_time, r.status FROM rentals r
                 WHERE (r.item_id = ? OR r.items_json LIKE ?)
-                  AND r.status IN ('ACTIVE', 'HOLD', 'APPROVED')
-                  AND (r.start_time < ? AND r.end_time > ?)
+                  AND r.status IN ('ACTIVE', 'HOLD', 'APPROVED', 'PENDING', 'OVERDUE')
+                  AND (
+                      r.status = 'OVERDUE'
+                      OR (r.start_time < ? AND r.end_time > ?)
+                  )
             """, (item_req.item_id, f'%\"item_id\": {item_req.item_id}%', it_end_str, it_start)).fetchone()
             if conflict:
                 conn.close()
@@ -3171,7 +3295,7 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
     ))
     rental_id = cur.lastrowid
 
-    # Lưu chi tiết từng món vào bảng rental_items và khóa kho sang RENTED
+    # Lưu chi tiết từng món vào bảng rental_items
     for it in processed_items:
         cur.execute("""
         INSERT INTO rental_items (
@@ -3182,10 +3306,13 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
             rental_id, it["item_id"], it["combo_id"], it["name"], it["serial_or_size"],
             it["category"], it["rental_type"], it["rental_duration_hours"], it["price"], 0
         ))
-        if it["item_id"]:
+        it_st = (it.get("start_time") or req.start_time).replace("T", " ")
+        it_et = (it.get("end_time") or effective_overall_end).replace("T", " ")
+        if it["item_id"] and it_st <= now_str <= it_et:
             cur.execute("UPDATE items SET availability = 'RENTED' WHERE id = ?", (it["item_id"],))
 
     conn.commit()
+    sync_items_availability(conn)
     conn.close()
 
     total_payable = total_rental_price
@@ -3779,14 +3906,16 @@ def update_rental_admin(rental_id: int, req: UpdateRentalAdminRequest, admin: Di
             elif rental["item_id"]:
                 cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (rental["item_id"],))
         elif req.status == "ACTIVE":
-            if "items_json" in rental.keys() and rental["items_json"]:
-                try:
-                    for itm in json.loads(rental["items_json"]):
-                        if itm.get("item_id"):
-                            cur.execute("UPDATE items SET availability = 'RENTED' WHERE id = ?", (itm["item_id"],))
-                except Exception: pass
-            elif rental["item_id"]:
-                cur.execute("UPDATE items SET availability = 'RENTED' WHERE id = ?", (rental["item_id"],))
+            now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
+            if (rental.get("start_time") or "") <= now_str:
+                if "items_json" in rental.keys() and rental["items_json"]:
+                    try:
+                        for itm in json.loads(rental["items_json"]):
+                            if itm.get("item_id"):
+                                cur.execute("UPDATE items SET availability = 'RENTED' WHERE id = ?", (itm["item_id"],))
+                    except Exception: pass
+                elif rental["item_id"]:
+                    cur.execute("UPDATE items SET availability = 'RENTED' WHERE id = ?", (rental["item_id"],))
 
     if req.end_time:
         fields.append("end_time = ?")
@@ -3814,6 +3943,7 @@ def update_rental_admin(rental_id: int, req: UpdateRentalAdminRequest, admin: Di
         params.append(rental_id)
         cur.execute(f"UPDATE rentals SET {', '.join(fields)} WHERE id = ?", params)
         conn.commit()
+        sync_items_availability(conn)
 
     conn.close()
     return {"success": True, "message": f"Đã cập nhật đơn thuê #{rental['rental_code']} thành công!"}
@@ -3929,19 +4059,24 @@ def customer_reschedule_rental(rental_id: int, req: RescheduleRentalRequest, use
         raise HTTPException(status_code=401, detail="Vui lòng đăng nhập để dời lịch!")
     conn = get_db()
     cur = conn.cursor()
-    r = cur.execute("SELECT * FROM rentals WHERE id = ?", (rental_id,)).fetchone()
+    r = cur.execute("""
+        SELECT r.*, COALESCE(i.name, c.name, 'Đơn Thuê') as item_name
+        FROM rentals r
+        LEFT JOIN items i ON r.item_id = i.id
+        LEFT JOIN combos c ON r.combo_id = c.id
+        WHERE r.id = ?
+    """, (rental_id,)).fetchone()
     if not r:
         conn.close()
         raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê!")
     if user.get("role") != "admin" and r["user_id"] != user["id"]:
         conn.close()
         raise HTTPException(status_code=403, detail="Bạn không có quyền dời lịch cho đơn này!")
-    if r["status"] == "HOLD":
-        conn.close()
-        raise HTTPException(status_code=400, detail="Đơn hàng đang ở trạng thái 'Đang Chờ Admin Duyệt Tiền', vui lòng chờ Admin duyệt hoặc hoàn tất thanh toán trước khi dời lịch!")
     if r["status"] in ("RETURNED", "CANCELLED"):
         conn.close()
         raise HTTPException(status_code=400, detail="Đơn hàng đã hoàn tất hoặc đã hủy, không thể dời lịch!")
+
+    is_waiting_approval = (r["status"] in ("HOLD", "PENDING"))
 
     st = parse_dt_safe(req.new_start_time)
     et = parse_dt_safe(req.new_end_time)
@@ -3961,74 +4096,106 @@ def customer_reschedule_rental(rental_id: int, req: RescheduleRentalRequest, use
 
     old_st = r["start_time"]
     old_et = r["end_time"]
+    status_label = f"ĐANG CHỜ DUYỆT ({r['status']})" if is_waiting_approval else r["status"]
+
     cur.execute("""
         UPDATE rentals 
         SET start_time = ?, end_time = ?, customer_notes = COALESCE(customer_notes, '') || ?
         WHERE id = ?
-    """, (req.new_start_time, req.new_end_time, f" | Dời lịch từ ({old_st} - {old_et}) sang ({req.new_start_time} - {req.new_end_time}) [MIỄN PHÍ]", rental_id))
+    """, (req.new_start_time, req.new_end_time, f" | Dời lịch từ ({old_st} - {old_et}) sang ({req.new_start_time} - {req.new_end_time}) [MIỄN PHÍ - Trạng thái: {status_label}]", rental_id))
     conn.commit()
     sync_items_availability(conn)
     conn.close()
 
-    # Bắn thông báo Telegram
-    b_code = r["branch_code"] if ("branch_code" in r.keys() and r["branch_code"]) else "CN1"
+    # Lấy thông tin đầy đủ & hình chuyển khoản của khách nếu có
+    r_dict = dict(r)
+    proof_img = r_dict.get("payment_proof_img") or None
+    item_name = r_dict.get("item_name") or "Thiết bị / Trang phục"
+    total_price = r_dict.get("total_price") or 0
+    deposit_paid = r_dict.get("deposit_paid") or 0
+    b_code = r_dict.get("branch_code") or "CN1"
     b_info = STORE_BRANCHES.get(b_code, STORE_BRANCHES["CN1"])
+
+    # Gửi thông báo Telegram tới Group Hủy đơn / Dời lịch (-1004467743740)
     msg = (
-        f"<b>🔄 [DỜI LỊCH THUÊ] KHÁCH ĐÃ ĐỔI GIỜ THÀNH CÔNG (MIỄN PHÍ)!</b>\n"
+        f"<b>🔄 [DỜI LỊCH THUÊ] KHÁCH YÊU CẦU DỜI LỊCH!</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
+        f"{'⚠️ <b>ĐƠN NÀY ĐANG Ở CHẾ ĐỘ CHỜ DUYỆT (' + r['status'] + ')</b>\n👉 Khách đã yêu cầu dời lịch khi đơn đang chờ Admin duyệt!\n━━━━━━━━━━━━━━━━━━\n' if is_waiting_approval else ''}"
         f"📋 <b>Mã đơn:</b> <code>{r['rental_code']}</code>\n"
-        f"👤 <b>Khách:</b> {user['full_name']} (<code>{user.get('phone', '')}</code>)\n"
+        f"👤 <b>Khách hàng:</b> {user['full_name']} (<code>{user.get('phone', '')}</code>)\n"
+        f"📦 <b>Thiết bị:</b> {item_name}\n"
+        f"💵 <b>Tiền thuê:</b> {total_price:,}đ\n"
+        f"🛡️ <b>Tiền cọc:</b> {deposit_paid:,}đ\n"
         f"⏰ <b>Lịch cũ:</b> {old_st} ➔ {old_et}\n"
         f"✨ <b>LỊCH MỚI:</b> <b>{req.new_start_time}</b> ➔ <b>{req.new_end_time}</b>\n"
         f"📍 <b>Chi nhánh:</b> {b_info['name']}\n"
-        f"━━━━━━━━━━━━━━━━━━"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"{'📸 <b>Hình chuyển khoản của khách đính kèm bên dưới.</b>' if proof_img else '⚡ <i>Khách chưa tải hình chuyển khoản.</i>'}\n"
+        f"🔔 <b>Vui lòng kiểm tra app MBBank và xác nhận lịch mới cho khách!</b>"
     )
-    _send_telegram_notification(msg, rental_id=rental_id, event_type="NOTIFY")
+    _send_telegram_notification(
+        msg,
+        rental_id=rental_id,
+        event_type="CANCEL_PENDING" if is_waiting_approval else "NOTIFY",
+        override_chat_id="-1004467743740",
+        photo_url=proof_img
+    )
 
     return {"success": True, "message": f"🎉 Đã dời lịch sang {req.new_start_time} ➔ {req.new_end_time} hoàn toàn MIỄN PHÍ!"}
 
 
 class CancelRentalWithPenaltyRequest(BaseModel):
-    bank_name: Optional[str] = ""
-    account_no: Optional[str] = ""
-    account_name: Optional[str] = ""
+    bank_name: Optional[str] = None
+    account_no: Optional[str] = None
+    account_name: Optional[str] = None
     reason: Optional[str] = "Khách hủy lịch"
 
 
 @app.post("/api/rentals/{rental_id}/cancel_with_penalty")
 def customer_cancel_with_penalty(rental_id: int, req: Optional[CancelRentalWithPenaltyRequest] = None, user: Optional[Dict[str, Any]] = Depends(get_current_user)):
-    """Khách hủy lịch thuê - Giữ lại 50% số tiền cọc/thuê theo quy định, hoàn lại 50% về STK ngân hàng khách nhập."""
+    """Khách hàng hủy đơn: Hỗ trợ cả đơn đang chờ duyệt (PENDING / HOLD) và đơn đã duyệt (ACTIVE)."""
     if not user:
         raise HTTPException(status_code=401, detail="Vui lòng đăng nhập để hủy lịch!")
     conn = get_db()
     cur = conn.cursor()
-    r = cur.execute("SELECT * FROM rentals WHERE id = ?", (rental_id,)).fetchone()
+    r = cur.execute("""
+        SELECT r.*, COALESCE(i.name, c.name, 'Đơn Thuê') as item_name
+        FROM rentals r
+        LEFT JOIN items i ON r.item_id = i.id
+        LEFT JOIN combos c ON r.combo_id = c.id
+        WHERE r.id = ?
+    """, (rental_id,)).fetchone()
     if not r:
         conn.close()
         raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê!")
     if user.get("role") != "admin" and r["user_id"] != user["id"]:
         conn.close()
         raise HTTPException(status_code=403, detail="Bạn không có quyền hủy đơn này!")
-    if r["status"] == "HOLD":
-        conn.close()
-        raise HTTPException(status_code=400, detail="Đơn hàng đang ở trạng thái 'Đang Chờ Admin Duyệt Tiền' (chưa thanh toán xong) nên không thể áp dụng hủy lịch hoàn tiền!")
-    if r["status"] != "ACTIVE":
-        conn.close()
-        raise HTTPException(status_code=400, detail="Chỉ đơn hàng đã được Admin xác nhận thanh toán (ACTIVE) mới được áp dụng chính sách hủy lịch!")
     if r["status"] in ("RETURNED", "CANCELLED"):
         conn.close()
         raise HTTPException(status_code=400, detail="Đơn hàng đã hoàn tất hoặc đã được hủy trước đó!")
 
+    is_waiting_approval = (r["status"] in ("HOLD", "PENDING"))
     total_amount = (r["total_price"] or 0) + (r["deposit_paid"] or 0)
-    penalty_50 = int(round(total_amount * 0.5))
-    refund_50 = total_amount - penalty_50
 
+    # Nếu đơn đang chờ duyệt (HOLD hoặc PENDING): Hoàn 100% (không phạt khách vì đơn chưa duyệt)
+    if is_waiting_approval:
+        penalty_amount = 0
+        refund_amount = total_amount
+        status_msg = f"Đơn đang ở chế độ chờ duyệt ({r['status']}), hoàn 100% ({total_amount:,}đ)"
+    else:
+        # Đơn ACTIVE: Áp dụng quy chế hủy lịch giữ lại 50%
+        penalty_amount = int(round(total_amount * 0.5))
+        refund_amount = total_amount - penalty_amount
+        status_msg = f"Giữ lại 50% phí ({penalty_amount:,}đ), hoàn 50% ({refund_amount:,}đ)"
+
+    r_dict = dict(r)
     b_name = (req.bank_name if req else "") or ""
     b_stk = (req.account_no if req else "") or ""
     b_owner = (req.account_name if req else "") or ""
-    bank_info = f"{b_name} - STK: {b_stk} - {b_owner}".strip() if b_stk else ""
+    bank_info = f"{b_name} - STK: {b_stk} - {b_owner}".strip() if b_stk else (r_dict.get("refund_bank_info") or "")
 
-    note = f" | Khách hủy lịch: Giữ lại 50% phí ({penalty_50:,}đ), hoàn 50% ({refund_50:,}đ)"
+    note = f" | Khách hủy đơn: {status_msg}"
     if bank_info:
         note += f" về STK: {bank_info}"
 
@@ -4039,52 +4206,132 @@ def customer_cancel_with_penalty(rental_id: int, req: Optional[CancelRentalWithP
             customer_notes = COALESCE(customer_notes, '') || ?
         WHERE id = ?
     """, (bank_info, note, rental_id))
+
+    # Nhả kho thiết bị
+    if r["items_json"]:
+        try:
+            itms = json.loads(r["items_json"])
+            for itm in itms:
+                if itm.get("item_id"):
+                    cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (itm["item_id"],))
+        except Exception:
+            pass
+    elif r["item_id"]:
+        cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE id = ?", (r["item_id"],))
+
     conn.commit()
     sync_items_availability(conn)
     conn.close()
 
+    proof_img = r_dict.get("payment_proof_img") or None
+    item_name = r_dict.get("item_name") or "Thiết bị / Trang phục"
+
     bank_detail_msg = ""
-    if b_stk:
+    if bank_info:
         bank_detail_msg = (
-            f"💳 <b>THÔNG TIN HOÀN TIỀN (50%):</b>\n"
-            f"   • Ngân hàng: <b>{b_name}</b>\n"
-            f"   • Số tài khoản: <code>{b_stk}</code>\n"
-            f"   • Chủ tài khoản: <b>{b_owner.upper()}</b>\n"
-            f"   • Số tiền cần chuyển hoàn: <b>{refund_50:,}đ</b>\n"
+            f"💳 <b>THÔNG TIN HOÀN TIỀN CỦA KHÁCH:</b>\n"
+            f"   • Tài khoản nhận: <b>{bank_info}</b>\n"
+            f"   • Số tiền cần chuyển hoàn: <b>{refund_amount:,}đ</b>\n"
         )
 
     msg = (
-        f"<b>⚠️ [HỦY LỊCH THUÊ] KHÁCH ĐÃ HỦY ĐƠN (PHẠT 50%)!</b>\n"
+        f"<b>🚨 [CẢNH BÁO] KHÁCH HỦY ĐƠN{' ĐANG CHỜ DUYỆT' if is_waiting_approval else ''}!</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
+        f"{'⚠️ <b>ĐƠN NÀY ĐANG Ở CHẾ ĐỘ CHỜ DUYỆT (' + r['status'] + ')</b>\n👉 Khách vừa bấm yêu cầu HỦY ĐƠN khi đơn đang trong quá trình chờ duyệt!\n━━━━━━━━━━━━━━━━━━\n' if is_waiting_approval else ''}"
         f"📋 <b>Mã đơn:</b> <code>{r['rental_code']}</code>\n"
-        f"👤 <b>Khách:</b> {user['full_name']} (<code>{user.get('phone', '')}</code>)\n"
+        f"👤 <b>Khách hàng:</b> {user['full_name']} (<code>{user.get('phone', '')}</code>)\n"
+        f"📦 <b>Thiết bị:</b> {item_name}\n"
         f"💵 <b>Tổng tiền đơn:</b> {total_amount:,}đ\n"
-        f"💸 <b>Phí phạt giữ lại (50%):</b> <b>{penalty_50:,}đ</b>\n"
-        f"💰 <b>Số tiền hoàn lại cho khách (50%):</b> <b>{refund_50:,}đ</b>\n"
+        f"{'💸 <b>Phí phạt giữ lại:</b> <b>' + f'{penalty_amount:,}đ</b>\n' if penalty_amount > 0 else ''}"
+        f"💰 <b>Số tiền hoàn lại cho khách:</b> <b>{refund_amount:,}đ</b>\n"
         f"{bank_detail_msg}"
-        f"🔓 <i>Thiết bị đã được tự động nhả về trạng thái SẴN SÀNG cho khách khác thuê.</i>\n"
-        f"━━━━━━━━━━━━━━━━━━"
+        f"{'📸 <b>Hình chuyển khoản của khách đính kèm bên dưới.</b>' if proof_img else '⚡ <i>Khách chưa tải hình chuyển khoản.</i>'}\n"
+        f"🔔 <b>Vui lòng kiểm tra app MBBank để đối soát và chuyển hoàn tiền cho khách!</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"🔓 <i>Thiết bị đã được tự động nhả về trạng thái SẴN SÀNG cho khách khác thuê.</i>"
     )
-    _send_telegram_notification(msg, rental_id=rental_id, event_type="NOTIFY")
+    _send_telegram_notification(
+        msg,
+        rental_id=rental_id,
+        event_type="CANCEL_PENDING" if is_waiting_approval else "NOTIFY",
+        override_chat_id="-1004467743740",
+        photo_url=proof_img
+    )
+
+    resp_msg = (
+        f"Đã hủy đơn thành công! Đơn hàng của bạn đang trong trạng thái chờ duyệt nên không mất phí, cửa hàng sẽ hoàn trả lại {refund_amount:,}đ về tài khoản ngân hàng của bạn."
+        if is_waiting_approval else
+        f"Đã hủy đơn thành công! Theo quy định, cửa hàng giữ lại 50% phí ({penalty_amount:,}đ) và sẽ hoàn lại 50% ({refund_amount:,}đ) về tài khoản ngân hàng của bạn."
+    )
 
     return {
         "success": True,
-        "message": f"Đã hủy đơn thành công! Theo quy định, cửa hàng giữ lại 50% phí ({penalty_50:,}đ) và sẽ hoàn lại 50% ({refund_50:,}đ) về tài khoản ngân hàng của bạn.",
-        "penalty_amount": penalty_50,
-        "refund_amount": refund_50,
-        "bank_info": bank_info
+        "message": resp_msg,
+        "penalty_amount": penalty_amount,
+        "refund_amount": refund_amount,
+        "bank_info": bank_info,
+        "is_hold": is_waiting_approval
     }
 
 
 class AdminUpdateDepositRequest(BaseModel):
-    deposit_type: str # "CCCD", "ASSET", "CASH", "NONE"
+    deposit_type: str # "CCCD", "ASSET", "CASH", "NONE", "VIP_NONE"
     deposit_paid: int = 0
     deposit_asset_desc: Optional[str] = ""
+    damage_deduction: Optional[int] = 0
+    late_fee: Optional[int] = 0
+    refund_bank_info: Optional[str] = ""
+    deposit_asset_photo: Optional[str] = None
+
+
+@app.get("/api/admin/rentals/{rental_id}/deposit_detail")
+def get_rental_deposit_detail(rental_id: int, admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin xem chi tiết toàn bộ thông tin cọc, tài sản cọc, thiệt hại và tính cọc lại."""
+    conn = get_db()
+    r = conn.execute("""
+    SELECT r.*, COALESCE(i.name, c.name, 'Đơn thuê') as item_name,
+           u.full_name as customer_name, u.phone as customer_phone
+    FROM rentals r
+    LEFT JOIN items i ON r.item_id = i.id
+    LEFT JOIN combos c ON r.combo_id = c.id
+    JOIN users u ON r.user_id = u.id
+    WHERE r.id = ?
+    """, (rental_id,)).fetchone()
+    if not r:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê!")
+
+    penalties = conn.execute("SELECT COALESCE(SUM(penalty_amount), 0) as s FROM damage_penalties WHERE rental_id = ?", (rental_id,)).fetchone()["s"] or 0
+    penalty_list = conn.execute("SELECT * FROM damage_penalties WHERE rental_id = ? ORDER BY id DESC", (rental_id,)).fetchall()
+    conn.close()
+
+    total_dep = r["deposit_paid"] or 0
+    late = r["late_fee"] or 0
+    refund_calc = max(0, total_dep - penalties - late)
+
+    return {
+        "success": True,
+        "rental_id": r["id"],
+        "rental_code": r["rental_code"],
+        "customer_name": r["customer_name"],
+        "customer_phone": r["customer_phone"],
+        "item_name": r["item_name"],
+        "status": r["status"],
+        "deposit_type": r["deposit_type"] or "CCCD",
+        "deposit_paid": total_dep,
+        "deposit_asset_desc": r["deposit_asset_desc"] or "",
+        "deposit_asset_photo": r["deposit_asset_photo"] if ("deposit_asset_photo" in r.keys() and r["deposit_asset_photo"]) else None,
+        "damage_deduction": penalties,
+        "damage_penalties_list": [dict(p) for p in penalty_list],
+        "late_fee": late,
+        "refund_bank_info": r["refund_bank_info"] if ("refund_bank_info" in r.keys() and r["refund_bank_info"]) else "",
+        "refund_amount": refund_calc
+    }
 
 
 @app.post("/api/admin/rentals/{rental_id}/update_deposit")
 def admin_update_rental_deposit(rental_id: int, req: AdminUpdateDepositRequest, admin: Dict[str, Any] = Depends(require_admin)):
-    """Admin cập nhật hình thức cọc và tiền cọc cho đơn khi kiểm tra bill / quét QR."""
+    """Admin cập nhật và tính lại tiền cọc, trừ thiệt hại, phạt trễ hạn và hoàn cọc."""
     conn = get_db()
     cur = conn.cursor()
     r = cur.execute("""
@@ -4100,21 +4347,58 @@ def admin_update_rental_deposit(rental_id: int, req: AdminUpdateDepositRequest, 
         conn.close()
         raise HTTPException(status_code=404, detail="Không tìm thấy đơn thuê!")
 
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Cập nhật thông tin cọc, phạt trễ và tài khoản hoàn cọc
+    clean_bank = (req.refund_bank_info or "").strip()
+    clean_desc = (req.deposit_asset_desc or "").strip()
     cur.execute("""
         UPDATE rentals 
-        SET deposit_type = ?, deposit_paid = ?, deposit_asset_desc = ?
+        SET deposit_type = ?, 
+            deposit_paid = ?, 
+            deposit_asset_desc = ?,
+            late_fee = COALESCE(?, late_fee),
+            refund_bank_info = COALESCE(NULLIF(?, ''), refund_bank_info),
+            deposit_asset_photo = COALESCE(?, deposit_asset_photo)
         WHERE id = ?
-    """, (req.deposit_type, req.deposit_paid, req.deposit_asset_desc or "", rental_id))
+    """, (req.deposit_type, req.deposit_paid, clean_desc, req.late_fee, clean_bank, req.deposit_asset_photo, rental_id))
+
+    # Nếu có tiền phạt thiệt hại mới, ghi nhận vào damage_penalties
+    damage_val = req.damage_deduction or 0
+    if damage_val > 0:
+        cur.execute("""
+        INSERT INTO damage_penalties (rental_id, damage_code, damage_title, penalty_amount, notes, created_at)
+        VALUES (?, 'RECALC_PENALTY', 'Khấu trừ thiệt hại khi tính lại cọc', ?, 'Admin cập nhật & tính lại cọc', ?)
+        """, (rental_id, damage_val, now_str))
+
     conn.commit()
+
+    # Tính tổng thiệt hại sau cập nhật
+    total_damage = cur.execute("SELECT COALESCE(SUM(penalty_amount), 0) as s FROM damage_penalties WHERE rental_id = ?", (rental_id,)).fetchone()["s"] or 0
+    effective_late = req.late_fee if req.late_fee is not None else (r["late_fee"] or 0)
+    refund_calc = max(0, req.deposit_paid - total_damage - effective_late)
     conn.close()
 
     r_dict = dict(r)
     r_dict["deposit_type"] = req.deposit_type
     r_dict["deposit_paid"] = req.deposit_paid
-    r_dict["deposit_asset_desc"] = req.deposit_asset_desc or ""
+    r_dict["deposit_asset_desc"] = clean_desc
+    r_dict["refund_bank_info"] = clean_bank or r_dict.get("refund_bank_info", "")
+    r_dict["damage_deduction"] = total_damage
+    r_dict["late_fee"] = effective_late
+    r_dict["refund_amount"] = refund_calc
     notify_deposit_event("CAP_NHAT_COC", r_dict)
 
-    return {"success": True, "message": f"✅ Đã cập nhật phương thức cọc cho đơn #{r['rental_code']} thành công!"}
+    return {
+        "success": True, 
+        "message": f"✅ Đã tính lại cọc cho đơn #{r['rental_code']} thành công! Tiền cọc hoàn trả: {refund_calc:,}đ",
+        "rental_code": r["rental_code"],
+        "deposit_paid": req.deposit_paid,
+        "damage_deduction": total_damage,
+        "late_fee": effective_late,
+        "refund_amount": refund_calc,
+        "refund_bank_info": clean_bank or r_dict.get("refund_bank_info", "")
+    }
 
 
 class CreateItemAdminRequest(BaseModel):
@@ -4415,11 +4699,29 @@ class FeatureHighlightRequest(BaseModel):
     is_active: Optional[int] = 1
 
 
+class UpdateFeatureHighlightRequest(BaseModel):
+    title: Optional[str] = None
+    subtitle: Optional[str] = None
+    image_url: Optional[str] = None
+    filter_keyword: Optional[str] = None
+    display_order: Optional[int] = None
+    is_active: Optional[int] = None
+
+
 @app.get("/api/feature_highlights")
 def get_feature_highlights():
     """Lấy danh sách các thẻ nổi bật hiển thị trên đầu web."""
     conn = get_db()
     rows = conn.execute("SELECT * FROM feature_highlights WHERE is_active = 1 ORDER BY display_order ASC, id ASC").fetchall()
+    conn.close()
+    return {"success": True, "highlights": [dict(r) for r in rows]}
+
+
+@app.get("/api/admin/feature_highlights")
+def get_admin_feature_highlights(admin: Dict[str, Any] = Depends(require_admin)):
+    """Admin lấy toàn bộ danh sách thẻ nổi bật để quản lý."""
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM feature_highlights ORDER BY display_order ASC, id ASC").fetchall()
     conn.close()
     return {"success": True, "highlights": [dict(r) for r in rows]}
 
@@ -4440,15 +4742,27 @@ def create_feature_highlight(req: FeatureHighlightRequest, admin: Dict[str, Any]
 
 
 @app.patch("/api/admin/feature_highlights/{highlight_id}")
-def update_feature_highlight(highlight_id: int, req: FeatureHighlightRequest, admin: Dict[str, Any] = Depends(require_admin)):
+def update_feature_highlight(highlight_id: int, req: UpdateFeatureHighlightRequest, admin: Dict[str, Any] = Depends(require_admin)):
     """Admin chỉnh sửa nội dung thẻ nổi bật."""
     conn = get_db()
     cur = conn.cursor()
+    hl = cur.execute("SELECT * FROM feature_highlights WHERE id = ?", (highlight_id,)).fetchone()
+    if not hl:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Không tìm thấy thẻ nổi bật!")
+
+    new_title = req.title.strip() if req.title is not None else hl["title"]
+    new_sub = req.subtitle.strip() if req.subtitle is not None else hl["subtitle"]
+    new_img = req.image_url.strip() if req.image_url is not None else hl["image_url"]
+    new_kw = req.filter_keyword.strip() if req.filter_keyword is not None else hl["filter_keyword"]
+    new_order = req.display_order if req.display_order is not None else hl["display_order"]
+    new_act = req.is_active if req.is_active is not None else hl["is_active"]
+
     cur.execute("""
         UPDATE feature_highlights 
         SET title = ?, subtitle = ?, image_url = ?, filter_keyword = ?, display_order = ?, is_active = ?
         WHERE id = ?
-    """, (req.title.strip(), req.subtitle.strip(), req.image_url.strip(), req.filter_keyword.strip(), req.display_order or 0, req.is_active or 1, highlight_id))
+    """, (new_title, new_sub, new_img, new_kw, new_order, new_act, highlight_id))
     conn.commit()
     conn.close()
     return {"success": True, "message": "✅ Đã cập nhật thẻ nổi bật thành công!"}
@@ -4586,8 +4900,8 @@ def get_customer_rentals(customer_id: int, admin: Dict[str, Any] = Depends(requi
 
 
 @app.get("/api/customers/lookup_by_phone/{phone}")
-def lookup_customer_by_phone(phone: str):
-    """Tra cứu nhanh thông tin khách hàng theo số điện thoại để tự động điền form booking / POS."""
+def lookup_customer_by_phone(phone: str, admin: Dict[str, Any] = Depends(require_admin)):
+    """Tra cứu nhanh thông tin khách hàng theo số điện thoại để tự động điền form booking / POS. CHỈ ADMIN."""
     clean_p = re.sub(r"[^\d]", "", phone.strip())
     if len(clean_p) < 9:
         return {"found": False}
@@ -4683,12 +4997,18 @@ def api_system_health(admin: Dict[str, Any] = Depends(require_admin)):
 # =============================================================================
 
 @app.get("/api/settings")
-def get_site_settings():
-    """Lấy toàn bộ cấu hình nội dung website có thể chỉnh sửa không cần code."""
+def get_site_settings(user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+    """Lấy cấu hình nội dung website. Public keys cho khách, toàn bộ cho admin."""
     conn = get_db()
     rows = conn.execute("SELECT key, value FROM site_settings").fetchall()
     conn.close()
     settings_dict = {r["key"]: r["value"] for r in rows}
+    # Chỉ admin mới thấy toàn bộ settings; khách chỉ thấy public keys
+    if not user or user.get("role") != "admin":
+        PUBLIC_KEYS = {"site_title", "site_description", "store_phone", "store_address", "banner_text",
+                       "store_name", "store_logo", "store_tagline", "store_hours", "store_facebook",
+                       "store_zalo", "store_instagram", "welcome_message", "footer_text"}
+        settings_dict = {k: v for k, v in settings_dict.items() if k in PUBLIC_KEYS}
     return {"success": True, "settings": settings_dict}
 
 
@@ -5129,6 +5449,59 @@ async def upload_and_restore_database(file: UploadFile = File(...), admin: Dict[
         "success": True,
         "message": f"✅ Đã khôi phục và nạp database thành công! Kích thước: {len(content):,} bytes."
     }
+
+
+@app.post("/api/admin/sync_cloud")
+def sync_data_with_cloud(admin: Dict[str, Any] = Depends(require_admin)):
+    """Đồng bộ 1-click toàn bộ cơ sở dữ liệu SQLite giữa máy tính nội bộ và Cloud Render."""
+    cloud_url = "https://tidubastore.onrender.com"
+    is_already_cloud = bool(os.environ.get("RENDER") or os.environ.get("RENDER_EXTERNAL_URL"))
+    if is_already_cloud:
+        return {
+            "success": True,
+            "message": "Bạn đang thao tác trực tiếp trên Web Cloud (tidubastore.onrender.com)! Dữ liệu đã là mới nhất."
+        }
+
+    try:
+        login_data = json.dumps({"username": "admin", "password": "admin123"}).encode("utf-8")
+        login_req = urllib.request.Request(f"{cloud_url}/api/auth/login", data=login_data, headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(login_req, timeout=15) as resp:
+            token = json.loads(resp.read().decode("utf-8")).get("token")
+        if not token:
+            return {"success": False, "message": "Không thể xác thực với máy chủ Cloud Render!"}
+
+        if not DB_PATH.exists():
+            return {"success": False, "message": "File database nội bộ không tồn tại!"}
+
+        with open(DB_PATH, "rb") as f:
+            db_bytes = f.read()
+
+        boundary = f"----WebKitFormBoundaryTidubaSync{int(time.time())}"
+        part1 = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="file"; filename="tiduba.db"\r\n'
+            f"Content-Type: application/octet-stream\r\n\r\n"
+        ).encode("utf-8")
+        part2 = f"\r\n--{boundary}--\r\n".encode("utf-8")
+        body = part1 + db_bytes + part2
+
+        req_up = urllib.request.Request(
+            f"{cloud_url}/api/admin/database/upload",
+            data=body,
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "Authorization": f"Bearer {token}"
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(req_up, timeout=60) as resp:
+            res_up = json.loads(resp.read().decode("utf-8"))
+            return {
+                "success": True,
+                "message": f"✅ Đã đồng bộ thành công dữ liệu máy tính lên Web Cloud tidubastore.onrender.com ({len(db_bytes):,} bytes)!"
+            }
+    except Exception as e:
+        return {"success": False, "message": f"Lỗi đồng bộ Cloud: {str(e)}"}
 
 
 @app.get("/api/admin/database/status")
@@ -5725,6 +6098,11 @@ def _send_telegram_notification(
         if not override_chat_id and cfg and "deposit_chat_id" in cfg.keys() and cfg["deposit_chat_id"]:
             if event_type == "DEPOSIT":
                 active_chat_id = cfg["deposit_chat_id"].strip()
+
+        # Nếu là sự kiện HỦY/DỜI LỊCH khi đơn đang PENDING: Gửi sang Group cảnh báo hủy đơn (-1004467743740)
+        if not override_chat_id and cfg and "cancel_alert_chat_id" in cfg.keys() and cfg["cancel_alert_chat_id"]:
+            if event_type == "CANCEL_PENDING":
+                active_chat_id = cfg["cancel_alert_chat_id"].strip()
 
         if active_token and active_chat_id:
             # Kiểm tra phân loại sự kiện theo cấu hình bật/tắt (nếu không phải TEST hoặc override)
@@ -6425,7 +6803,7 @@ def notify_deposit_event(event_action: str, rental: Dict[str, Any], detail: str 
             f"📋 <b>Chi tiết cọc:</b> {dep_desc or 'Không có ghi chú'}\n"
             f"━━━━━━━━━━━━━━━━━━\n"
             f"💰 <b>TỔNG TIỀN CỌC ĐANG GIỮ:</b> <b>{dep_summary['total_holding_cash']:,}đ</b>\n"
-            f"📊 <i>(Hôm nay: Thu {format_short_currency(dep_summary['total_deposit_today'])} | Hoàn {format_short_currency(dep_summary['total_refunded_today'])})</i>\n"
+            f"📊 <i>(Hôm nay: Thu {dep_summary['total_deposit_today']:,}đ | Hoàn {dep_summary['total_refunded_today']:,}đ)</i>\n"
             f"⏰ <i>{now_str}</i>"
         )
 

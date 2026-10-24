@@ -6,6 +6,7 @@ TIDUBA STORE - DESKTOP ADMIN APP (ENTERPRISE EDITION)
 Phát triển cho: Tiduba Store
 """
 
+import io
 import sys
 import os
 import time
@@ -15,7 +16,20 @@ import urllib.request
 import webbrowser
 from pathlib import Path
 
-# Đảm bảo UTF-8 stream trên Windows và PyInstaller không bị UnicodeEncodeError
+# Đảm bảo sys.stdout và sys.stderr luôn hợp lệ trong môi trường Windows GUI (console=False)
+class SafeStream(io.StringIO):
+    def isatty(self):
+        return False
+    def write(self, s):
+        pass
+    def flush(self):
+        pass
+
+if sys.stdout is None:
+    sys.stdout = SafeStream()
+if sys.stderr is None:
+    sys.stderr = SafeStream()
+
 if sys.platform.startswith("win"):
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -24,19 +38,34 @@ if sys.platform.startswith("win"):
         pass
 
 
+# Xác định chính xác thư mục gốc của ứng dụng (nơi chứa data/tiduba.db và templates/)
+if getattr(sys, "frozen", False):
+    EXE_DIR = Path(sys.executable).resolve().parent
+    if (EXE_DIR.parent / "data" / "tiduba.db").exists():
+        APP_ROOT = EXE_DIR.parent
+    elif (EXE_DIR / "data" / "tiduba.db").exists():
+        APP_ROOT = EXE_DIR
+    else:
+        APP_ROOT = EXE_DIR.parent if EXE_DIR.name == "dist" else EXE_DIR
+else:
+    APP_ROOT = Path(__file__).resolve().parent
+
+os.environ["DATA_DIR"] = str(APP_ROOT / "data")
+os.chdir(str(APP_ROOT))
+
+
 def safe_print(*args, **kwargs):
-    """Ghi log an toàn không bao giờ văng lỗi UnicodeEncodeError cp1252 trên Windows GUI."""
+    """Ghi log an toàn ra console và file log admin_app.log."""
     try:
         msg = " ".join(str(a) for a in args)
         if sys.stdout:
             sys.stdout.write(msg + "\n")
             sys.stdout.flush()
+        log_file = APP_ROOT / "admin_app.log"
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}\n")
     except Exception:
         pass
-
-# Đảm bảo working directory
-BASE_DIR = Path(__file__).resolve().parent
-os.chdir(str(BASE_DIR))
 
 SERVER_URL = "https://tidubastore.onrender.com"
 ADMIN_URL = "https://tidubastore.onrender.com/?admin=1"
@@ -55,61 +84,87 @@ def is_cloud_accessible() -> bool:
         return False
 
 
+def is_local_server_running() -> bool:
+    """Kiểm tra máy chủ nội bộ port 9000 có đang hoạt động và phản hồi ping không."""
+    try:
+        req = urllib.request.Request(f"{LOCAL_SERVER_URL}/api/ping", headers={"User-Agent": "TidubaAdminApp/3.5"})
+        with urllib.request.urlopen(req, timeout=1.0) as res:
+            return res.status == 200
+    except Exception:
+        return False
+
+
 def free_port_if_stuck():
-    """Giải phóng port 9000 nếu có tiến trình treo."""
+    """Giải phóng port 9000 nếu có tiến trình treo và không phản hồi ping."""
+    if is_local_server_running():
+        return
+
     if sys.platform == "win32":
         try:
+            cur_pid = os.getpid()
             output = subprocess.check_output("netstat -ano | findstr :9000", shell=True, text=True)
             for line in output.strip().splitlines():
                 parts = line.split()
                 if len(parts) >= 5 and "LISTENING" in parts:
                     pid = parts[-1]
-                    if pid and pid != "0":
+                    if pid and pid != "0" and int(pid) != cur_pid:
                         subprocess.run(f"taskkill /F /PID {pid}", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except Exception:
             pass
 
 
 def is_server_running() -> bool:
-    try:
-        req = urllib.request.Request(f"{SERVER_URL}/api/auth/me", headers={"User-Agent": "TidubaAdminApp/3.2"})
-        res = urllib.request.urlopen(req, timeout=1.5)
-        return res.status in (200, 401)
-    except Exception:
-        return False
+    """Hàm tương thích cũ: kiểm tra server cục bộ port 9000."""
+    return is_local_server_running()
 
 
 def run_uvicorn_thread():
     """Chạy Uvicorn FastAPI server trực tiếp trong daemon thread."""
     try:
+        safe_print("[ADMIN APP] run_uvicorn_thread bat dau...")
+        import traceback
         import uvicorn
         from main import app as fastapi_app
-        uvicorn.run(fastapi_app, host="0.0.0.0", port=9000, log_level="error")
+        safe_print("[ADMIN APP] Da import thanh cong main.app! Khoi tao uvicorn.Server...")
+        config = uvicorn.Config(
+            fastapi_app, 
+            host="0.0.0.0", 
+            port=9000, 
+            log_config=None,
+            access_log=False
+        )
+        server = uvicorn.Server(config)
+        safe_print("[ADMIN APP] Bat dau server.run()...")
+        server.run()
+        safe_print("[ADMIN APP] server.run() da ket thuc.")
     except Exception as e:
-        safe_print(f"[ADMIN APP] Lỗi khởi động Uvicorn thread: {e}")
+        import traceback
+        err = traceback.format_exc()
+        safe_print(f"[ADMIN APP] LOI run_uvicorn_thread:\n{err}")
 
 
 def start_backend_server():
     """Tự động kiểm tra và khởi chạy Backend Server nếu chưa chạy."""
-    if is_server_running():
+    if is_local_server_running():
         safe_print("[ADMIN APP] Backend server da hoat dong san tai port 9000.")
-        return
+        return True
 
     safe_print("[ADMIN APP] Khoi tao Backend Server FastAPI port 9000...")
     free_port_if_stuck()
-    time.sleep(0.5)
+    time.sleep(0.3)
 
-    t = threading.Thread(target=run_uvicorn_thread, daemon=True)
+    t = threading.Thread(target=run_uvicorn_thread, daemon=True, name="TidubaUvicornServer")
     t.start()
 
-    # Chờ server phản hồi (tối đa 10 giây)
-    for _ in range(20):
+    # Chờ server phản hồi (tối đa 15 giây)
+    for i in range(30):
         time.sleep(0.5)
-        if is_server_running():
-            safe_print("[ADMIN APP] Backend server khoi dong thanh cong!")
-            return
+        if is_local_server_running():
+            safe_print(f"[ADMIN APP] Backend server khoi dong thanh cong sau {(i+1)*0.5}s!")
+            return True
 
-    safe_print("[ADMIN APP] Server dang khoi dong...")
+    safe_print("[ADMIN APP] Canh bao: Server can them thoi gian de khoi dong...")
+    return is_local_server_running()
 
 
 class AdminApi:
@@ -117,7 +172,8 @@ class AdminApi:
 
     def open_customer_web(self):
         """Mở trang Web dành cho Khách hàng trên trình duyệt mặc định."""
-        webbrowser.open(SERVER_URL)
+        target = LOCAL_SERVER_URL if is_local_server_running() else SERVER_URL
+        webbrowser.open(target)
         return {"success": True, "message": "Đã mở Web Khách trên trình duyệt!"}
 
     def sync_data(self):
@@ -129,48 +185,33 @@ class AdminApi:
             "app_name": "Tiduba Store Admin Desktop App",
             "version": "3.5.0",
             "domain": "Tiduba Store",
-            "server_url": SERVER_URL,
-            "status": "ONLINE" if is_server_running() else "OFFLINE"
+            "server_url": LOCAL_SERVER_URL if is_local_server_running() else SERVER_URL,
+            "status": "ONLINE" if is_local_server_running() else "OFFLINE"
         }
 
 
-def auto_sync_cloud_db_to_local():
-    """Tự động kéo bản sao lưu mới nhất từ Render về máy tính F:\\TidubaStore\\data\\tiduba.db định kỳ."""
-    time.sleep(3)
-    try:
-        import json
-        login_data = json.dumps({"username": "admin", "password": "admin123"}).encode("utf-8")
-        login_req = urllib.request.Request(f"{SERVER_URL}/api/auth/login", data=login_data, headers={"Content-Type": "application/json"}, method="POST")
-        with urllib.request.urlopen(login_req, timeout=15) as resp:
-            token = json.loads(resp.read().decode("utf-8")).get("token")
-        if token:
-            dl_req = urllib.request.Request(f"{SERVER_URL}/api/admin/database/download?token={token}")
-            with urllib.request.urlopen(dl_req, timeout=30) as resp:
-                content = resp.read()
-                if len(content) > 1000:
-                    local_db = Path(__file__).resolve().parent / "data" / "tiduba.db"
-                    local_db.parent.mkdir(parents=True, exist_ok=True)
-                    with open(local_db, "wb") as f:
-                        f.write(content)
-                    safe_print(f"[AUTO SYNC] Da dong bo bo nho Web Cloud ve may tinh thanh cong: {len(content):,} bytes.")
-    except Exception as e:
-        safe_print(f"[AUTO SYNC NOTE] {e}")
-
-
 def main():
-    # 1. Kiểm tra máy chủ Cloud chính thức
-    cloud_online = is_cloud_accessible()
-    if cloud_online:
-        target_url = ADMIN_URL
-        window_title = "Tiduba Store - Quản Trị Hệ Thống (Cloud Online: tidubastore.onrender.com)"
-        safe_print("[ADMIN APP] Da ket noi truc tiep May Chu Cloud: https://tidubastore.onrender.com")
-        # Khởi chạy luồng tự động sao lưu bộ não Cloud về ổ đĩa máy tính
-        threading.Thread(target=auto_sync_cloud_db_to_local, daemon=True, name="AutoSyncCloudDb").start()
-    else:
-        safe_print("[ADMIN APP] May chu Cloud chua san sang hoac khong co internet. Khoi chay may chu noi bo port 9000...")
-        start_backend_server()
+    safe_print("======================================================================")
+    safe_print("TIDUBA STORE - ADMIN DESKTOP APP ONLINE")
+    safe_print(f"Thu muc lam viec: {APP_ROOT}")
+    safe_print(f"Co so du lieu: {APP_ROOT / 'data' / 'tiduba.db'}")
+
+    # 1. Khởi chạy và xác nhận Backend Server nội bộ sẵn sàng
+    local_ready = start_backend_server()
+
+    if local_ready:
         target_url = LOCAL_ADMIN_URL
-        window_title = "Tiduba Store - Quản Trị Hệ Thống (Offline Localhost)"
+        window_title = "Tiduba Store - Quản Trị Hệ Thống (Kho Hàng 1.045 Món)"
+        safe_print(f"[ADMIN APP] Ket noi Backend Noi Bo thanh cong: {target_url}")
+    else:
+        # Nếu local port 9000 không mở được, thử kết nối qua Cloud
+        if is_cloud_accessible():
+            target_url = ADMIN_URL
+            window_title = "Tiduba Store - Quản Trị Hệ Thống (Cloud Online: tidubastore.onrender.com)"
+            safe_print(f"[ADMIN APP] Port 9000 noi bo bi chan. Chuyen sang May Chu Cloud: {target_url}")
+        else:
+            target_url = LOCAL_ADMIN_URL
+            window_title = "Tiduba Store - Quản Trị Hệ Thống"
 
     # 2. Mở cửa sổ Desktop pywebview
     try:
@@ -187,8 +228,6 @@ def main():
             js_api=api
         )
 
-        safe_print("======================================================================")
-        safe_print("TIDUBA STORE - ADMIN DESKTOP APP ONLINE")
         safe_print(f"May chu: {target_url}")
         safe_print("CN1: 183A Huynh Thuc Khang, Pleiku, Gia Lai (0977.078.981)")
         safe_print("CN2: 801 Le Duan, P. An Phu, TP. Pleiku, Gia Lai (0977.078.981)")
