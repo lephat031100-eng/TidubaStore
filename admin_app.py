@@ -9,6 +9,7 @@ Phát triển cho: Tiduba Store
 import io
 import sys
 import os
+import json
 import time
 import threading
 import subprocess
@@ -168,7 +169,7 @@ def start_backend_server():
 
 
 def sync_cloud_db_to_local_once() -> bool:
-    """Tải bản sao lưu database mới nhất từ Render về máy tính F:\\TidubaStore\\data\\tiduba.db."""
+    """Tải bản sao lưu database mới nhất từ Render về máy tính F:\\TidubaStore\\data\\tiduba.db bằng SQLite Online Backup an toàn."""
     try:
         admin_pw = os.environ.get("TIDUBA_ADMIN_PASSWORD", "admin123")
         login_data = json.dumps({"username": "admin", "password": admin_pw}).encode("utf-8")
@@ -180,11 +181,22 @@ def sync_cloud_db_to_local_once() -> bool:
             with urllib.request.urlopen(dl_req, timeout=30) as resp:
                 content = resp.read()
                 if len(content) > 1000:
-                    local_db = APP_ROOT / "data" / "tiduba.db"
-                    local_db.parent.mkdir(parents=True, exist_ok=True)
-                    with open(local_db, "wb") as f:
+                    temp_file = APP_ROOT / "data" / "tiduba_cloud_temp.db"
+                    temp_file.parent.mkdir(parents=True, exist_ok=True)
+                    with open(temp_file, "wb") as f:
                         f.write(content)
-                    safe_print(f"[AUTO SYNC] Da dong bo Cloud ve may tinh: {len(content):,} bytes.")
+
+                    import sqlite3
+                    src = sqlite3.connect(temp_file)
+                    dst = sqlite3.connect(APP_ROOT / "data" / "tiduba.db")
+                    src.backup(dst)
+                    dst.close()
+                    src.close()
+                    try:
+                        temp_file.unlink()
+                    except Exception:
+                        pass
+                    safe_print(f"[AUTO SYNC] Da dong bo Cloud ve may tinh thanh cong: {len(content):,} bytes.")
                     return True
     except Exception as e:
         safe_print(f"[AUTO SYNC ERROR] {e}")
