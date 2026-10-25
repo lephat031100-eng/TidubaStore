@@ -2833,6 +2833,7 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
         "total_price": total_price,
         "deposit_amount": deposit_amount,
         "total_payment": total_payment,
+        "total_payable": total_payment,
         "qr_url": qr_url,
         "qr_image_url": qr_url,
         "customer_notes": req.customer_notes
@@ -3683,9 +3684,9 @@ def get_all_rentals_admin(status: Optional[str] = None, admin: Dict[str, Any] = 
     conn = get_db()
     query = """
     SELECT r.*, 
-           COALESCE(i.name, c.name) as item_name, 
-           COALESCE(i.category, 'COMBO') as item_category, 
-           COALESCE(i.serial_or_size, 'Combo Trọn Gói') as serial_or_size,
+           COALESCE(i.name, c.name, r.rental_type, 'Đơn Thuê Nhiều Món') as item_name, 
+           COALESCE(i.category, 'CAMERA_GEAR') as item_category, 
+           COALESCE(i.serial_or_size, 'Thiết bị') as serial_or_size,
            u.full_name as customer_name, u.phone as customer_phone, u.email as customer_email,
            u.cccd_number
     FROM rentals r
@@ -3708,10 +3709,21 @@ def get_all_rentals_admin(status: Optional[str] = None, admin: Dict[str, Any] = 
 
     now = vn_now()
     for r in rentals:
+        r["item_name"] = r.get("item_name") or r.get("rental_type") or "Đơn Thuê Nhiều Món"
+        r["serial_or_size"] = r.get("serial_or_size") or "Thiết bị"
+        r["customer_name"] = r.get("customer_name") or "Khách Hàng"
+        r["customer_phone"] = r.get("customer_phone") or "--"
+        r["total_price"] = r.get("total_price") or 0
+        r["late_fee"] = r.get("late_fee") or 0
+        r["deposit_paid"] = r.get("deposit_paid") or 0
+        end_time_str = r.get("end_time") or ""
         try:
-            dt_end = datetime.datetime.fromisoformat(r["end_time"])
+            dt_end = datetime.datetime.fromisoformat(end_time_str)
         except Exception:
-            dt_end = datetime.datetime.strptime(r["end_time"], "%Y-%m-%d %H:%M")
+            try:
+                dt_end = datetime.datetime.strptime(end_time_str, "%Y-%m-%d %H:%M")
+            except Exception:
+                dt_end = now
         diff = (dt_end - now).total_seconds()
         r["hours_remaining"] = round(diff / 3600.0, 1)
         r["is_overdue"] = diff < 0

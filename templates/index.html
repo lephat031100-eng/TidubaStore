@@ -5974,7 +5974,8 @@
                 }
 
                 closeBookingModal();
-                showQrModal(data.qr_image_url, `${data.item_name} (${data.rental_days} ngày)`, `${data.total_payable.toLocaleString()} VNĐ`, data.rental_code, data.rental_id);
+                const payable = Number(data.total_payable !== undefined ? data.total_payable : (data.total_payment !== undefined ? data.total_payment : data.total_price || 0));
+                showQrModal(data.qr_image_url || data.qr_url, `${data.item_name} (${data.rental_days || 1} ngày)`, `${payable.toLocaleString()} VNĐ`, data.rental_code, data.rental_id);
                 fetchCatalog();
                 checkAuthSession(); // Cập nhật lại số điểm VIP
             } catch (err) {
@@ -6571,7 +6572,8 @@
                 updateCartBadge();
                 closeCartDrawer();
 
-                showQrModal(data.qr_image_url, `Đơn gộp ${data.items_count} món (${data.rental_code})`, `${data.total_payable.toLocaleString()} VNĐ`, data.rental_code, data.rental_id);
+                const payable = Number(data.total_payable !== undefined ? data.total_payable : (data.total_payment !== undefined ? data.total_payment : data.total_price || 0));
+                showQrModal(data.qr_image_url || data.qr_url, `Đơn gộp ${data.items_count || 1} món (${data.rental_code})`, `${payable.toLocaleString()} VNĐ`, data.rental_code, data.rental_id);
                 fetchCatalog();
                 checkAuthSession();
             } catch (err) {
@@ -7217,7 +7219,8 @@
                         activeInv.items
                     );
                 } else {
-                    showQrModal(data.qr_image_url, `Hóa đơn KiotViet ${data.rental_code}`, `${data.total_payable.toLocaleString()} VNĐ`, data.rental_code, data.rental_id);
+                    const payable = Number(data.total_payable !== undefined ? data.total_payable : (data.total_payment !== undefined ? data.total_payment : data.total_price || 0));
+                    showQrModal(data.qr_image_url || data.qr_url, `Hóa đơn KiotViet ${data.rental_code}`, `${payable.toLocaleString()} VNĐ`, data.rental_code, data.rental_id);
                 }
 
                 activeInv.items = [];
@@ -8536,72 +8539,97 @@
 
         function renderAdminRentals(rentals) {
             const tbody = document.getElementById('adm-rentals-tbody');
-            if (rentals.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400 font-mono text-xs">Không có đơn thuê nào.</td></tr>`;
+            if (!tbody) return;
+            if (!rentals || !Array.isArray(rentals) || rentals.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-gray-400 font-mono text-xs">Không có đơn thuê nào.</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = rentals.map(r => `
-                <tr class="hover:bg-gray-800/80 transition ${r.is_overdue ? 'bg-rose-950/40' : 'bg-[#111827]'}">
-                    <td class="p-3">
-                        <div class="font-bold text-amber-400 text-sm">${r.rental_code}</div>
-                        <div class="mt-0.5">${r.branch_code === 'CN2' ? '<span class="text-[9px] bg-cyan-950 text-cyan-300 border border-cyan-700 px-1.5 py-0.2 rounded font-mono font-bold">CN2: 801 Lê Duẩn</span>' : '<span class="text-[9px] bg-amber-950 text-amber-300 border border-amber-700 px-1.5 py-0.2 rounded font-mono font-bold">CN1: 183A Huỳnh Thúc Kháng</span>'}</div>
-                    </td>
-                    <td class="p-3">
-                        <div class="font-bold text-white text-xs">${r.customer_name}</div>
-                        <div class="text-cyan-400 font-mono text-[11px] font-semibold mt-0.5">${r.customer_phone}</div>
-                    </td>
-                    <td class="p-3">
-                        <div class="text-white font-semibold text-xs">${r.item_name}</div>
-                        <div class="text-amber-300 text-[10px] font-mono mt-0.5">${r.serial_or_size}</div>
-                    </td>
-                    <td class="p-3">
-                        <div class="${r.is_overdue ? 'text-rose-400 font-bold' : 'text-slate-100'} font-mono text-xs">${r.end_time}</div>
-                        <div class="text-[10px] font-mono ${r.is_overdue ? 'text-rose-400 font-bold' : 'text-cyan-400'}">${r.is_overdue ? `Trễ ${Math.abs(r.hours_remaining)}h` : `Còn ${r.hours_remaining}h`}</div>
-                    </td>
-                    <td class="p-3">
-                        <div class="text-emerald-400 font-bold font-mono text-sm">${r.total_price.toLocaleString()}đ</div>
-                        ${r.payment_proof_img ? `<div class="mt-1"><a href="${r.payment_proof_img}" target="_blank" class="text-[10px] text-cyan-300 underline font-mono flex items-center gap-1 font-bold"><i class="fa-solid fa-image"></i> Xem Bill Khách</a></div>` : ''}
-                    </td>
-                    <td class="p-3 text-rose-400 font-bold font-mono text-xs">${r.late_fee > 0 ? `+${r.late_fee.toLocaleString()}đ` : '0đ'}</td>
-                    <td class="p-3">
-                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${r.status === 'OVERDUE' ? 'bg-rose-950 text-rose-300 border-rose-700' : r.status === 'ACTIVE' ? 'bg-cyan-950 text-cyan-300 border-cyan-700' : r.status === 'RETURNED' ? 'bg-emerald-950 text-emerald-300 border-emerald-700' : 'bg-gray-800 text-gray-200 border-gray-600'}">${r.status}</span>
-                    </td>
-                    <td class="p-3 text-right space-x-1.5 whitespace-nowrap">
-                        ${r.status === 'HOLD' || r.status === 'PENDING' ? `
-                            <button onclick="adminConfirmPayment(${r.id})" class="bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500 px-2.5 py-1 rounded-lg text-xs font-bold transition shadow-md" title="Admin xác nhận đã nhận chuyển khoản">
-                                <i class="fa-solid fa-check"></i> Xác Nhận Tiền
+            try {
+                tbody.innerHTML = rentals.map(r => {
+                    const safeCode = r.rental_code || ('#' + (r.id || ''));
+                    const rawName = String(r.item_name || r.rental_type || 'Đơn Thuê Nhiều Món');
+                    const safeItemName = rawName.replace(/'/g, '’');
+                    const rawCusName = String(r.customer_name || 'Khách Hàng');
+                    const safeCustomerName = rawCusName.replace(/'/g, '’');
+                    const safeCustomerPhone = r.customer_phone || '--';
+                    const safeSerialOrSize = r.serial_or_size || 'Thiết bị';
+                    const safeTotalPrice = Number(r.total_price || 0);
+                    const safeLateFee = Number(r.late_fee || 0);
+                    const safeDepositPaid = Number(r.deposit_paid || 0);
+                    const safeHoursRemaining = (r.hours_remaining !== undefined && r.hours_remaining !== null) ? r.hours_remaining : 0;
+                    const safeBranchCode = r.branch_code || 'CN1';
+                    const safeStatus = r.status || 'UNKNOWN';
+                    const safeDepositType = r.deposit_type || 'NONE';
+                    const safeItemsJson = encodeURIComponent(r.items_json || '');
+                    const safeAdminNotes = encodeURIComponent(r.admin_notes || '');
+
+                    return `
+                    <tr class="hover:bg-gray-800/80 transition ${r.is_overdue ? 'bg-rose-950/40' : 'bg-[#111827]'}">
+                        <td class="p-3">
+                            <div class="font-bold text-amber-400 text-sm">${safeCode}</div>
+                            <div class="mt-0.5">${safeBranchCode === 'CN2' ? '<span class="text-[9px] bg-cyan-950 text-cyan-300 border border-cyan-700 px-1.5 py-0.2 rounded font-mono font-bold">CN2: 801 Lê Duẩn</span>' : '<span class="text-[9px] bg-amber-950 text-amber-300 border border-amber-700 px-1.5 py-0.2 rounded font-mono font-bold">CN1: 183A Huỳnh Thúc Kháng</span>'}</div>
+                        </td>
+                        <td class="p-3">
+                            <div class="font-bold text-white text-xs">${safeCustomerName}</div>
+                            <div class="text-cyan-400 font-mono text-[11px] font-semibold mt-0.5">${safeCustomerPhone}</div>
+                        </td>
+                        <td class="p-3">
+                            <div class="text-white font-semibold text-xs">${safeItemName}</div>
+                            <div class="text-amber-300 text-[10px] font-mono mt-0.5">${safeSerialOrSize}</div>
+                        </td>
+                        <td class="p-3">
+                            <div class="${r.is_overdue ? 'text-rose-400 font-bold' : 'text-slate-100'} font-mono text-xs">${r.end_time || '--'}</div>
+                            <div class="text-[10px] font-mono ${r.is_overdue ? 'text-rose-400 font-bold' : 'text-cyan-400'}">${r.is_overdue ? `Trễ ${Math.abs(safeHoursRemaining)}h` : `Còn ${safeHoursRemaining}h`}</div>
+                        </td>
+                        <td class="p-3">
+                            <div class="text-emerald-400 font-bold font-mono text-sm">${safeTotalPrice.toLocaleString()}đ</div>
+                            ${r.payment_proof_img ? `<div class="mt-1"><a href="${r.payment_proof_img}" target="_blank" class="text-[10px] text-cyan-300 underline font-mono flex items-center gap-1 font-bold"><i class="fa-solid fa-image"></i> Xem Bill Khách</a></div>` : ''}
+                        </td>
+                        <td class="p-3 text-rose-400 font-bold font-mono text-xs">${safeLateFee > 0 ? `+${safeLateFee.toLocaleString()}đ` : '0đ'}</td>
+                        <td class="p-3">
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${safeStatus === 'OVERDUE' ? 'bg-rose-950 text-rose-300 border-rose-700' : safeStatus === 'ACTIVE' ? 'bg-cyan-950 text-cyan-300 border-cyan-700' : safeStatus === 'RETURNED' ? 'bg-emerald-950 text-emerald-300 border-emerald-700' : 'bg-gray-800 text-gray-200 border-gray-600'}">${safeStatus}</span>
+                        </td>
+                        <td class="p-3 text-right space-x-1.5 whitespace-nowrap">
+                            ${safeStatus === 'HOLD' || safeStatus === 'PENDING' ? `
+                                <button onclick="adminConfirmPayment(${r.id})" class="bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500 px-2.5 py-1 rounded-lg text-xs font-bold transition shadow-md" title="Admin xác nhận đã nhận chuyển khoản">
+                                    <i class="fa-solid fa-check"></i> Xác Nhận Tiền
+                                </button>
+                            ` : ''}
+                            ${safeStatus === 'ACTIVE' || safeStatus === 'OVERDUE' ? `
+                                <button onclick="quickReturnByCode('${r.rental_code}')" class="bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-600 px-2.5 py-1 rounded-lg text-xs font-bold transition shadow-lg shadow-emerald-950" title="Xác nhận nhận trả đồ">
+                                    <i class="fa-solid fa-check-double text-emerald-400"></i> Nhận Trả
+                                </button>
+                            ` : ''}
+                            <button onclick="openK80BillModal('${r.rental_code}', '${safeItemName}', ${safeTotalPrice}, ${safeDepositPaid}, '${safeCustomerName}', '${safeCustomerPhone}', '${r.start_time || ''}', '${r.end_time || ''}', '${safeDepositType}', '', '${safeStatus}', '${safeItemsJson}')" class="bg-gray-800 hover:bg-gray-700 text-yellow-300 border border-gray-700 px-2 py-1 rounded-lg text-xs font-bold transition" title="Xem Bill K80 có mã QR">
+                                <i class="fa-solid fa-qrcode text-yellow-400"></i> Bill QR
                             </button>
-                        ` : ''}
-                        ${r.status === 'ACTIVE' || r.status === 'OVERDUE' ? `
-                            <button onclick="quickReturnByCode('${r.rental_code}')" class="bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-600 px-2.5 py-1 rounded-lg text-xs font-bold transition shadow-lg shadow-emerald-950" title="Xác nhận nhận trả đồ">
-                                <i class="fa-solid fa-check-double text-emerald-400"></i> Nhận Trả
+                            <button onclick="window.open('/api/admin/rentals/${r.id}/label', '_blank')" class="bg-gray-800 hover:bg-gray-700 text-yellow-300 border border-gray-700 px-2 py-1 rounded-lg text-xs font-bold transition" title="In tem mã vạch K80 dán lên máy/áo">
+                                <i class="fa-solid fa-barcode"></i> Tem
                             </button>
-                        ` : ''}
-                        <button onclick="openK80BillModal('${r.rental_code}', '${r.item_name.replace(/'/g, '')}', ${r.total_price}, ${r.deposit_paid || 0}, '${r.customer_name}', '${r.customer_phone}', '${r.start_time}', '${r.end_time}', '${r.deposit_type || 'NONE'}', '', '${r.status}', '${encodeURIComponent(r.items_json || '')}')" class="bg-gray-800 hover:bg-gray-700 text-yellow-300 border border-gray-700 px-2 py-1 rounded-lg text-xs font-bold transition" title="Xem Bill K80 có mã QR">
-                            <i class="fa-solid fa-qrcode text-yellow-400"></i> Bill QR
-                        </button>
-                        <button onclick="window.open('/api/admin/rentals/${r.id}/label', '_blank')" class="bg-gray-800 hover:bg-gray-700 text-yellow-300 border border-gray-700 px-2 py-1 rounded-lg text-xs font-bold transition" title="In tem mã vạch K80 dán lên máy/áo">
-                            <i class="fa-solid fa-barcode"></i> Tem
-                        </button>
-                        <button onclick="openRefundQrModal(${r.id})" class="bg-teal-950 hover:bg-teal-900 text-teal-300 border border-teal-600 px-2 py-1 rounded-lg text-xs font-bold transition" title="Mã VietQR hoàn trả tiền cọc cho khách">
-                            <i class="fa-solid fa-hand-holding-dollar text-emerald-400"></i> Hoàn Cọc
-                        </button>
-                        <button onclick="openDepositRecalcBoxDirect(${r.id}, '${r.rental_code}')" class="bg-gradient-to-r from-amber-700 to-yellow-600 hover:from-amber-600 hover:to-yellow-500 text-slate-950 px-2 py-1 rounded-lg text-xs font-bold transition shadow-sm flex items-center gap-1" title="Xem chi tiết thông tin cọc & tính lại cọc thực tế">
-                            <i class="fa-solid fa-calculator"></i> Cọc & Tính Lại
-                        </button>
-                        <button onclick="openInspectionModal(${r.id})" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700 px-2 py-1 rounded-lg text-xs font-bold transition" title="Lập biên bản kiểm tra cảm biến/lens">
-                            <i class="fa-solid fa-clipboard-check"></i> Kiểm Tra
-                        </button>
-                        <button onclick="openAdminEditModal(${r.id}, '${r.rental_code}', '${r.status}', '${r.end_time}', ${r.total_price}, 0, ${r.late_fee}, '${encodeURIComponent(r.admin_notes || '')}')" class="bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-700 px-2.5 py-1 rounded-lg text-xs font-bold transition">
-                            <i class="fa-solid fa-pen"></i> Sửa
-                        </button>
-                        <button onclick="adminDeleteRental(${r.id}, '${r.rental_code}')" class="bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-700 px-2.5 py-1 rounded-lg text-xs font-bold transition" title="Xóa vĩnh viễn đơn thuê & bill này">
-                            <i class="fa-solid fa-trash-can"></i> Xóa
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
+                            <button onclick="openRefundQrModal(${r.id})" class="bg-teal-950 hover:bg-teal-900 text-teal-300 border border-teal-600 px-2 py-1 rounded-lg text-xs font-bold transition" title="Mã VietQR hoàn trả tiền cọc cho khách">
+                                <i class="fa-solid fa-hand-holding-dollar text-emerald-400"></i> Hoàn Cọc
+                            </button>
+                            <button onclick="openDepositRecalcBoxDirect(${r.id}, '${r.rental_code}')" class="bg-gradient-to-r from-amber-700 to-yellow-600 hover:from-amber-600 hover:to-yellow-500 text-slate-950 px-2 py-1 rounded-lg text-xs font-bold transition shadow-sm flex items-center gap-1" title="Xem chi tiết thông tin cọc & tính lại cọc thực tế">
+                                <i class="fa-solid fa-calculator"></i> Cọc & Tính Lại
+                            </button>
+                            <button onclick="openInspectionModal(${r.id})" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700 px-2 py-1 rounded-lg text-xs font-bold transition" title="Lập biên bản kiểm tra cảm biến/lens">
+                                <i class="fa-solid fa-clipboard-check"></i> Kiểm Tra
+                            </button>
+                            <button onclick="openAdminEditModal(${r.id}, '${r.rental_code}', '${safeStatus}', '${r.end_time || ''}', ${safeTotalPrice}, 0, ${safeLateFee}, '${safeAdminNotes}')" class="bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-700 px-2.5 py-1 rounded-lg text-xs font-bold transition">
+                                <i class="fa-solid fa-pen"></i> Sửa
+                            </button>
+                            <button onclick="adminDeleteRental(${r.id}, '${r.rental_code}')" class="bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-700 px-2.5 py-1 rounded-lg text-xs font-bold transition" title="Xóa vĩnh viễn đơn thuê & bill này">
+                                <i class="fa-solid fa-trash-can"></i> Xóa
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                }).join('');
+            } catch (err) {
+                console.error("Lỗi render danh sách đơn thuê Admin:", err);
+                tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-rose-400 font-mono text-xs">Lỗi hiển thị danh sách đơn: ${err.message}</td></tr>`;
+            }
         }
 
         async function adminClearAllRentals() {
@@ -9909,7 +9937,7 @@
                                 <div class="text-[10px] text-emerald-400 font-mono font-bold">${Number(ev.total_price).toLocaleString()}đ</div>
                             </div>
                             <div class="flex items-center gap-1.5 font-mono">
-                                <button onclick="openK80BillModal('${ev.rental_code}', '${ev.item_name.replace(/'/g, '')}', ${ev.total_price}, ${ev.deposit_paid || 0}, '${ev.customer_name}', '${ev.customer_phone}', '${ev.start_time}', '${ev.end_time}', '${ev.deposit_type || 'NONE'}', '', '${ev.status}')" class="bg-gray-900 hover:bg-gray-800 text-yellow-300 border border-gray-700 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1" title="In Bill & QR">
+                                <button onclick="openK80BillModal('${ev.rental_code}', '${(ev.item_name || 'Thiết bị').replace(/'/g, '’')}', ${Number(ev.total_price || 0)}, ${Number(ev.deposit_paid || 0)}, '${(ev.customer_name || 'Khách').replace(/'/g, '’')}', '${ev.customer_phone || ''}', '${ev.start_time || ''}', '${ev.end_time || ''}', '${ev.deposit_type || 'NONE'}', '', '${ev.status || ''}')" class="bg-gray-900 hover:bg-gray-800 text-yellow-300 border border-gray-700 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1" title="In Bill & QR">
                                     <i class="fa-solid fa-print"></i> Bill
                                 </button>
                                 <button onclick="openQrReturnModal()" class="bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-700 px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1" title="Quét nhận trả đồ">
