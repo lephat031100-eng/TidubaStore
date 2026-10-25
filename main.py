@@ -2564,12 +2564,18 @@ def get_combos():
 @app.get("/api/items/{item_id}/calendar")
 def get_item_booked_calendar(item_id: int):
     conn = get_db()
+    sync_items_availability(conn)
+    now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
     booked = conn.execute("""
     SELECT rental_code, start_time, end_time, status 
     FROM rentals 
-    WHERE item_id = ? AND status IN ('APPROVED', 'ACTIVE', 'OVERDUE')
+    WHERE (item_id = ? OR items_json LIKE ?)
+      AND (
+          status IN ('APPROVED', 'ACTIVE', 'OVERDUE', 'PENDING')
+          OR (status = 'HOLD' AND hold_expires_at >= ?)
+      )
     ORDER BY start_time ASC
-    """, (item_id,)).fetchall()
+    """, (item_id, f'%\"item_id\": {item_id}%', now_str)).fetchall()
     conn.close()
     return {"item_id": item_id, "booked_ranges": [dict(r) for r in booked]}
 

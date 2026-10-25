@@ -1183,3 +1183,35 @@ def test_future_booking_keeps_item_available_today():
     }, headers=cus_headers)
     assert overlap_res.status_code == 400
     assert "đã có khách đặt/thuê" in overlap_res.json()["detail"]
+
+
+def test_pending_order_locks_item_calendar():
+    """Kiểm tra: Đơn ở trạng thái Đang Chờ Duyệt (PENDING) phải khóa lịch trên /api/items/{id}/calendar và chặn đặt trùng."""
+    login_cus = client.post("/api/auth/login", json={"username": "khachhang", "password": "123456"})
+    cus_token = login_cus.json()["token"]
+    cus_headers = {"Authorization": f"Bearer {cus_token}"}
+
+    # 1. Đặt món item_id = 1
+    st = (datetime.datetime.now() + datetime.timedelta(days=7)).replace(hour=8, minute=0, second=0)
+    et = (st + datetime.timedelta(hours=8)).replace(minute=0, second=0)
+    book_res = client.post("/api/rentals/book", json={
+        "item_id": 1,
+        "start_time": st.strftime("%Y-%m-%d %H:%M"),
+        "end_time": et.strftime("%Y-%m-%d %H:%M")
+    }, headers=cus_headers)
+    assert book_res.status_code == 200
+    r_id = book_res.json()["rental_id"]
+
+    # 2. Upload bill -> Chuyển sang PENDING (Đang Chờ Admin Duyệt Tiền)
+    client.post("/api/rentals/submit_payment_proof", json={
+        "rental_id": r_id,
+        "proof_image_url": "/static/test_pending_bill.png"
+    }, headers=cus_headers)
+
+    # 3. Lấy calendar của item_id = 1 -> PHẢI CÓ khung giờ này trong booked_ranges
+    cal_res = client.get("/api/items/1/calendar")
+    assert cal_res.status_code == 200
+    ranges = cal_res.json()["booked_ranges"]
+    matched = [rg for rg in ranges if rg["start_time"] == st.strftime("%Y-%m-%d %H:%M")]
+    assert len(matched) == 1
+    assert matched[0]["status"] == "PENDING"

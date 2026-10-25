@@ -167,17 +167,51 @@ def start_backend_server():
     return is_local_server_running()
 
 
+def sync_cloud_db_to_local_once() -> bool:
+    """Tải bản sao lưu database mới nhất từ Render về máy tính F:\\TidubaStore\\data\\tiduba.db."""
+    try:
+        admin_pw = os.environ.get("TIDUBA_ADMIN_PASSWORD", "admin123")
+        login_data = json.dumps({"username": "admin", "password": admin_pw}).encode("utf-8")
+        login_req = urllib.request.Request(f"{SERVER_URL}/api/auth/login", data=login_data, headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(login_req, timeout=10) as resp:
+            token = json.loads(resp.read().decode("utf-8")).get("token")
+        if token:
+            dl_req = urllib.request.Request(f"{SERVER_URL}/api/admin/database/download?token={token}")
+            with urllib.request.urlopen(dl_req, timeout=30) as resp:
+                content = resp.read()
+                if len(content) > 1000:
+                    local_db = APP_ROOT / "data" / "tiduba.db"
+                    local_db.parent.mkdir(parents=True, exist_ok=True)
+                    with open(local_db, "wb") as f:
+                        f.write(content)
+                    safe_print(f"[AUTO SYNC] Da dong bo Cloud ve may tinh: {len(content):,} bytes.")
+                    return True
+    except Exception as e:
+        safe_print(f"[AUTO SYNC ERROR] {e}")
+    return False
+
+
+def auto_sync_cloud_db_to_local():
+    """Tự động kéo bản sao lưu mới nhất từ Render về máy tính định kỳ mỗi 60s."""
+    time.sleep(2)
+    sync_cloud_db_to_local_once()
+    while True:
+        time.sleep(60)
+        sync_cloud_db_to_local_once()
+
+
 class AdminApi:
     """JS Bridge cho phép giao diện gọi hàm Python Native."""
 
     def open_customer_web(self):
         """Mở trang Web dành cho Khách hàng trên trình duyệt mặc định."""
-        target = LOCAL_SERVER_URL if is_local_server_running() else SERVER_URL
+        target = SERVER_URL if is_cloud_accessible() else LOCAL_SERVER_URL
         webbrowser.open(target)
         return {"success": True, "message": "Đã mở Web Khách trên trình duyệt!"}
 
     def sync_data(self):
         """Đồng bộ dữ liệu giữa App Admin và Web Khách."""
+        sync_cloud_db_to_local_once()
         return {"success": True, "message": "Đã đồng bộ kho thiết bị & đơn thuê!"}
 
     def get_app_info(self):
@@ -185,8 +219,8 @@ class AdminApi:
             "app_name": "Tiduba Store Admin Desktop App",
             "version": "3.5.0",
             "domain": "Tiduba Store",
-            "server_url": LOCAL_SERVER_URL if is_local_server_running() else SERVER_URL,
-            "status": "ONLINE" if is_local_server_running() else "OFFLINE"
+            "server_url": SERVER_URL if is_cloud_accessible() else LOCAL_SERVER_URL,
+            "status": "ONLINE" if (is_cloud_accessible() or is_local_server_running()) else "OFFLINE"
         }
 
 
@@ -196,24 +230,23 @@ def main():
     safe_print(f"Thu muc lam viec: {APP_ROOT}")
     safe_print(f"Co so du lieu: {APP_ROOT / 'data' / 'tiduba.db'}")
 
-    # 1. Khởi chạy và xác nhận Backend Server nội bộ sẵn sàng
-    local_ready = start_backend_server()
+    # 1. Khởi chạy Backend nội bộ port 9000 ngầm để luôn sẵn sàng (POS / In bill / Offline fallback)
+    start_backend_server()
 
-    if local_ready:
-        target_url = LOCAL_ADMIN_URL
-        window_title = "Tiduba Store - Quản Trị Hệ Thống (Kho Hàng 1.045 Món)"
-        safe_print(f"[ADMIN APP] Ket noi Backend Noi Bo thanh cong: {target_url}")
+    # 2. Kiểm tra máy chủ Cloud chính thức (Nơi khách hàng toàn quốc truy cập và đặt thuê)
+    cloud_online = is_cloud_accessible()
+    if cloud_online:
+        target_url = ADMIN_URL  # https://tidubastore.onrender.com/?admin=1
+        window_title = "Tiduba Store - Quản Trị Hệ Thống (Cloud Online: tidubastore.onrender.com)"
+        safe_print(f"[ADMIN APP] Da ket noi truc tiep May Chu Cloud: {target_url}")
+        # Chạy luồng tự động đồng bộ Render về máy tính định kỳ
+        threading.Thread(target=auto_sync_cloud_db_to_local, daemon=True, name="AutoSyncCloudDb").start()
     else:
-        # Nếu local port 9000 không mở được, thử kết nối qua Cloud
-        if is_cloud_accessible():
-            target_url = ADMIN_URL
-            window_title = "Tiduba Store - Quản Trị Hệ Thống (Cloud Online: tidubastore.onrender.com)"
-            safe_print(f"[ADMIN APP] Port 9000 noi bo bi chan. Chuyen sang May Chu Cloud: {target_url}")
-        else:
-            target_url = LOCAL_ADMIN_URL
-            window_title = "Tiduba Store - Quản Trị Hệ Thống"
+        target_url = LOCAL_ADMIN_URL
+        window_title = "Tiduba Store - Quản Trị Hệ Thống (Ngoại Tuyến Localhost)"
+        safe_print(f"[ADMIN APP] Khong co internet hoac Cloud offline. Ket noi Backend Noi Bo: {target_url}")
 
-    # 2. Mở cửa sổ Desktop pywebview
+    # 3. Mở cửa sổ Desktop pywebview
     try:
         import webview
 

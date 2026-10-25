@@ -2171,12 +2171,22 @@
                 </div>
             </div>
 
+            <!-- Cảnh Báo Trùng Khung Giờ Đã Có Khách Đặt / Đang Chờ Duyệt (YÊU CẦU 2) -->
+            <div id="booking-conflict-alert" class="hidden p-3 bg-rose-950/90 border-2 border-rose-500 rounded-xl text-rose-200 text-xs font-sans space-y-1 shadow-md">
+                <div class="font-bold text-amber-300 flex items-center gap-1.5 font-mono">
+                    <i class="fa-solid fa-triangle-exclamation text-rose-400"></i> KHUNG GIỜ NÀY ĐÃ BỊ TRÙNG LỊCH BẬN!
+                </div>
+                <div id="booking-conflict-alert-desc" class="text-white text-[11px] leading-relaxed">
+                    Khung giờ bạn chọn đã có khách đặt / đang chờ duyệt. Vui lòng chọn ngày hoặc giờ khác để tiếp tục!
+                </div>
+            </div>
+
             <!-- Footer Cố Định Ở Đáy Modal (Luôn Hiển Thị Rõ Ràng) -->
             <div class="flex items-center justify-end gap-3 pt-3 border-t border-gray-800 flex-shrink-0">
                 <button onclick="closeBookingModal()" class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2.5 px-5 rounded-xl text-xs transition">
                     Hủy Bỏ
                 </button>
-                <button onclick="submitBooking()" class="bg-gradient-to-r from-amber-500 to-yellow-400 text-gray-950 font-black py-2.5 px-6 rounded-xl text-xs shadow-lg shadow-amber-500/20 transition flex items-center gap-2">
+                <button onclick="submitBooking()" id="btn-submit-booking" class="bg-gradient-to-r from-amber-500 to-yellow-400 text-gray-950 font-black py-2.5 px-6 rounded-xl text-xs shadow-lg shadow-amber-500/20 transition flex items-center gap-2">
                     <i class="fa-solid fa-qrcode"></i> Đặt Thuê & Lấy Mã VietQR
                 </button>
             </div>
@@ -3826,6 +3836,7 @@
         let selectedItemForBooking = null;
         let selectedComboForBooking = null;
         let currentReviewItemId = null;
+        let currentBookedRanges = [];
 
         function toggleFloatingContactMenu() {
             const menu = document.getElementById('floating-contact-menu');
@@ -5626,28 +5637,97 @@
                 else adminPriceBox.classList.add('hidden');
             }
 
-            // Tải danh sách các khung giờ đã có khách đặt trước
+            // Tải danh sách các khung giờ đã có khách đặt trước (Bao gồm cả đơn Đang Chờ Duyệt)
             const bookedBox = document.getElementById('modal-item-booked-box');
             const bookedList = document.getElementById('modal-item-booked-list');
+            currentBookedRanges = [];
             if (bookedBox && bookedList) {
                 bookedBox.classList.add('hidden');
                 bookedList.innerHTML = '';
                 fetch(`/api/items/${itemId}/calendar`).then(r => r.json()).then(data => {
                     const ranges = data.booked_ranges || [];
+                    currentBookedRanges = ranges;
                     if (ranges.length > 0) {
-                        bookedList.innerHTML = ranges.map(r => `
-                            <div class="flex items-center justify-between bg-black/40 p-1.5 rounded-lg border border-rose-800/60">
-                                <span>Từ <strong class="text-amber-300">${r.start_time}</strong> ➔ Đến <strong class="text-amber-300">${r.end_time}</strong></span>
-                                <span class="bg-rose-900 text-rose-200 px-1.5 py-0.2 rounded text-[10px] font-bold">BẬN</span>
+                        bookedList.innerHTML = ranges.map(r => {
+                            const isPending = (r.status === 'PENDING' || r.status === 'HOLD');
+                            const label = isPending ? 'ĐANG CHỜ DUYỆT (BẬN)' : 'BẬN';
+                            const badgeColor = isPending ? 'bg-amber-950 text-amber-300 border-amber-600' : 'bg-rose-950 text-rose-300 border-rose-600';
+                            return `
+                            <div class="flex items-center justify-between bg-black/50 p-2 rounded-xl border border-rose-800/60 text-xs">
+                                <span>Từ <strong class="text-amber-300 font-mono">${r.start_time}</strong> ➔ Đến <strong class="text-amber-300 font-mono">${r.end_time}</strong></span>
+                                <span class="${badgeColor} px-2 py-0.5 rounded text-[10px] font-bold border">${label}</span>
                             </div>
-                        `).join('');
+                            `;
+                        }).join('');
                         bookedBox.classList.remove('hidden');
                     }
+                    checkLiveBookingConflict();
                 }).catch(() => {});
             }
 
             calculateRentalPrice();
+            checkLiveBookingConflict();
             document.getElementById('booking-modal').style.display = 'flex';
+        }
+
+        function checkLiveBookingConflict() {
+            const startInp = document.getElementById('book-start-time');
+            const endInp = document.getElementById('book-end-time');
+            const alertBox = document.getElementById('booking-conflict-alert');
+            const descEl = document.getElementById('booking-conflict-alert-desc');
+            const submitBtn = document.getElementById('btn-submit-booking');
+
+            if (!startInp || !endInp || !startInp.value || !endInp.value) {
+                if (alertBox) alertBox.classList.add('hidden');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.className = "bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-gray-950 font-black py-2.5 px-6 rounded-xl text-xs shadow-lg shadow-amber-500/20 transition flex items-center gap-2 cursor-pointer";
+                    submitBtn.innerHTML = '<i class="fa-solid fa-qrcode"></i> Đặt Thuê & Lấy Mã VietQR';
+                }
+                return false;
+            }
+
+            const userStart = startInp.value.replace('T', ' ');
+            const userEnd = endInp.value.replace('T', ' ');
+
+            if (!currentBookedRanges || currentBookedRanges.length === 0) {
+                if (alertBox) alertBox.classList.add('hidden');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.className = "bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-gray-950 font-black py-2.5 px-6 rounded-xl text-xs shadow-lg shadow-amber-500/20 transition flex items-center gap-2 cursor-pointer";
+                    submitBtn.innerHTML = '<i class="fa-solid fa-qrcode"></i> Đặt Thuê & Lấy Mã VietQR';
+                }
+                return false;
+            }
+
+            const conflict = currentBookedRanges.find(r => {
+                if (!r.start_time || !r.end_time) return false;
+                // Xung đột thời gian: userStart < r.end_time && userEnd > r.start_time
+                return (userStart < r.end_time && userEnd > r.start_time);
+            });
+
+            if (conflict) {
+                const isPending = (conflict.status === 'PENDING' || conflict.status === 'HOLD');
+                const statusName = isPending ? 'Đang Chờ Admin Duyệt Tiền' : 'Đang Cho Thuê';
+                if (alertBox && descEl) {
+                    descEl.innerHTML = `⚠️ Thiết bị này đã có khách đặt từ <strong class="text-amber-300 font-mono">${conflict.start_time}</strong> đến <strong class="text-amber-300 font-mono">${conflict.end_time}</strong> (Trạng thái: <strong class="text-yellow-300">${statusName}</strong>). Bạn vui lòng chọn khung giờ khác!`;
+                    alertBox.classList.remove('hidden');
+                }
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.className = "bg-gray-800 text-gray-400 border border-gray-700 py-2.5 px-6 rounded-xl text-xs font-bold font-mono cursor-not-allowed flex items-center gap-2 opacity-80";
+                    submitBtn.innerHTML = '<i class="fa-solid fa-lock text-rose-400"></i> Đã Có Khách Đặt (Bị Trùng Giờ Bận)';
+                }
+                return true;
+            } else {
+                if (alertBox) alertBox.classList.add('hidden');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.className = "bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-gray-950 font-black py-2.5 px-6 rounded-xl text-xs shadow-lg shadow-amber-500/20 transition flex items-center gap-2 cursor-pointer";
+                    submitBtn.innerHTML = '<i class="fa-solid fa-qrcode"></i> Đặt Thuê & Lấy Mã VietQR';
+                }
+                return false;
+            }
         }
 
         function openComboBookingModal(comboId) {
@@ -5661,6 +5741,7 @@
 
             selectedComboForBooking = combo;
             selectedItemForBooking = null;
+            currentBookedRanges = [];
 
             document.getElementById('modal-item-name').innerText = `🌟 ${combo.name}`;
             document.getElementById('modal-item-serial').innerText = `Gói Combo Trọn Gói (${combo.badge})`;
@@ -5684,6 +5765,7 @@
 
             initBookingDates(false);
             calculateRentalPrice();
+            checkLiveBookingConflict();
             document.getElementById('booking-modal').style.display = 'flex';
         }
 
@@ -5919,11 +6001,20 @@
             document.getElementById('calc-days').innerText = `${rentalType} (${Math.round(hours)} giờ)`;
             document.getElementById('calc-rental-price').innerText = `${rentalPrice.toLocaleString()}đ`;
             document.getElementById('calc-total').innerText = `${totalPayable.toLocaleString()}đ`;
+
+            // Kiểm tra trùng lịch trực quan thời gian thực
+            checkLiveBookingConflict();
         }
 
         async function submitBooking() {
             const target = selectedComboForBooking || selectedItemForBooking;
             if (!target || !currentUser) return;
+
+            // Kiểm tra chặn nếu bị trùng lịch bận / đang chờ duyệt
+            if (checkLiveBookingConflict()) {
+                alert("Khung giờ bạn chọn đã có khách đặt / đang chờ duyệt! Vui lòng chọn ngày hoặc giờ khác.");
+                return;
+            }
 
             const startVal = document.getElementById('book-start-time').value.replace('T', ' ');
             const endVal = document.getElementById('book-end-time').value.replace('T', ' ');
@@ -9425,7 +9516,13 @@
         async function autoLoginAdminIfNeeded() {
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('admin') === '1') {
-                if (window.pywebview) {
+                const isDesktopApp = Boolean(
+                    window.pywebview || 
+                    (window.navigator && window.navigator.userAgent && window.navigator.userAgent.toLowerCase().includes('pywebview')) ||
+                    (window.location.hostname === '127.0.0.1') || 
+                    (window.location.hostname === 'localhost')
+                );
+                if (isDesktopApp) {
                     // Đang chạy trong App Desktop TidubaStoreAdmin.exe
                     if (!currentUser || currentUser.role !== 'admin') {
                         await quickLogin('admin', 'admin123');
@@ -9445,6 +9542,10 @@
                 }
             }
         }
+
+        window.addEventListener('pywebviewready', function() {
+            autoLoginAdminIfNeeded();
+        });
 
         async function checkAuthSession() {
             const token = localStorage.getItem('tiduba_token');
