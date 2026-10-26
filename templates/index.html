@@ -311,6 +311,10 @@
                                 <i class="fa-solid fa-calculator text-amber-400 w-4"></i>
                                 <span>Quản Lý & Tính Lại Cọc</span>
                             </button>
+                            <button type="button" onclick="openKiotvietImportModal(); closeAdminNavDropdown();" class="w-full text-left px-3.5 py-2 hover:bg-emerald-950/70 text-emerald-300 hover:text-white flex items-center gap-2.5 transition font-bold" title="Nhập kho hàng loạt từ file Excel xuất từ KiotViet">
+                                <i class="fa-solid fa-file-excel text-emerald-400 w-4"></i>
+                                <span>Nhập Kho KiotViet (Excel)</span>
+                            </button>
                         </div>
                         <div class="border-t border-slate-800 pt-1">
                             <button type="button" onclick="openChangePasswordModal(); closeAdminNavDropdown();" class="w-full text-left px-3.5 py-1.5 hover:bg-slate-800 text-slate-400 hover:text-amber-300 flex items-center gap-2.5 transition text-[11px]">
@@ -558,7 +562,7 @@
                             <h3 class="text-xl sm:text-2xl font-black text-white tracking-tight">Trung Tâm Quản Trị Tiduba Store</h3>
                             <span class="text-[10px] font-mono bg-purple-950 text-purple-300 border border-purple-600 px-2.5 py-0.5 rounded-full font-bold">PRO DASHBOARD</span>
                         </div>
-                        <p class="text-xs text-slate-400 mt-0.5">Duyệt đơn, kho hàng 1.045 món, đối soát tiền cọc, lịch đặt thuê và chốt doanh thu tự động.</p>
+                        <p class="text-xs text-slate-400 mt-0.5">Duyệt đơn, kho hàng <span id="adm-banner-inventory-count">0</span> món, đối soát tiền cọc, lịch đặt thuê và chốt doanh thu tự động.</p>
                     </div>
                 </div>
 
@@ -593,7 +597,7 @@
                     <i class="fa-solid fa-file-invoice"></i> <span>2. Đơn Thuê</span>
                 </button>
                 <button type="button" onclick="switchAdminMainTab('inventory')" id="adm-tab-btn-inventory" class="flex-shrink-0 sm:flex-1 py-2 px-3 sm:py-2.5 sm:px-3.5 rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent">
-                    <i class="fa-solid fa-boxes-stacked"></i> <span id="adm-tab-inventory-label">3. Kho Hàng (<span id="adm-tab-inventory-count">1.045</span>)</span>
+                    <i class="fa-solid fa-boxes-stacked"></i> <span id="adm-tab-inventory-label">3. Kho Hàng (<span id="adm-tab-inventory-count">0</span>)</span>
                 </button>
                 <button type="button" onclick="switchAdminMainTab('crm')" id="adm-tab-btn-crm" class="flex-shrink-0 sm:flex-1 py-2 px-3 sm:py-2.5 sm:px-3.5 rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap text-slate-300 hover:text-white hover:bg-slate-800/80 border border-transparent">
                     <i class="fa-solid fa-users"></i> <span>4. Khách CRM</span>
@@ -863,9 +867,14 @@
                         </h4>
                         <p class="text-xs text-gray-300 mt-0.5">Thêm máy mới, sửa ảnh/giá/album nhiều hình, hạ xuống (tạm ngưng), mở lại hoặc xóa hàng loạt.</p>
                     </div>
-                    <button onclick="openAddItemModal()" class="bg-gradient-to-r from-amber-500 to-yellow-400 text-gray-950 font-black px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition">
-                        <i class="fa-solid fa-plus"></i> Thêm Thiết Bị / Trang Phục Mới
-                    </button>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button onclick="openKiotvietImportModal()" class="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-black px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-950/80 transition" title="Nhập kho hàng loạt từ file Excel xuất từ KiotViet">
+                            <i class="fa-solid fa-file-excel text-yellow-300"></i> Nhập Kho KiotViet (Excel)
+                        </button>
+                        <button onclick="openAddItemModal()" class="bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 text-gray-950 font-black px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition">
+                            <i class="fa-solid fa-plus"></i> Thêm Thiết Bị / Trang Phục Mới
+                        </button>
+                    </div>
                 </div>
 
                 <!-- THANH CÔNG CỤ TÌM KIẾM & THAO TÁC KHO GỌN GÀNG CHO CẢ MOBILE & DESKTOP -->
@@ -896,6 +905,7 @@
                             <button type="button" onclick="adminBulkStatusAction('SET_HIDDEN')" class="bg-purple-950 hover:bg-purple-900 text-purple-300 border border-purple-700 px-2 py-1 rounded-lg font-bold" title="Ẩn khỏi web">🔒 Ẩn</button>
                             <button type="button" onclick="adminBulkStatusAction('SET_UNHIDDEN')" class="bg-teal-950 hover:bg-teal-900 text-teal-300 border border-teal-700 px-2 py-1 rounded-lg font-bold" title="Hiện lại">👁️ Hiện</button>
                             <button type="button" onclick="adminBulkStatusAction('DELETE')" class="bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-700 px-2 py-1 rounded-lg font-bold" title="Xóa các mục đã chọn">🗑️ Xóa</button>
+                            <button type="button" onclick="adminBulkStatusAction('DELETE_ALL')" class="bg-red-950 hover:bg-red-900 text-rose-300 border border-rose-600 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 shadow-sm transition" title="Xóa toàn bộ tất cả sản phẩm trong kho"><i class="fa-solid fa-trash-can"></i> Xóa Tất Cả</button>
                         </div>
 
                         <div class="flex items-center gap-1.5 ml-auto">
@@ -8021,7 +8031,9 @@
             const el = document.getElementById('adm-tab-inventory-count');
             if (el) el.innerText = num.toLocaleString('vi-VN');
             const el2 = document.getElementById('adm-tab-inventory-label');
-            if (el2) el2.innerText = `3. Kho Hàng (${num.toLocaleString('vi-VN')} Món)`;
+            if (el2) el2.innerText = `3. Kho Hàng (${num.toLocaleString('vi-VN')})`;
+            const el3 = document.getElementById('adm-banner-inventory-count');
+            if (el3) el3.innerText = num.toLocaleString('vi-VN');
         }
 
         async function fetchAdminInventory(force = false) {
@@ -8029,13 +8041,6 @@
             if (!force && rawAdminInventoryItems && rawAdminInventoryItems.length > 0) {
                 adminFilterInventoryTable();
                 return;
-            }
-
-            // 2. Tự động lấy ngay từ allItems nếu allItems đã được nạp ở catalog -> không bao giờ để bảng bị trống 0 món!
-            if (typeof allItems !== 'undefined' && Array.isArray(allItems) && allItems.length > 0 && (!rawAdminInventoryItems || rawAdminInventoryItems.length === 0)) {
-                rawAdminInventoryItems = [...allItems];
-                updateInventoryTabCount(allItems.length);
-                adminFilterInventoryTable();
             }
 
             if (isFetchingAdminInventory) return;
@@ -8052,11 +8057,9 @@
                 const res = await fetch('/api/items?include_hidden=true', { headers });
                 if (res.ok) {
                     const data = await res.json();
-                    if (data && Array.isArray(data.items) && data.items.length > 0) {
+                    if (data && Array.isArray(data.items)) {
                         rawAdminInventoryItems = data.items;
-                        if (typeof allItems === 'undefined' || !allItems || allItems.length === 0) {
-                            allItems = data.items;
-                        }
+                        allItems = data.items;
                         updateInventoryTabCount(data.items.length);
                         adminFilterInventoryTable();
                         isFetchingAdminInventory = false;
@@ -8070,7 +8073,7 @@
             }
 
             // Fallback sang allItems nếu fetch lỗi
-            if (typeof allItems !== 'undefined' && Array.isArray(allItems) && allItems.length > 0) {
+            if (typeof allItems !== 'undefined' && Array.isArray(allItems)) {
                 rawAdminInventoryItems = [...allItems];
                 updateInventoryTabCount(allItems.length);
                 adminFilterInventoryTable();
@@ -8078,24 +8081,16 @@
         }
 
         function renderAdminInventoryTable(items) {
-            if (items && Array.isArray(items) && items.length > 0) {
+            if (items && Array.isArray(items)) {
                 rawAdminInventoryItems = items;
+                allItems = items;
                 updateInventoryTabCount(items.length);
-            } else if ((!rawAdminInventoryItems || rawAdminInventoryItems.length === 0) && typeof allItems !== 'undefined' && Array.isArray(allItems) && allItems.length > 0) {
-                rawAdminInventoryItems = [...allItems];
-                updateInventoryTabCount(allItems.length);
             }
             adminFilterInventoryTable();
         }
 
         function adminFilterInventoryTable(resetLimit = true) {
             if (resetLimit) adminInventoryCurrentLimit = 50;
-
-            // Nếu rawAdminInventoryItems rỗng mà allItems đã có dữ liệu -> nạp ngay lập tức!
-            if ((!rawAdminInventoryItems || rawAdminInventoryItems.length === 0) && typeof allItems !== 'undefined' && Array.isArray(allItems) && allItems.length > 0) {
-                rawAdminInventoryItems = [...allItems];
-                updateInventoryTabCount(allItems.length);
-            }
 
             const searchKw = normalizeSearchText(document.getElementById('adm-item-search-kw') ? document.getElementById('adm-item-search-kw').value : '');
             const filterAvail = document.getElementById('adm-item-filter-avail') ? document.getElementById('adm-item-filter-avail').value : 'ALL';
@@ -8123,8 +8118,29 @@
 
             if (filtered.length === 0) {
                 if (!rawAdminInventoryItems || rawAdminInventoryItems.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-amber-400 font-mono text-xs"><i class="fa-solid fa-spinner animate-spin text-base mr-2"></i>Đang nạp dữ liệu kho hàng... <button onclick="fetchAdminInventory(true)" class="underline text-cyan-300 ml-2">Tải lại</button></td></tr>`;
-                    fetchAdminInventory(true);
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="8" class="p-12 text-center font-mono">
+                                <div class="max-w-md mx-auto space-y-3">
+                                    <div class="w-14 h-14 mx-auto rounded-2xl bg-slate-900 border border-slate-700 flex items-center justify-center text-2xl text-amber-400">
+                                        <i class="fa-solid fa-boxes-packing"></i>
+                                    </div>
+                                    <div class="text-white font-bold text-sm">Kho hàng hiện tại đang trống (0 sản phẩm).</div>
+                                    <div class="text-slate-400 text-xs leading-relaxed font-sans">
+                                        Bạn có thể xuất file Excel từ KiotViet rồi bấm nút bên dưới để nạp toàn bộ vào kho Web & App trong 2 giây!
+                                    </div>
+                                    <div class="pt-2 flex items-center justify-center gap-2 font-mono">
+                                        <button type="button" onclick="openKiotvietImportModal()" class="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-black py-2.5 px-4 rounded-xl text-xs flex items-center gap-1.5 shadow-lg transition">
+                                            <i class="fa-solid fa-file-excel text-yellow-300"></i> Nhập Kho KiotViet (Excel)
+                                        </button>
+                                        <button type="button" onclick="openAddItemModal()" class="bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 text-gray-950 font-black py-2.5 px-4 rounded-xl text-xs flex items-center gap-1.5 shadow-lg transition">
+                                            <i class="fa-solid fa-plus"></i> Thêm Món Mới
+                                        </button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
                 } else {
                     tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-gray-500 font-mono text-xs">Không tìm thấy thiết bị hoặc trang phục nào khớp với từ khóa tìm kiếm.</td></tr>`;
                 }
@@ -8229,12 +8245,17 @@
             if (lbl) lbl.innerText = `Đã chọn: ${checked.length}`;
         }
 
+        function openKiotvietImportModal() {
+            openKiotvietHubModal();
+            switchKiotvietTab('file');
+        }
+
         async function adminBulkStatusAction(action) {
             const token = localStorage.getItem('tiduba_token');
             if (!currentUser || currentUser.role !== 'admin' || !token) return;
 
             let selectedIds = [];
-            if (action !== 'ALL_AVAILABLE' && action !== 'ALL_UNAVAILABLE') {
+            if (action !== 'ALL_AVAILABLE' && action !== 'ALL_UNAVAILABLE' && action !== 'DELETE_ALL') {
                 const checked = document.querySelectorAll('.adm-item-chk:checked');
                 selectedIds = Array.from(checked).map(cb => parseInt(cb.value)).filter(id => !isNaN(id));
                 if (selectedIds.length === 0) {
@@ -8246,6 +8267,7 @@
             let confirmMsg = "";
             if (action === 'ALL_AVAILABLE') confirmMsg = "Xác nhận MỞ LẠI TOÀN BỘ sản phẩm trong kho sang trạng thái SẴN SÀNG?";
             else if (action === 'ALL_UNAVAILABLE') confirmMsg = "Xác nhận HẠ XUỐNG TOÀN BỘ sản phẩm trong kho sang trạng thái TẠM NGƯNG?";
+            else if (action === 'DELETE_ALL') confirmMsg = "⚠️ CẢNH BÁO NGUY HIỂM:\nBạn có chắc chắn muốn XÓA SẠCH TOÀN BỘ sản phẩm trong kho hàng không?\n\nThao tác này sẽ xóa sạch tất cả sản phẩm khỏi kho và web/app!";
             else if (action === 'SET_AVAILABLE') confirmMsg = `Xác nhận mở lại ${selectedIds.length} sản phẩm đã chọn sang SẴN SÀNG?`;
             else if (action === 'SET_UNAVAILABLE') confirmMsg = `Xác nhận hạ ${selectedIds.length} sản phẩm đã chọn xuống TẠM NGƯNG?`;
             else if (action === 'SET_HIDDEN') confirmMsg = `Xác nhận ẨN HOÀN TOÀN ${selectedIds.length} sản phẩm đã chọn khỏi web khách?`;

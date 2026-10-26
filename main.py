@@ -4616,7 +4616,7 @@ def delete_item_admin(item_id: int, admin: Dict[str, Any] = Depends(require_admi
 
 class BulkItemsStatusRequest(BaseModel):
     item_ids: Optional[List[int]] = None
-    action: str  # "ALL_AVAILABLE", "ALL_UNAVAILABLE", "SET_AVAILABLE", "SET_UNAVAILABLE", "SET_HIDDEN", "SET_UNHIDDEN", "DELETE"
+    action: str  # "ALL_AVAILABLE", "ALL_UNAVAILABLE", "SET_AVAILABLE", "SET_UNAVAILABLE", "SET_HIDDEN", "SET_UNHIDDEN", "DELETE", "DELETE_ALL"
 
 
 @app.post("/api/admin/items/bulk_status")
@@ -4630,12 +4630,20 @@ def bulk_items_status(req: BulkItemsStatusRequest, admin: Dict[str, Any] = Depen
     - SET_HIDDEN: Ẩn hoàn toàn các sản phẩm được chọn khỏi web khách.
     - SET_UNHIDDEN: Hiện lại các sản phẩm đã ẩn.
     - DELETE: Xóa các sản phẩm được chọn.
+    - DELETE_ALL: Xóa sạch toàn bộ sản phẩm trong kho hàng (0 món).
     """
     conn = get_db()
     cur = conn.cursor()
     action = req.action.upper().strip()
 
-    if action == "ALL_AVAILABLE":
+    if action == "DELETE_ALL":
+        cur.execute("DELETE FROM items")
+        conn.commit()
+        sync_items_availability(conn)
+        conn.close()
+        return {"success": True, "message": "🗑️ Đã xóa sạch toàn bộ sản phẩm trong kho hàng (0 món)!"}
+
+    elif action == "ALL_AVAILABLE":
         cur.execute("UPDATE items SET availability = 'AVAILABLE' WHERE availability = 'UNAVAILABLE'")
         conn.commit()
         sync_items_availability(conn)
@@ -5647,6 +5655,7 @@ async def import_kiotviet_file_upload(file: UploadFile = File(...), admin: Dict[
 
     conn = get_db()
     res = import_kiotviet_excel_or_csv(conn, content, fname)
+    sync_items_availability(conn)
     conn.close()
     return res
 

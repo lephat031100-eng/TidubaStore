@@ -34,6 +34,18 @@ def ensure_items_available():
     conn = get_db()
     cur = conn.cursor()
     cur.execute("UPDATE rentals SET status = 'RETURNED' WHERE status IN ('ACTIVE', 'HOLD', 'OVERDUE', 'PENDING', 'APPROVED')")
+    item1 = cur.execute("SELECT id FROM items WHERE id = 1").fetchone()
+    if not item1:
+        cur.execute("""
+            INSERT OR REPLACE INTO items (id, name, description, category, subcategory, brand, price_4h, price_8h, price_24h, deposit_amount, availability, serial_or_size, condition_status, image_url, created_at)
+            VALUES (1, 'Sony A7 Mark IV', 'Mô tả test máy ảnh', 'CAMERA_GEAR', 'Camera Body', 'Sony', 200000, 300000, 450000, 5000000, 'AVAILABLE', 'ILCE-7M4-TEST', 'Like New 99%', '/static/logo.png', '2026-10-01 10:00:00')
+        """)
+    item2 = cur.execute("SELECT id FROM items WHERE id = 2").fetchone()
+    if not item2:
+        cur.execute("""
+            INSERT OR REPLACE INTO items (id, name, description, category, subcategory, brand, price_4h, price_8h, price_24h, deposit_amount, availability, serial_or_size, condition_status, image_url, created_at)
+            VALUES (2, 'Set Cổ Phục Nhật Bình Hoàng Cung', 'Mô tả cổ phục', 'COSTUME_FASHION', 'Cổ Phục', 'Tiduba', 100000, 150000, 200000, 1000000, 'AVAILABLE', 'Size M', 'Like New 99%', '/static/logo.png', '2026-10-01 10:00:00')
+        """)
     cur.execute("UPDATE items SET availability = 'AVAILABLE'")
     conn.commit()
     conn.close()
@@ -77,7 +89,7 @@ def test_get_items_catalog():
     res = client.get("/api/items")
     assert res.status_code == 200
     data = res.json()
-    assert data["count"] >= 10
+    assert data["count"] >= 2
     
     categories = {i["category"] for i in data["items"]}
     assert "CAMERA_GEAR" in categories
@@ -1215,3 +1227,39 @@ def test_pending_order_locks_item_calendar():
     matched = [rg for rg in ranges if rg["start_time"] == st.strftime("%Y-%m-%d %H:%M")]
     assert len(matched) == 1
     assert matched[0]["status"] == "PENDING"
+
+
+def test_bulk_delete_all_and_kiotviet_import():
+    """Kiểm tra: Admin xóa toàn bộ kho hàng (DELETE_ALL) và nhập kho KiotViet qua file CSV/Excel."""
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    adm_token = login_adm.json()["token"]
+    adm_headers = {"Authorization": f"Bearer {adm_token}"}
+
+    # 1. Thao tác Xóa Toàn Bộ Kho Hàng (DELETE_ALL)
+    del_all = client.post("/api/admin/items/bulk_status", json={"action": "DELETE_ALL"}, headers=adm_headers)
+    assert del_all.status_code == 200
+    assert del_all.json()["success"] is True
+
+    # Kiểm tra kho trống 0 món
+    items_empty = client.get("/api/items?include_hidden=true")
+    assert items_empty.status_code == 200
+    assert items_empty.json()["count"] == 0
+
+    # 2. Nhập kho hàng loạt từ file CSV KiotViet
+    csv_sample = (
+        "Mã hàng,Tên hàng,Nhóm hàng,Giá bán,Tồn kho,Hình ảnh,Mô tả\n"
+        "SP001,Máy ảnh Sony Alpha A7 IV,Máy ảnh & Gear,450000,5,/static/sony.png,Body máy ảnh chuyên nghiệp\n"
+        "SP002,Váy dạ hội đỏ thiết kế,Váy Tiệc & Lễ Hội,150000,2,/static/vay.png,Váy dự tiệc cao cấp\n"
+    )
+    import_res = client.post(
+        "/api/admin/kiotviet/import_file",
+        files={"file": ("KiotViet_Products.csv", csv_sample.encode("utf-8"), "text/csv")},
+        headers=adm_headers
+    )
+    assert import_res.status_code == 200
+    assert import_res.json()["success"] is True
+
+    # Kiểm tra kho hàng đã nạp đúng sản phẩm
+    items_after = client.get("/api/items?include_hidden=true")
+    assert items_after.status_code == 200
+    assert items_after.json()["count"] >= 2
