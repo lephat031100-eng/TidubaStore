@@ -4116,14 +4116,12 @@
                                     ${isUnavail
                                         ? `<span class="w-full bg-[#f5f5f4] text-[#78716c] py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 font-sans font-bold"><i class="fa-solid fa-ban"></i> Tạm Ngưng</span>`
                                         : `
-                                            ${isAvail ? `
-                                                <button onclick="addToCart(${item.id})" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#fef3c7] hover:bg-[#fde68a] text-[#92400e] border border-[#fcd34d] flex items-center justify-center text-sm shadow-sm transition flex-shrink-0" title="Thêm vào giỏ hàng">
-                                                    <i class="fa-solid fa-cart-plus"></i>
-                                                </button>
-                                            ` : ''}
-                                            <button onclick="openBookingModal(${item.id})" class="flex-1 h-9 sm:h-10 ${isAvail ? 'bg-[#c86d51] hover:bg-[#b55d42] text-white font-bold shadow-sm' : 'bg-rose-50 text-rose-700 border border-rose-300 cursor-not-allowed font-bold'} px-2 sm:px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5 whitespace-nowrap" ${!isAvail ? 'disabled' : ''}>
-                                                <i class="fa-solid ${isAvail ? 'fa-bolt' : 'fa-clock'}"></i>
-                                                <span>${isAvail ? 'Thuê Ngay' : 'Đang Thuê'}</span>
+                                            <button onclick="addToCart(${item.id})" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#fef3c7] hover:bg-[#fde68a] text-[#92400e] border border-[#fcd34d] flex items-center justify-center text-sm shadow-sm transition flex-shrink-0" title="Thêm vào giỏ hàng">
+                                                <i class="fa-solid fa-cart-plus"></i>
+                                            </button>
+                                            <button onclick="openBookingModal(${item.id})" class="flex-1 h-9 sm:h-10 bg-[#c86d51] hover:bg-[#b55d42] text-white font-bold shadow-sm px-2 sm:px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer" title="${isRented ? 'Món này đang có khách thuê, bấm để đặt thuê ngày/giờ khác' : 'Bấm để đặt thuê ngay'}">
+                                                <i class="fa-solid ${isRented ? 'fa-calendar-check' : 'fa-bolt'}"></i>
+                                                <span>${isRented ? 'Thuê Ngày Khác' : 'Thuê Ngay'}</span>
                                             </button>
                                         `
                                     }
@@ -5553,8 +5551,8 @@
 
         function isAoDaiItem(item) {
             if (!item) return false;
-            const combined = `${item.name || ''} ${item.subcategory || ''} ${item.brand || ''}`.toLowerCase();
-            return ["ao dai", "ao_dai", "aodai", "áo dài"].some(k => combined.includes(k));
+            const combined = normalizeSearchText(`${item.name || ''} ${item.subcategory || ''} ${item.brand || ''}`);
+            return ["ao dai", "ao_dai", "aodai"].some(k => combined.includes(k));
         }
 
         function openBookingModal(itemId) {
@@ -5583,12 +5581,12 @@
                     costumeAlert.classList.remove('hidden');
                     costumeAlert.innerHTML = `
                         <div class="font-bold flex items-center gap-1.5 text-amber-300">
-                            <i class="fa-solid fa-shirt"></i> QUY ĐỊNH THUÊ ÁO DÀI THIẾT KẾ:
+                            <i class="fa-solid fa-shirt"></i> QUY ĐỊNH THUÊ ÁO DÀI (TRẢ TRONG NGÀY):
                         </div>
                         <div class="text-[11px] leading-relaxed">
-                            • <strong>Áo dài hạn chế thuê dài ngày</strong> (trả trước 20:00).<br>
-                            • Thuê dài ngày: <strong>Cứ thêm 1 ngày cộng thêm 20.000đ</strong>.<br>
-                            <span class="text-emerald-300">✓ Ví dụ: 1 ngày = ${Number(item.price_24h).toLocaleString()}đ; 2 ngày = ${(Number(item.price_24h) + 20000).toLocaleString()}đ.</span>
+                            • <strong>Thuê áo dài tính theo ngày trả trong ngày</strong>: Lấy sáng từ 08:00, hạn trả cố định trước <strong>20:00 cùng ngày</strong>.<br>
+                            • Thuê dài ngày: <strong>Cứ thêm 1 ngày cộng thêm 20.000đ</strong> (hạn trả cố định trước 20:00 ngày kết thúc).<br>
+                            <span class="text-emerald-300">✓ Ví dụ: Lấy 08:00 sáng - trả trước 20:00 tối cùng ngày = 1 ngày (${Number(item.price_24h).toLocaleString()}đ).</span>
                         </div>
                     `;
                 } else if (isCostume) {
@@ -5628,11 +5626,11 @@
                     document.getElementById('cam-pkg-price-4h').innerText = `${Number(item.price_4h).toLocaleString()}đ`;
                     document.getElementById('cam-pkg-price-8h').innerText = `${Number(item.price_8h).toLocaleString()}đ`;
                     document.getElementById('cam-pkg-price-1_day').innerText = `${Number(item.price_24h).toLocaleString()}đ`;
-                    initBookingDates(false);
+                    initBookingDates(false, false);
                     selectCameraDurationPackage('1_day');
                 } else {
                     camPkgPicker.classList.add('hidden');
-                    initBookingDates(isCostume);
+                    initBookingDates(isCostume, isAoDai);
                 }
             } else {
                 initBookingDates(isCostume);
@@ -5790,7 +5788,7 @@
             return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
         }
 
-        function initBookingDates(isCostume = false) {
+        function initBookingDates(isCostume = false, isAoDai = false) {
             const now = new Date();
             const pad = (n) => String(n).padStart(2, '0');
 
@@ -5818,8 +5816,16 @@
                 startInp.min = formatDtInput(now); // Chặn chọn ngày/giờ trong quá khứ
             }
 
-            if (isCostume) {
-                // TRANG PHỤC: Mặc định hạn trả luôn là 20:00 ngày hôm sau
+            if (isAoDai) {
+                // ÁO DÀI (YÊU CẦU 2): Thuê và trả trong ngày, giờ trả cố định là 20:00 cùng ngày
+                const sameDayReturn = new Date(pickup);
+                sameDayReturn.setHours(20, 0, 0, 0);
+                if (endInp) {
+                    endInp.value = formatDtInput(sameDayReturn);
+                    endInp.min = startStr;
+                }
+            } else if (isCostume) {
+                // TRANG PHỤC KHÁC: Mặc định hạn trả luôn là 20:00 ngày hôm sau
                 const tomorrow = new Date(pickup.getTime() + 86400000);
                 tomorrow.setHours(20, 0, 0, 0);
                 if (endInp) {
@@ -5848,11 +5854,12 @@
             let et = new Date(endInp.value);
             const target = selectedComboForBooking || selectedItemForBooking;
             const isCostume = target && target.category === 'COSTUME_FASHION';
+            const isAoDai = target && isAoDaiItem(target);
 
             // 1. Chặn chọn ngày trong quá khứ
             if (st < new Date(now.getTime() - 600000)) {
                 alert("⚠️ Không thể chọn thời gian trong quá khứ! Giờ nhận đồ đã được tự động đưa về thời gian hợp lệ.");
-                initBookingDates(isCostume);
+                initBookingDates(isCostume, isAoDai);
                 return;
             }
 
@@ -5877,15 +5884,29 @@
                 endInp.value = formatDtInput(et);
             }
 
-            // 3. Nếu là trang phục: hạn trả luôn là 20:00
-            if (isCostume && et.getHours() !== 20) {
+            // 3. Nếu là Áo Dài hoặc Trang Phục: giờ trả CỐ ĐỊNH luôn là 20:00
+            if ((isCostume || isAoDai) && et.getHours() !== 20) {
                 et.setHours(20, 0, 0, 0);
                 endInp.value = formatDtInput(et);
             }
 
-            // 4. Nếu giờ trả <= giờ nhận: tự động đẩy giờ trả lên
+            // 4. Nếu là Áo Dài và vừa thay đổi ngày nhận đồ: tự động đặt ngày trả về cùng ngày lúc 20:00
+            if (isAoDai && type === 'start') {
+                et = new Date(st);
+                et.setHours(20, 0, 0, 0);
+                endInp.value = formatDtInput(et);
+            }
+
+            // 5. Nếu giờ trả <= giờ nhận: tự động đẩy giờ trả lên
             if (et <= st) {
-                if (isCostume) {
+                if (isAoDai) {
+                    et = new Date(st);
+                    et.setHours(20, 0, 0, 0);
+                    if (et <= st) {
+                        et.setDate(et.getDate() + 1);
+                        et.setHours(20, 0, 0, 0);
+                    }
+                } else if (isCostume) {
                     et = new Date(st.getTime() + 86400000);
                     et.setHours(20, 0, 0, 0);
                 } else {
@@ -5901,6 +5922,8 @@
 
         function applyQuickDuration(hours) {
             const target = selectedComboForBooking || selectedItemForBooking;
+            const isAoDai = target && isAoDaiItem(target);
+            const isCostume = target && target.category === 'COSTUME_FASHION';
             if (target && !isCameraItem(target) && hours < 24) {
                 hours = 24; // Chỉ máy ảnh mới có ca 4h-8h. Các mặt hàng khác tính theo ngày
             }
@@ -5922,11 +5945,16 @@
             
             const days = Math.max(1, Math.round(hours / 24));
             let endDt;
-            if (hours < 24) {
+            if (isAoDai) {
+                // Áo dài: 1 ngày = trả trước 20:00 cùng ngày; 2 ngày = 20:00 hôm sau
+                endDt = new Date(startDt);
+                endDt.setDate(startDt.getDate() + (days - 1));
+                endDt.setHours(20, 0, 0, 0);
+            } else if (hours < 24) {
                 endDt = new Date(startDt.getTime() + hours * 3600000);
             } else {
                 endDt = new Date(startDt.getTime() + days * 86400000);
-                if (target && target.category === 'COSTUME_FASHION') {
+                if (isCostume) {
                     endDt.setHours(20, 0, 0, 0);
                 }
             }
@@ -5958,25 +5986,35 @@
 
             const hours = diffSec / 3600;
             const isCostume = target.category === 'COSTUME_FASHION';
+            const isAoDai = isAoDaiItem(target);
             const isCam = isCameraItem(target);
             let rentalType, rentalPrice;
 
-            if (isCostume || !isCam) {
+            if (isCostume || !isCam || isAoDai) {
                 // TRANG PHỤC & CÁC MẶT HÀNG KHÔNG PHẢI MÁY ẢNH:
-                // Thêm 1 ngày: đồ dưới 1 triệu thêm 10k, đồ trên 1 triệu thêm 30k. RIÊNG ÁO DÀI thêm 1 ngày +20k
+                // Áo dài: 1 ngày = trả trước 20:00 cùng ngày; thêm 1 ngày = +20k
+                // Trang phục khác: 1 ngày = trả trước 20:00 ngày tiếp theo; thêm 1 ngày = +10k (hoặc +30k nếu >= 1tr)
                 const startDay = new Date(dtStart.getFullYear(), dtStart.getMonth(), dtStart.getDate());
                 const endDay = new Date(dtEnd.getFullYear(), dtEnd.getMonth(), dtEnd.getDate());
                 const calendarDays = Math.round((endDay - startDay) / 86400000);
                 let days = 1.0;
-                if (calendarDays <= 1) {
-                    days = 1.0;
+                if (isAoDai) {
+                    if (calendarDays <= 0) {
+                        days = 1.0;
+                    } else {
+                        days = calendarDays + 1;
+                    }
+                    rentalType = `${days} ngày (trả trước 20:00)`;
                 } else {
-                    days = calendarDays;
+                    if (calendarDays <= 1) {
+                        days = 1.0;
+                    } else {
+                        days = calendarDays;
+                    }
+                    rentalType = `${days} ngày${isCostume ? ' (trả trước 20:00)' : ''}`;
                 }
-                rentalType = `${days} ngày${isCostume ? ' (trả trước 20:00)' : ''}`;
 
                 const baseP = Number(target.price_24h) || 0;
-                const isAoDai = isAoDaiItem(target);
                 const extraPerDay = isAoDai ? 20000 : (baseP >= 1000000 ? 30000 : 10000);
                 if (days <= 1) {
                     rentalPrice = baseP;
@@ -9137,9 +9175,16 @@
                         body: JSON.stringify(payload)
                     });
                 }
-                const data = await res.json();
+                const text = await res.text();
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    alert("Lỗi phản hồi máy chủ (" + res.status + "): " + text);
+                    return;
+                }
                 if (!res.ok) {
-                    alert(data.detail || "Lỗi lưu sản phẩm");
+                    alert(data.detail || data.message || "Lỗi lưu sản phẩm");
                     return;
                 }
                 closeAddItemModal();

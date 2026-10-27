@@ -931,9 +931,9 @@ def test_ao_dai_multi_days_pricing():
     assert is_ao_dai_item(item_category="COSTUME_FASHION", item_name="Áo Dài Cách Tân Thêu Hoa", subcategory="Áo Dài") is True
     assert is_ao_dai_item(item_category="COSTUME_FASHION", item_name="Váy Dạ Hội Đính Đá", subcategory="Váy Tiệc") is False
 
-    # 1. Áo dài giá 100k thuê 1 ngày
+    # 1. Áo dài giá 100k thuê 1 ngày (trả cố định 20:00 trong ngày, ví dụ 8h lấy -> 20h trả)
     t1, h1, d1, p1, s1, e1 = calculate_rental_metrics(
-        "2026-10-20 10:00", "2026-10-21 20:00", 0, 0, 100000,
+        "2026-10-20 08:00", "2026-10-20 20:00", 0, 0, 100000,
         item_category="COSTUME_FASHION", item_name="Áo Dài Thiết Kế", subcategory="Áo Dài"
     )
     assert p1 == 100000
@@ -941,7 +941,7 @@ def test_ao_dai_multi_days_pricing():
 
     # 2. Áo dài giá 100k thuê 2 ngày -> +20k = 120k
     t2, h2, d2, p2, s2, e2 = calculate_rental_metrics(
-        "2026-10-20 10:00", "2026-10-22 20:00", 0, 0, 100000,
+        "2026-10-20 08:00", "2026-10-21 20:00", 0, 0, 100000,
         item_category="COSTUME_FASHION", item_name="Áo Dài Thiết Kế", subcategory="Áo Dài"
     )
     assert p2 == 120000
@@ -949,7 +949,7 @@ def test_ao_dai_multi_days_pricing():
 
     # 3. Áo dài giá 100k thuê 3 ngày -> +40k = 140k
     t3, h3, d3, p3, s3, e3 = calculate_rental_metrics(
-        "2026-10-20 10:00", "2026-10-23 20:00", 0, 0, 100000,
+        "2026-10-20 08:00", "2026-10-22 20:00", 0, 0, 100000,
         item_category="COSTUME_FASHION", item_name="Áo Dài Thiết Kế", subcategory="Áo Dài"
     )
     assert p3 == 140000
@@ -1263,3 +1263,89 @@ def test_bulk_delete_all_and_kiotviet_import():
     items_after = client.get("/api/items?include_hidden=true")
     assert items_after.status_code == 200
     assert items_after.json()["count"] >= 2
+
+
+def test_admin_create_item_with_subcategory_success():
+    """Kiểm tra: Admin thêm thiết bị/trang phục mới kèm subcategory tiếng Việt không bị lỗi NameError normalize_str."""
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    adm_token = login_adm.json()["token"]
+    adm_headers = {"Authorization": f"Bearer {adm_token}"}
+
+    create_res = client.post("/api/admin/items", json={
+        "name": "Canon EOS R50 Body",
+        "category": "CAMERA_GEAR",
+        "subcategory": "Flycam / Body / Cổ Phục",
+        "brand": "Canon",
+        "serial_or_size": "SP000718",
+        "price_4h": 150000,
+        "price_8h": 250000,
+        "price_24h": 350000,
+        "deposit_amount": 0,
+        "image_url": "/static/uploads/canon_r50.png",
+        "gallery_json": "[]",
+        "description": "Máy ảnh Canon R50 nhỏ gọn quay 4K",
+        "condition_status": "Mới 99%, hoạt động hoàn hảo"
+    }, headers=adm_headers)
+    assert create_res.status_code == 200
+    data = create_res.json()
+    assert data["success"] is True
+    assert "item_id" in data
+
+
+def test_ao_dai_same_day_return_pricing():
+    """Kiểm tra: Áo dài thuê và trả trong ngày (08:00 sáng -> 20:00 tối cùng ngày) tính đúng 1 ngày."""
+    from main import calculate_rental_metrics
+    # Áo dài 1 ngày: nhận 08:00, trả 20:00 cùng ngày
+    r_type, hours, r_days, price, st, et = calculate_rental_metrics(
+        "2026-10-28 08:00", "2026-10-28 20:00", 0, 0, 80000,
+        item_category="COSTUME_FASHION", item_name="Áo Dài Xanh Ngọc Tag Trắng"
+    )
+    assert r_days == 1.0
+    assert price == 80000
+    assert et.hour == 20
+    assert et.day == 28
+
+    # Áo dài 2 ngày: nhận 08:00 28/10, trả 20:00 29/10 (+20.000đ)
+    r_type2, hours2, r_days2, price2, st2, et2 = calculate_rental_metrics(
+        "2026-10-28 08:00", "2026-10-29 20:00", 0, 0, 80000,
+        item_category="COSTUME_FASHION", item_name="Áo Dài Xanh Ngọc Tag Trắng"
+    )
+    assert r_days2 == 2.0
+    assert price2 == 100000
+    assert et2.hour == 20
+    assert et2.day == 29
+
+
+def test_pos_kiotviet_conflict_rejected():
+    """Kiểm tra: POS KiotViet checkout cũng bị chặn không cho đặt trùng giờ/ngày."""
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    adm_token = login_adm.json()["token"]
+    adm_headers = {"Authorization": f"Bearer {adm_token}"}
+
+    # 1. Tạo 1 đơn thuê món 1 từ 10:00 đến 18:00
+    st = (datetime.datetime.now() + datetime.timedelta(days=10)).replace(hour=10, minute=0, second=0)
+    et = (st + datetime.timedelta(hours=8)).replace(minute=0, second=0)
+    client.post("/api/rentals/book", json={
+        "item_id": 1,
+        "start_time": st.strftime("%Y-%m-%d %H:%M"),
+        "end_time": et.strftime("%Y-%m-%d %H:%M")
+    }, headers=adm_headers)
+
+    # 2. Nhân viên POS KiotViet cố tình bán trực tiếp món 1 trong khung giờ đó
+    pos_res = client.post("/api/rentals/book_multi", json={
+        "items": [{
+            "item_id": 1,
+            "rental_type": "8h",
+            "days": 0.5,
+            "start_time": st.strftime("%Y-%m-%d %H:%M"),
+            "end_time": et.strftime("%Y-%m-%d %H:%M"),
+            "custom_price": 250000
+        }],
+        "start_time": st.strftime("%Y-%m-%d %H:%M"),
+        "end_time": et.strftime("%Y-%m-%d %H:%M"),
+        "is_direct_paid": True,
+        "customer_notes": "KiotViet POS - Test duplicate"
+    }, headers=adm_headers)
+
+    assert pos_res.status_code == 400
+    assert "đã có khách đặt/thuê" in pos_res.json()["detail"]

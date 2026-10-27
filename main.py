@@ -1141,19 +1141,34 @@ def is_camera_body_item(item_category: Optional[str] = None, item_name: Optional
     return True
 
 
+def normalize_str(s: str) -> str:
+    """Chuẩn hóa chuỗi tìm kiếm không dấu, chữ thường."""
+    if not s:
+        return ""
+    s = s.lower().strip()
+    s = re.sub(r'[àáạảãâầấậẩẫăằắặẳẵ]', 'a', s)
+    s = re.sub(r'[èéẹẻẽêềếệểễ]', 'e', s)
+    s = re.sub(r'[ìíịỉĩ]', 'i', s)
+    s = re.sub(r'[òóọỏõôồốộổỗơờớợởỡ]', 'o', s)
+    s = re.sub(r'[ùúụủũưừứựửữ]', 'u', s)
+    s = re.sub(r'[ỳýỵỷỹ]', 'y', s)
+    s = re.sub(r'[đ]', 'd', s)
+    return s
+
+
 def is_ao_dai_item(item_category: Optional[str] = None, item_name: Optional[str] = None, subcategory: Optional[str] = None, brand: Optional[str] = None) -> bool:
-    """Kiểm tra sản phẩm có phải Áo Dài hay không (Áo dài hạn chế thuê dài ngày, thêm 1 ngày +20.000đ)."""
-    combined = f"{item_name or ''} {subcategory or ''} {brand or ''}".lower()
-    return any(k in combined for k in ["ao dai", "ao_dai", "aodai", "áo dài"])
+    """Kiểm tra sản phẩm có phải Áo Dài hay không (Áo dài thuê và trả trong ngày 08:00 - 20:00, thêm 1 ngày +20.000đ)."""
+    combined = normalize_str(f"{item_name or ''} {subcategory or ''} {brand or ''}")
+    return any(k in combined for k in ["ao dai", "ao_dai", "aodai"])
 
 
 def calculate_rental_metrics(start_iso: str, end_iso: str, price_4h: int, price_8h: int, price_24h: int,
                               item_category: Optional[str] = None, item_name: Optional[str] = None, subcategory: Optional[str] = None):
     """
     Tính toán thời lượng thuê theo ca (4h/8h) hoặc block ngày (24h) và giá tiền.
-    - Máy ảnh (CAMERA_GEAR body/kit): tính theo ca 4h/8h hoặc ngày.
-    - Áo dài: hạn chế thuê dài ngày, thêm 1 ngày = +20.000đ.
-    - Các mục trang phục khác: thêm 1 ngày = +10.000đ (hoặc +30.000đ nếu đồ >= 1tr).
+    - Áo dài: Thuê và trả trong ngày (ví dụ 08:00 sáng lấy -> hạn trả cố định trước 20:00 cùng ngày); thêm 1 ngày = +20.000đ.
+    - Trang phục khác: 1 ngày = nhận hôm nay, trả trước 20:00 ngày hôm sau; thêm 1 ngày = +10.000đ (hoặc +30.000đ nếu đồ >= 1tr).
+    - Máy ảnh (CAMERA_GEAR body/kit): tính theo ca 4h/8h hoặc ngày 24h.
     """
     try:
         dt_start = datetime.datetime.fromisoformat(start_iso.replace("Z", ""))
@@ -1170,8 +1185,26 @@ def calculate_rental_metrics(start_iso: str, end_iso: str, price_4h: int, price_
     is_costume = item_category == "COSTUME_FASHION"
     is_ad = is_ao_dai_item(item_category, item_name, subcategory)
 
-    if is_costume:
-        # TRANG PHỤC: 1 ngày = nhận hôm nay, trả trước 20:00 ngày hôm sau
+    if is_costume or is_ad:
+        if is_ad:
+            # ÁO DÀI (YÊU CẦU 2): Thuê và trả trong ngày cố định (Ví dụ: 08:00 sáng lấy -> hạn trả cố định trước 20:00 cùng ngày)
+            calendar_diff = (dt_end.date() - dt_start.date()).days
+            if calendar_diff <= 0:
+                days = 1.0
+                dt_end_effective = datetime.datetime.combine(dt_start.date(), datetime.time(20, 0, 0))
+                rental_type = "1 ngày (trả trước 20:00 trong ngày)"
+            else:
+                days = float(calendar_diff + 1)
+                dt_end_effective = datetime.datetime.combine(dt_end.date(), datetime.time(20, 0, 0))
+                rental_type = f"{int(days)} ngày (trả trước 20:00)"
+
+            rental_days = days
+            extra_days = max(0.0, days - 1.0)
+            extra_rate = 20000
+            total_price = int(price_24h + extra_days * extra_rate)
+            return rental_type, hours, rental_days, total_price, dt_start, dt_end_effective
+
+        # TRANG PHỤC KHÁC: 1 ngày = nhận hôm nay, trả trước 20:00 ngày hôm sau
         calendar_diff = (dt_end.date() - dt_start.date()).days
         if calendar_diff <= 1:
             days = 1.0
@@ -1182,29 +1215,18 @@ def calculate_rental_metrics(start_iso: str, end_iso: str, price_4h: int, price_
 
         rental_type = f"{int(days) if days.is_integer() else days} ngày (trả trước 20:00)"
         rental_days = days
-
         extra_days = max(0.0, days - 1.0)
-        # QUY TẮC: Áo dài thêm 1 ngày +20.000đ. Trang phục khác: đồ >= 1tr thêm 30k, dưới 1tr thêm 10k
-        if is_ad:
-            extra_rate = 20000
-        else:
-            extra_rate = 30000 if price_24h >= 1000000 else 10000
-
+        extra_rate = 30000 if price_24h >= 1000000 else 10000
         total_price = int(price_24h + extra_days * extra_rate)
         return rental_type, hours, rental_days, total_price, dt_start, dt_end_effective
 
-    # Nếu không phải máy ảnh (Lens, Gimbal, Phụ kiện, Flycam, Trang phục...): chỉ tính theo ngày
+    # Nếu không phải máy ảnh (Lens, Gimbal, Phụ kiện, Flycam...): chỉ tính theo ngày
     if not is_camera_body_item(item_category, item_name, subcategory):
         days = max(1.0, round(hours / 24.0, 1))
         rental_type = f"{int(days) if days.is_integer() else days} ngày"
         rental_days = days
-
         extra_days = max(0.0, days - 1.0)
-        if is_ad:
-            extra_rate = 20000
-        else:
-            extra_rate = 30000 if price_24h >= 1000000 else 10000
-
+        extra_rate = 30000 if price_24h >= 1000000 else 10000
         total_price = int(price_24h + extra_days * extra_rate)
         return rental_type, hours, rental_days, total_price, dt_start, dt_end
 
@@ -3211,8 +3233,8 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
         if it_end_str > effective_overall_end:
             effective_overall_end = it_end_str
 
-        # Kiểm tra xung đột lịch thuê theo ngày/giờ
-        if item_req.item_id and not is_admin_mode:
+        # Kiểm tra xung đột lịch thuê theo ngày/giờ (chặn trùng lịch cả trên Web khách và POS KiotViet)
+        if item_req.item_id:
             conflict = cur.execute("""
                 SELECT r.rental_code, r.start_time, r.end_time, r.status FROM rentals r
                 WHERE (r.item_id = ? OR r.items_json LIKE ?)
@@ -3224,9 +3246,10 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
             """, (item_req.item_id, f'%\"item_id\": {item_req.item_id}%', it_end_str, it_start)).fetchone()
             if conflict:
                 conn.close()
+                status_label = "Đang Chờ Duyệt Tiền" if conflict["status"] in ("HOLD", "PENDING") else "Đang Thuê"
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Thiết bị '{name}' đã có khách đặt/thuê từ {conflict['start_time']} đến {conflict['end_time']} (Đơn #{conflict['rental_code']}). Vui lòng chọn ngày/giờ khác!"
+                    detail=f"Thiết bị '{name}' đã có khách đặt/thuê từ {conflict['start_time']} đến {conflict['end_time']} (Đơn #{conflict['rental_code']} - {status_label}). Vui lòng chọn ngày/giờ khác!"
                 )
 
         total_rental_price += it_price
@@ -4413,18 +4436,18 @@ def admin_update_rental_deposit(rental_id: int, req: AdminUpdateDepositRequest, 
 
 class CreateItemAdminRequest(BaseModel):
     name: str
-    category: str
-    subcategory: str
-    brand: str
-    serial_or_size: str
-    price_4h: int = 150000
-    price_8h: int = 250000
-    price_24h: int = 350000
-    deposit_amount: int = 0
-    image_url: str
+    category: Optional[str] = "CAMERA_GEAR"
+    subcategory: Optional[str] = "Thiết bị"
+    brand: Optional[str] = "Tiduba"
+    serial_or_size: Optional[str] = "SN: TDB-001"
+    price_4h: Optional[int] = 150000
+    price_8h: Optional[int] = 250000
+    price_24h: Optional[int] = 350000
+    deposit_amount: Optional[int] = 0
+    image_url: Optional[str] = "/static/logo.png"
     gallery_json: Optional[str] = "[]"
-    description: str
-    condition_status: str
+    description: Optional[str] = ""
+    condition_status: Optional[str] = "Mới 99%"
     branch_code: Optional[str] = "CN1"
 
 
@@ -4501,27 +4524,49 @@ def create_item_admin(req: CreateItemAdminRequest, admin: Dict[str, Any] = Depen
     cur = conn.cursor()
     now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Tự động tạo category chip nếu nhóm hàng chưa có
-    if req.subcategory and req.subcategory.strip():
-        sub = req.subcategory.strip()
-        c_code = normalize_str(sub).replace(" ", "_")
-        exists_cat = cur.execute("SELECT id FROM categories_config WHERE LOWER(name) = ? OR LOWER(code) = ?", (sub.lower(), c_code.lower())).fetchone()
-        if not exists_cat:
-            max_order = cur.execute("SELECT MAX(display_order) as m FROM categories_config").fetchone()["m"] or 20
-            cur.execute("""
-            INSERT INTO categories_config (code, name, filter_type, filter_value, display_order, is_active)
-            VALUES (?, ?, 'CATEGORY', ?, ?, 1)
-            """, (c_code, sub, sub, max_order + 1))
+    try:
+        # Tự động tạo category chip nếu nhóm hàng chưa có
+        if req.subcategory and req.subcategory.strip():
+            sub = req.subcategory.strip()
+            c_code = normalize_str(sub).replace(" ", "_")
+            exists_cat = cur.execute("SELECT id FROM categories_config WHERE LOWER(name) = ? OR LOWER(code) = ?", (sub.lower(), c_code.lower())).fetchone()
+            if not exists_cat:
+                max_order = cur.execute("SELECT MAX(display_order) as m FROM categories_config").fetchone()["m"] or 20
+                cur.execute("""
+                INSERT INTO categories_config (code, name, filter_type, filter_value, display_order, is_active)
+                VALUES (?, ?, 'CATEGORY', ?, ?, 1)
+                """, (c_code, sub, sub, max_order + 1))
 
-    cur.execute("""
-    INSERT INTO items (name, category, subcategory, brand, serial_or_size, price_4h, price_8h, price_24h, deposit_amount, image_url, gallery_json, description, condition_status, availability, branch_code, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AVAILABLE', ?, ?)
-    """, (req.name, req.category, req.subcategory, req.brand, req.serial_or_size, req.price_4h, req.price_8h, req.price_24h, req.deposit_amount, req.image_url, req.gallery_json or "[]", req.description, req.condition_status, req.branch_code or "CN1", now_str))
+        cur.execute("""
+        INSERT INTO items (name, category, subcategory, brand, serial_or_size, price_4h, price_8h, price_24h, deposit_amount, image_url, gallery_json, description, condition_status, availability, branch_code, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AVAILABLE', ?, ?)
+        """, (
+            req.name.strip(),
+            req.category or "CAMERA_GEAR",
+            req.subcategory or "Thiết bị",
+            req.brand or "Tiduba",
+            req.serial_or_size or "SN: TDB-001",
+            req.price_4h or 0,
+            req.price_8h or 0,
+            req.price_24h or 0,
+            req.deposit_amount or 0,
+            req.image_url or "/static/logo.png",
+            req.gallery_json or "[]",
+            req.description or req.name,
+            req.condition_status or "Mới 99%",
+            req.branch_code or "CN1",
+            now_str
+        ))
 
-    conn.commit()
-    new_id = cur.lastrowid
-    conn.close()
-    return {"success": True, "message": "Đã thêm thiết bị/trang phục mới vào kho!", "item_id": new_id}
+        conn.commit()
+        new_id = cur.lastrowid
+        sync_items_availability(conn)
+        conn.close()
+        return {"success": True, "message": "Đã thêm thiết bị/trang phục mới vào kho thành công!", "item_id": new_id}
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        raise HTTPException(status_code=400, detail=f"Lỗi khi lưu sản phẩm vào cơ sở dữ liệu: {str(e)}")
 
 
 class UpdateItemFullAdminRequest(BaseModel):
