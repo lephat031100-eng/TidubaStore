@@ -559,6 +559,14 @@ def init_db():
     except Exception:
         pass
 
+    # Tự động cập nhật cột giá thuê nhiều ngày cho máy ảnh (price_2d, price_3d, price_7d)
+    for col in ["price_2d", "price_3d", "price_7d"]:
+        try:
+            cur.execute(f"ALTER TABLE items ADD COLUMN {col} INTEGER DEFAULT 0;")
+            conn.commit()
+        except Exception:
+            pass
+
     # Tự động cập nhật cột overdue_chat_id cho telegram_config nếu chưa có
     try:
         cur.execute("ALTER TABLE telegram_config ADD COLUMN overdue_chat_id TEXT DEFAULT '-1004498214603';")
@@ -1163,12 +1171,13 @@ def is_ao_dai_item(item_category: Optional[str] = None, item_name: Optional[str]
 
 
 def calculate_rental_metrics(start_iso: str, end_iso: str, price_4h: int, price_8h: int, price_24h: int,
-                              item_category: Optional[str] = None, item_name: Optional[str] = None, subcategory: Optional[str] = None):
+                              item_category: Optional[str] = None, item_name: Optional[str] = None, subcategory: Optional[str] = None,
+                              price_2d: Optional[int] = 0, price_3d: Optional[int] = 0, price_7d: Optional[int] = 0):
     """
     Tính toán thời lượng thuê theo ca (4h/8h) hoặc block ngày (24h) và giá tiền.
     - Áo dài: Thuê và trả trong ngày (ví dụ 08:00 sáng lấy -> hạn trả cố định trước 20:00 cùng ngày); thêm 1 ngày = +20.000đ.
     - Trang phục khác: 1 ngày = nhận hôm nay, trả trước 20:00 ngày hôm sau; thêm 1 ngày = +10.000đ (hoặc +30.000đ nếu đồ >= 1tr).
-    - Máy ảnh (CAMERA_GEAR body/kit): tính theo ca 4h/8h hoặc ngày 24h.
+    - Máy ảnh (CAMERA_GEAR body/kit): tính theo ca 4h/8h hoặc ngày 24h, hỗ trợ cấu hình giá nhiều ngày (price_2d, price_3d, price_7d).
     """
     try:
         dt_start = datetime.datetime.fromisoformat(start_iso.replace("Z", ""))
@@ -1230,6 +1239,7 @@ def calculate_rental_metrics(start_iso: str, end_iso: str, price_4h: int, price_
         total_price = int(price_24h + extra_days * extra_rate)
         return rental_type, hours, rental_days, total_price, dt_start, dt_end
 
+    # MÁY ẢNH & CAMERA GEAR: Hỗ trợ giá thuê theo ca và giá nhiều ngày tùy chỉnh
     if hours <= 4.0:
         rental_type = "4h"
         total_price = price_4h
@@ -1242,13 +1252,27 @@ def calculate_rental_metrics(start_iso: str, end_iso: str, price_4h: int, price_
         rental_type = "24h"
         days = max(1.0, round(hours / 24.0, 1))
         rental_days = days
-        if days >= 3.0:
-            discount_multiplier = 0.80
-        elif days >= 2.0:
-            discount_multiplier = 0.85
-        else:
-            discount_multiplier = 1.0
-        total_price = int(days * price_24h * discount_multiplier)
+        p2 = price_2d or 0
+        p3 = price_3d or 0
+        p7 = price_7d or 0
+
+        if days <= 1.0:
+            total_price = price_24h
+        elif 1.0 < days <= 2.0:
+            total_price = p2 if p2 > 0 else int(days * price_24h * 0.85)
+        elif 2.0 < days <= 3.0:
+            total_price = p3 if p3 > 0 else int(days * price_24h * 0.80)
+        elif 6.0 <= days <= 7.0:
+            total_price = p7 if p7 > 0 else int(days * price_24h * 0.65)
+        elif days > 7.0:
+            if p7 > 0:
+                extra_d = days - 7.0
+                daily_extra = int(p7 / 7.0)
+                total_price = p7 + int(extra_d * daily_extra)
+            else:
+                total_price = int(days * price_24h * 0.65)
+        else:  # 3 < days < 6
+            total_price = int(days * price_24h * 0.75)
 
     return rental_type, hours, rental_days, total_price, dt_start, dt_end
 
@@ -2749,11 +2773,17 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
         asset_desc = req.deposit_asset_desc or f"Khách tự nhập tiền cọc: {deposit_amount:,}đ"
 
     try:
+        p2d = (item["price_2d"] or 0) if (req.item_id and item and "price_2d" in item.keys()) else 0
+        p3d = (item["price_3d"] or 0) if (req.item_id and item and "price_3d" in item.keys()) else 0
+        p7d = (item["price_7d"] or 0) if (req.item_id and item and "price_7d" in item.keys()) else 0
         rental_type, hours, rental_days, total_price, dt_start, dt_end = calculate_rental_metrics(
             req.start_time, req.end_time, price_4h, price_8h, price_24h,
             item_category=item_category,
             item_name=item_name,
-            subcategory=(item["subcategory"] if (req.item_id and item) else None)
+            subcategory=(item["subcategory"] if (req.item_id and item) else None),
+            price_2d=p2d,
+            price_3d=p3d,
+            price_7d=p7d
         )
     except ValueError as e:
         conn.close()
@@ -3187,12 +3217,18 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
             continue
 
         # Tính giá theo gói chọn
+        p2_item = (item["price_2d"] or 0) if item and "price_2d" in item.keys() else 0
+        p3_item = (item["price_3d"] or 0) if item and "price_3d" in item.keys() else 0
+        p7_item = (item["price_7d"] or 0) if item and "price_7d" in item.keys() else 0
         try:
             r_type, hours, r_days, it_price, dt_s, dt_e = calculate_rental_metrics(
                 it_start, it_end, price_4h, price_8h, price_24h,
                 item_category=cat,
                 item_name=name,
-                subcategory=(item["subcategory"] if item else None)
+                subcategory=(item["subcategory"] if item else None),
+                price_2d=p2_item,
+                price_3d=p3_item,
+                price_7d=p7_item
             )
         except Exception:
             # Fallback nếu giờ nhập lỗi
@@ -3212,11 +3248,30 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
                 r_type = "8h"; hours = 8.0; r_days = 0.5; it_price = price_8h
             elif item_req.rental_type in ("1_day", "24h"):
                 r_type = "24h"; hours = 24.0; r_days = 1.0; it_price = price_24h
+            elif item_req.rental_type in ("2_days", "2d"):
+                r_type = "2 ngày (2D)"; hours = 48.0; r_days = 2.0
+                it_price = p2_item if p2_item > 0 else int(2.0 * price_24h * 0.85)
+            elif item_req.rental_type in ("3_days", "3d"):
+                r_type = "3 ngày (3D)"; hours = 72.0; r_days = 3.0
+                it_price = p3_item if p3_item > 0 else int(3.0 * price_24h * 0.80)
+            elif item_req.rental_type in ("7_days", "7d", "1_week"):
+                r_type = "7 ngày (1 tuần)"; hours = 168.0; r_days = 7.0
+                it_price = p7_item if p7_item > 0 else int(7.0 * price_24h * 0.65)
             elif item_req.rental_type == "multi_days":
                 d_cnt = max(1.0, float(item_req.days or 1.0))
-                mult = 0.80 if d_cnt >= 3 else (0.85 if d_cnt >= 2 else 1.0)
+                if d_cnt == 2.0 and p2_item > 0:
+                    it_price = p2_item
+                elif d_cnt == 3.0 and p3_item > 0:
+                    it_price = p3_item
+                elif 6.0 <= d_cnt <= 7.0 and p7_item > 0:
+                    it_price = p7_item
+                elif d_cnt > 7.0 and p7_item > 0:
+                    extra_d = d_cnt - 7.0
+                    it_price = p7_item + int(extra_d * int(p7_item / 7.0))
+                else:
+                    mult = 0.80 if d_cnt >= 3 else (0.85 if d_cnt >= 2 else 1.0)
+                    it_price = int(d_cnt * price_24h * mult)
                 r_type = f"{d_cnt:g} ngày (24h)"; hours = d_cnt * 24.0; r_days = d_cnt
-                it_price = int(d_cnt * price_24h * mult)
         elif not is_cam and item_req.rental_type == "multi_days":
             d_cnt = max(1.0, float(item_req.days or 1.0))
             is_ad = is_ao_dai_item(cat, name, (item["subcategory"] if item else None), (item["brand"] if item else None))
@@ -4443,6 +4498,9 @@ class CreateItemAdminRequest(BaseModel):
     price_4h: Optional[int] = 150000
     price_8h: Optional[int] = 250000
     price_24h: Optional[int] = 350000
+    price_2d: Optional[int] = 0
+    price_3d: Optional[int] = 0
+    price_7d: Optional[int] = 0
     deposit_amount: Optional[int] = 0
     image_url: Optional[str] = "/static/logo.png"
     gallery_json: Optional[str] = "[]"
@@ -4538,8 +4596,8 @@ def create_item_admin(req: CreateItemAdminRequest, admin: Dict[str, Any] = Depen
                 """, (c_code, sub, sub, max_order + 1))
 
         cur.execute("""
-        INSERT INTO items (name, category, subcategory, brand, serial_or_size, price_4h, price_8h, price_24h, deposit_amount, image_url, gallery_json, description, condition_status, availability, branch_code, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AVAILABLE', ?, ?)
+        INSERT INTO items (name, category, subcategory, brand, serial_or_size, price_4h, price_8h, price_24h, price_2d, price_3d, price_7d, deposit_amount, image_url, gallery_json, description, condition_status, availability, branch_code, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AVAILABLE', ?, ?)
         """, (
             req.name.strip(),
             req.category or "CAMERA_GEAR",
@@ -4549,6 +4607,9 @@ def create_item_admin(req: CreateItemAdminRequest, admin: Dict[str, Any] = Depen
             req.price_4h or 0,
             req.price_8h or 0,
             req.price_24h or 0,
+            req.price_2d or 0,
+            req.price_3d or 0,
+            req.price_7d or 0,
             req.deposit_amount or 0,
             req.image_url or "/static/logo.png",
             req.gallery_json or "[]",
@@ -4578,6 +4639,9 @@ class UpdateItemFullAdminRequest(BaseModel):
     price_4h: Optional[int] = None
     price_8h: Optional[int] = None
     price_24h: Optional[int] = None
+    price_2d: Optional[int] = None
+    price_3d: Optional[int] = None
+    price_7d: Optional[int] = None
     deposit_amount: Optional[int] = None
     image_url: Optional[str] = None
     gallery_json: Optional[str] = None
@@ -4595,7 +4659,7 @@ def update_item_admin_full(item_id: int, req: UpdateItemFullAdminRequest, admin:
     # Whitelist các cột được phép sửa để tránh SQL injection
     ALLOWED_ITEM_FIELDS = {
         "name", "category", "subcategory", "brand", "serial_or_size",
-        "price_4h", "price_8h", "price_24h", "deposit_amount",
+        "price_4h", "price_8h", "price_24h", "price_2d", "price_3d", "price_7d", "deposit_amount",
         "image_url", "gallery_json", "description", "condition_status", "availability", "branch_code"
     }
 

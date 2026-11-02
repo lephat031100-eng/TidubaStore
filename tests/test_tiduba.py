@@ -1349,3 +1349,90 @@ def test_pos_kiotviet_conflict_rejected():
 
     assert pos_res.status_code == 400
     assert "đã có khách đặt/thuê" in pos_res.json()["detail"]
+
+
+def test_camera_multi_day_pricing_custom_and_auto():
+    """Kiểm tra: Tính giá nhiều ngày cho máy ảnh (price_2d, price_3d, price_7d) hoặc tự động chiết khấu."""
+    from main import calculate_rental_metrics
+
+    # 1. Máy ảnh có cấu hình giá riêng: 24h = 450k, 2D = 800k (thay vì 900k), 3D = 1.150k, 7D = 2.400k
+    r_type, hours, r_days, price_custom, st, et = calculate_rental_metrics(
+        "2026-11-05 10:00", "2026-11-07 10:00", 200000, 300000, 450000,
+        item_category="CAMERA_GEAR", item_name="Sony A7 IV Body",
+        price_2d=800000, price_3d=1150000, price_7d=2400000
+    )
+    assert r_days == 2.0
+    assert price_custom == 800000
+
+    # 3 ngày với giá cấu hình riêng
+    _, _, r_days3, price_custom3, _, _ = calculate_rental_metrics(
+        "2026-11-05 10:00", "2026-11-08 10:00", 200000, 300000, 450000,
+        item_category="CAMERA_GEAR", item_name="Sony A7 IV Body",
+        price_2d=800000, price_3d=1150000, price_7d=2400000
+    )
+    assert r_days3 == 3.0
+    assert price_custom3 == 1150000
+
+    # 7 ngày với giá cấu hình riêng
+    _, _, r_days7, price_custom7, _, _ = calculate_rental_metrics(
+        "2026-11-05 10:00", "2026-11-12 10:00", 200000, 300000, 450000,
+        item_category="CAMERA_GEAR", item_name="Sony A7 IV Body",
+        price_2d=800000, price_3d=1150000, price_7d=2400000
+    )
+    assert r_days7 == 7.0
+    assert price_custom7 == 2400000
+
+    # 2. Máy ảnh không cấu hình giá riêng (price_2d=0) -> Tự động chiết khấu 15% cho 2 ngày: 450k * 2 * 0.85 = 765k
+    _, _, r_days_auto, price_auto, _, _ = calculate_rental_metrics(
+        "2026-11-05 10:00", "2026-11-07 10:00", 200000, 300000, 450000,
+        item_category="CAMERA_GEAR", item_name="Sony A7 IV Body",
+        price_2d=0, price_3d=0, price_7d=0
+    )
+    assert price_auto == int(2 * 450000 * 0.85)
+
+
+def test_admin_create_and_update_item_multi_day_prices():
+    """Kiểm tra: Admin thêm và sửa thiết bị có cấu hình giá nhiều ngày price_2d, price_3d, price_7d."""
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    adm_token = login_adm.json()["token"]
+    adm_headers = {"Authorization": f"Bearer {adm_token}"}
+
+    create_res = client.post("/api/admin/items", json={
+        "name": "Fujifilm X-T5 Body Silver",
+        "category": "CAMERA_GEAR",
+        "subcategory": "Camera Body",
+        "brand": "Fujifilm",
+        "serial_or_size": "SN: XT5-001",
+        "price_4h": 180000,
+        "price_8h": 260000,
+        "price_24h": 380000,
+        "price_2d": 700000,
+        "price_3d": 1000000,
+        "price_7d": 2100000,
+        "deposit_amount": 0,
+        "image_url": "/static/uploads/xt5.png",
+        "description": "Máy ảnh Fujifilm XT5 hoài cổ"
+    }, headers=adm_headers)
+    assert create_res.status_code == 200
+    item_id = create_res.json()["item_id"]
+
+    # Kiểm tra lấy thông tin sản phẩm
+    items_res = client.get("/api/items?include_hidden=true")
+    item = next((i for i in items_res.json()["items"] if i["id"] == item_id), None)
+    assert item is not None
+    assert item["price_2d"] == 700000
+    assert item["price_3d"] == 1000000
+    assert item["price_7d"] == 2100000
+
+    # Cập nhật lại giá
+    patch_res = client.patch(f"/api/admin/items/{item_id}", json={
+        "price_2d": 680000,
+        "price_3d": 950000
+    }, headers=adm_headers)
+    assert patch_res.status_code == 200
+
+    # Xác minh lại giá sau cập nhật
+    items_res2 = client.get("/api/items?include_hidden=true")
+    item2 = next((i for i in items_res2.json()["items"] if i["id"] == item_id), None)
+    assert item2["price_2d"] == 680000
+    assert item2["price_3d"] == 950000

@@ -16,7 +16,7 @@
     <!-- Google Fonts for Signature Logo -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cedarville+Cursive&family=Cormorant+Garamond:ital,wght@1,600;1,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Cedarville+Cursive&family=Cormorant+Garamond:ital,wght@1,600;1,700&display=swap" rel="stylesheet">
     <!-- Tailwind CSS & FontAwesome & Html5Qrcode & jsQR Scanner & html2canvas -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -46,7 +46,7 @@
     <style>
         body {
             background-color: #faf7f2;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             color: #1c1917;
         }
         .luxury-card {
@@ -342,53 +342,56 @@
             </div>
         </div>
     </header>
-    <!-- HERO BANNER (CHUẨN GIAO DIỆN STUDIO SANG TRỌNG NHƯ ẢNH) -->
+    <!-- HERO BANNER (CHUẨN GIAO DIỆN STUDIO SANG TRỌNG THEO PHONG CÁCH SHERENT & FLUTTER UI) -->
     <div class="relative overflow-hidden bg-[#faf6f0] border-b border-[#efe8df] pt-6 md:pt-10 pb-8 px-4 md:px-8">
-        <div class="max-w-7xl mx-auto">
+        <div class="max-w-7xl mx-auto space-y-6">
             
             <!-- Hero Top Row: Text Description + Lifestyle Photo Banner -->
-            <div class="relative rounded-3xl overflow-hidden bg-[#f4ece3] border border-[#e8ded2] shadow-sm mb-6">
+            <div class="relative rounded-3xl overflow-hidden bg-[#f4ece3] border border-[#e8ded2] shadow-sm">
                 <!-- Background Large Overlay Image on Right -->
                 <div class="grid grid-cols-1 lg:grid-cols-12 min-h-[360px] md:min-h-[420px]">
                     
                     <!-- Left Hero Content (7 Cols) -->
                     <div class="lg:col-span-7 p-6 sm:p-8 md:p-12 flex flex-col justify-center space-y-4 z-10 bg-gradient-to-r from-[#f4ece3] via-[#f4ece3]/95 to-transparent">
                         <div>
-                            <span class="text-xs font-semibold text-[#8c5e4f] uppercase tracking-widest font-sans" id="site-hero-subtitle">
-                                TIDUBA STORE • THUÊ ĐỒ THIẾT KẾ & MÁY ẢNH
+                            <span class="text-xs font-bold text-[#8c5e4f] uppercase tracking-widest font-sans" id="site-hero-subtitle">
+                                TIDUBA STORE • CHO THUÊ MÁY ẢNH & TRANG PHỤC THIẾT KẾ
                             </span>
-                            <h1 class="text-2xl sm:text-4xl md:text-5xl font-bold text-[#1c1917] leading-tight mt-1 tracking-tight" style="font-family: 'Times New Roman', Georgia, serif;" id="site-hero-title">
-                                Thuê Máy Ảnh & Trang Phục <br>
-                                <span class="text-[#c86d51]">Chuyên Nghiệp • Giá Tốt Nhất.</span>
+                            <h1 class="text-2xl sm:text-4xl md:text-5xl font-serif font-bold text-[#1c1917] leading-tight mt-1 tracking-tight" style="font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;" id="site-hero-title">
+                                Không đơn thuần là thuê một thiết bị hay chiếc váy,<br>
+                                <span class="italic text-[#c86d51]">bạn lưu giữ một diện mạo & khoảnh khắc HOÀN HẢO</span>
                             </h1>
                         </div>
                         
                         <p class="text-xs sm:text-sm text-[#57534e] leading-relaxed max-w-xl font-sans" id="site-hero-desc">
-                            Tiduba Store cam kết 100% cảm biến sạch, lens trong không bụi mờ và trang phục giặt sấy khử khuẩn thơm tho, tự do chọn ngày giờ nhận - trả đồ thông minh và thanh toán cọc VietQR.
+                            Tiduba Store cam kết 100% cảm biến sạch, lens trong không bụi mờ và trang phục giặt sấy khử khuẩn thơm tho. Tự do chọn ngày giờ nhận - trả đồ thông minh, cọc 0đ với CCCD gốc và thanh toán VietQR tức thì.
                         </p>
 
-                        <!-- 3 Soft Pill Badges (As shown in screenshot) -->
+                        <!-- 4 Soft Pill Badges (Flutter Style) -->
                         <div class="flex flex-wrap items-center gap-2 pt-2 text-xs font-medium">
                             <span class="bg-[#e8f5e9] text-[#2e7d32] border border-[#c8e6c9] px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
-                                <i class="fa-solid fa-circle-check text-xs text-[#2e7d32]"></i> Hợp đồng điện tử
+                                <i class="fa-solid fa-circle-check text-xs text-[#2e7d32]"></i> Hợp đồng điện tử ký số OTP
                             </span>
                             <span class="bg-[#eff6ff] text-[#1e40af] border border-[#bfdbfe] px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
-                                <i class="fa-solid fa-bell text-xs text-[#1e40af]"></i> Cảnh báo giờ trả
+                                <i class="fa-solid fa-bell text-xs text-[#1e40af]"></i> Cảnh báo giờ trả 24/7
                             </span>
                             <span class="bg-[#fff7ed] text-[#c2410c] border border-[#ffedd5] px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
-                                <i class="fa-solid fa-qrcode text-xs text-[#c2410c]"></i> Cọc VietQR
+                                <i class="fa-solid fa-shield-halved text-xs text-[#c2410c]"></i> Cọc 0đ giữ CCCD gốc
+                            </span>
+                            <span class="bg-[#fdf4ff] text-[#86198f] border border-[#f5d0fe] px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-solid fa-percent text-xs text-[#86198f]"></i> Thuê nhiều ngày giảm 35%
                             </span>
                         </div>
                     </div>
 
-                    <!-- Right Hero Image (Thay bằng hình 2 banner Tiduba Chuyên thuê đồ thiết kế) -->
+                    <!-- Right Hero Image -->
                     <div class="lg:col-span-5 relative min-h-[260px] lg:min-h-full flex items-center justify-center p-2 sm:p-4 bg-white/40">
                         <img id="site-hero-img" src="/static/banner_tiduba_new.png" alt="Tiduba - Chuyên thuê đồ thiết kế Váy tiệc, áo dài, du lịch" class="w-full h-full object-contain max-h-[380px] rounded-2xl drop-shadow-md">
                         <div class="absolute top-4 right-4 text-right hidden sm:block">
-                            <span class="text-lg md:text-xl font-bold text-[#1c1917] tracking-wider uppercase" style="font-family: 'Times New Roman', Georgia, serif;">
+                            <span class="text-lg md:text-xl font-bold text-[#1c1917] tracking-wider uppercase font-serif" style="font-family: 'Playfair Display', Georgia, serif;">
                                 TIDUBA STORE
                             </span>
-                            <div class="text-[11px] text-[#78716c] font-medium italic" style="font-family: 'Times New Roman', Georgia, serif;">
+                            <div class="text-[11px] text-[#78716c] font-medium italic font-serif">
                                 Thuê Đồ Thiết Kế & Máy Ảnh
                             </div>
                         </div>
@@ -396,13 +399,55 @@
                 </div>
             </div>
 
+            <!-- ƯU ĐÃI ĐANG CÓ (PROMOTIONS SHOWCASE - THEO PHONG CÁCH SHERENT) -->
+            <div class="space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-[#8c5e4f] uppercase tracking-wider flex items-center gap-1.5 font-sans">
+                        <i class="fa-solid fa-gift text-[#c86d51]"></i> ƯU ĐÃI HIỆN CÓ TẠI TIDUBA STORE:
+                    </span>
+                    <span class="text-[11px] text-[#78716c] font-sans">Áp dụng tự động khi đặt đơn</span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-sans">
+                    <!-- Promo 1 -->
+                    <div class="bg-white p-3.5 rounded-2xl border border-[#efe8df] hover:border-[#c86d51] shadow-sm hover:shadow-md transition flex items-start gap-3 group">
+                        <div class="w-10 h-10 rounded-xl bg-[#fff7ed] border border-[#ffedd5] text-[#c2410c] flex items-center justify-center flex-shrink-0 text-base group-hover:scale-105 transition">
+                            <i class="fa-solid fa-layer-group"></i>
+                        </div>
+                        <div class="space-y-0.5">
+                            <div class="font-bold text-[#1c1917]">Ưu Đãi Thuê Nhóm</div>
+                            <p class="text-[11px] text-[#78716c] leading-relaxed">Giảm ngay <strong>10%</strong> tổng hóa đơn khi đặt thuê từ 3 sản phẩm cùng lúc.</p>
+                        </div>
+                    </div>
+                    <!-- Promo 2 -->
+                    <div class="bg-white p-3.5 rounded-2xl border border-[#efe8df] hover:border-[#c86d51] shadow-sm hover:shadow-md transition flex items-start gap-3 group">
+                        <div class="w-10 h-10 rounded-xl bg-[#ecfdf5] border border-[#a7f3d0] text-[#047857] flex items-center justify-center flex-shrink-0 text-base group-hover:scale-105 transition">
+                            <i class="fa-solid fa-camera"></i>
+                        </div>
+                        <div class="space-y-0.5">
+                            <div class="font-bold text-[#1c1917]">Gửi Feedback Xinh</div>
+                            <p class="text-[11px] text-[#78716c] leading-relaxed">Gửi ảnh chụp thực tế nhận ngay <strong>Voucher giảm 5%</strong> cho lần thuê tiếp theo.</p>
+                        </div>
+                    </div>
+                    <!-- Promo 3 -->
+                    <div class="bg-white p-3.5 rounded-2xl border border-[#efe8df] hover:border-[#c86d51] shadow-sm hover:shadow-md transition flex items-start gap-3 group">
+                        <div class="w-10 h-10 rounded-xl bg-[#f0f9ff] border border-[#bae6fd] text-[#0369a1] flex items-center justify-center flex-shrink-0 text-base group-hover:scale-105 transition">
+                            <i class="fa-solid fa-tags"></i>
+                        </div>
+                        <div class="space-y-0.5">
+                            <div class="font-bold text-[#1c1917]">Gói Thuê Dài Ngày</div>
+                            <p class="text-[11px] text-[#78716c] leading-relaxed">Thuê 2 ngày chiết khấu 15%, 3 ngày giảm 20%, 7 ngày tiết kiệm đến <strong>35%</strong>.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Floating Rounded Search & Filter Bar (Matching Screenshot Container) -->
-            <div class="relative bg-[#ede3d6] rounded-2xl md:rounded-full p-2.5 md:p-3 border border-[#ded0bf] shadow-sm max-w-4xl mx-auto mb-6">
+            <div class="relative bg-[#ede3d6] rounded-2xl md:rounded-full p-2.5 md:p-3 border border-[#ded0bf] shadow-sm max-w-4xl mx-auto">
                 <div class="flex flex-col sm:flex-row items-center gap-2 md:gap-3">
                     <!-- Search Input -->
                     <div class="relative flex-1 w-full">
                         <i class="fa-solid fa-magnifying-glass absolute left-4 top-3 text-[#78716c] text-xs"></i>
-                        <input type="text" id="catalog-search" oninput="searchItems()" placeholder="Bạn đang tìm gì?" class="w-full bg-white border border-[#ded0bf] rounded-xl md:rounded-full pl-10 pr-4 py-2 text-xs text-[#1c1917] placeholder-[#a8a29e] focus:outline-none focus:border-[#c86d51] shadow-inner font-sans">
+                        <input type="text" id="catalog-search" oninput="searchItems()" placeholder="Bạn đang tìm gì? (vd: Sony A74, Áo dài, Váy tiệc, Canon...)" class="w-full bg-white border border-[#ded0bf] rounded-xl md:rounded-full pl-10 pr-4 py-2 text-xs text-[#1c1917] placeholder-[#a8a29e] focus:outline-none focus:border-[#c86d51] shadow-inner font-sans">
                     </div>
 
                     <!-- Date Range Picker -->
@@ -2044,13 +2089,13 @@
                     </div>
                 </div>
 
-                <!-- GÓI THỜI GIAN THUÊ MÁY ẢNH (4H, 8H, 1 NGÀY, NHIỀU NGÀY TỰ CHỌN) -->
+                <!-- GÓI THỜI GIAN THUÊ MÁY ẢNH (4H, 8H, 1 NGÀY, 2 NGÀY, 3 NGÀY, 7 NGÀY, TỰ CHỌN) -->
                 <div id="camera-package-picker" class="space-y-2">
                     <label class="block text-xs font-bold text-cyan-300 font-mono flex items-center justify-between">
-                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-clock"></i> Chọn gói thời gian thuê máy ảnh:</span>
-                        <span class="text-[10px] text-gray-400">4h / 8h / 1 ngày / nhiều ngày</span>
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-clock"></i> Bảng giá thuê máy ảnh theo ca & nhiều ngày:</span>
+                        <span class="text-[10px] text-gray-400">Tiết kiệm đến 35% khi thuê dài ngày</span>
                     </label>
-                    <div class="grid grid-cols-4 gap-2 text-xs font-mono font-bold">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-1.5 text-xs font-mono font-bold">
                         <button type="button" onclick="selectCameraDurationPackage('4h')" id="cam-pkg-4h" class="py-2 px-1 rounded-xl border border-gray-700 bg-gray-950 text-gray-300 hover:border-cyan-500 transition text-center flex flex-col items-center justify-center">
                             <div>4 Giờ</div>
                             <div class="text-[10px] font-normal text-cyan-400 font-sans" id="cam-pkg-price-4h">0đ</div>
@@ -2063,9 +2108,21 @@
                             <div>1 Ngày (24h)</div>
                             <div class="text-[10px] font-normal text-amber-400 font-sans" id="cam-pkg-price-1_day">0đ</div>
                         </button>
+                        <button type="button" onclick="selectCameraDurationPackage('2_days')" id="cam-pkg-2_days" class="py-2 px-1 rounded-xl border border-gray-700 bg-gray-950 text-gray-300 hover:border-cyan-500 transition text-center flex flex-col items-center justify-center">
+                            <div>2 Ngày</div>
+                            <div class="text-[10px] font-normal text-emerald-400 font-sans" id="cam-pkg-price-2_days">0đ</div>
+                        </button>
+                        <button type="button" onclick="selectCameraDurationPackage('3_days')" id="cam-pkg-3_days" class="py-2 px-1 rounded-xl border border-gray-700 bg-gray-950 text-gray-300 hover:border-cyan-500 transition text-center flex flex-col items-center justify-center">
+                            <div>3 Ngày</div>
+                            <div class="text-[10px] font-normal text-emerald-400 font-sans" id="cam-pkg-price-3_days">0đ</div>
+                        </button>
+                        <button type="button" onclick="selectCameraDurationPackage('7_days')" id="cam-pkg-7_days" class="py-2 px-1 rounded-xl border border-gray-700 bg-gray-950 text-gray-300 hover:border-cyan-500 transition text-center flex flex-col items-center justify-center">
+                            <div>7 Ngày</div>
+                            <div class="text-[10px] font-normal text-purple-400 font-sans" id="cam-pkg-price-7_days">0đ</div>
+                        </button>
                         <button type="button" onclick="selectCameraDurationPackage('multi_days')" id="cam-pkg-multi_days" class="py-2 px-1 rounded-xl border border-gray-700 bg-gray-950 text-gray-300 hover:border-cyan-500 transition text-center flex flex-col items-center justify-center">
-                            <div>Nhiều Ngày</div>
-                            <div class="text-[10px] font-normal text-yellow-300 font-sans">Tự chọn</div>
+                            <div>Tự Chọn</div>
+                            <div class="text-[10px] font-normal text-yellow-300 font-sans">Chiết khấu</div>
                         </button>
                     </div>
                     <!-- Box tự chọn số ngày khi chọn Nhiều Ngày -->
@@ -3726,6 +3783,30 @@
                     </div>
                 </div>
 
+                <!-- BẢNG GIÁ THUÊ DÀI NGÀY (MÁY ẢNH & THIẾT BỊ) -->
+                <div class="bg-gradient-to-r from-purple-950/40 via-gray-950 to-indigo-950/40 p-3.5 rounded-xl border border-purple-500/40 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-purple-300 flex items-center gap-1.5 font-mono">
+                            <i class="fa-solid fa-tags text-yellow-400"></i> Bảng Giá Thuê Dài Ngày (Áp dụng cho máy ảnh & gear):
+                        </span>
+                        <span class="text-[10px] text-gray-400">Để trống = tự động chiết khấu</span>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-gray-300 text-[11px] mb-0.5">Giá 2 Ngày (2D):</label>
+                            <input type="number" id="add-price-2d" placeholder="Tự động (-15%)" class="w-full bg-gray-900 border border-purple-500/60 rounded-lg p-1.5 text-purple-200 font-mono text-xs">
+                        </div>
+                        <div>
+                            <label class="block text-gray-300 text-[11px] mb-0.5">Giá 3 Ngày (3D):</label>
+                            <input type="number" id="add-price-3d" placeholder="Tự động (-20%)" class="w-full bg-gray-900 border border-purple-500/60 rounded-lg p-1.5 text-purple-200 font-mono text-xs">
+                        </div>
+                        <div>
+                            <label class="block text-gray-300 text-[11px] mb-0.5">Giá 7 Ngày (1 Tuần):</label>
+                            <input type="number" id="add-price-7d" placeholder="Tự động (-35%)" class="w-full bg-gray-900 border border-purple-500/60 rounded-lg p-1.5 text-purple-200 font-mono text-xs">
+                        </div>
+                    </div>
+                </div>
+
                 <div>
                     <label class="block text-gray-400 mb-1">Tình trạng kiểm định:</label>
                     <input type="text" id="add-condition" value="Mới 99%, hoạt động hoàn hảo" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2 text-white">
@@ -4102,7 +4183,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="pt-2 border-t border-[#f2ece4] space-y-2">
+                            <div class="pt-2 border-t border-[#f2ece4] space-y-1.5">
                                 <div class="flex items-center justify-between text-xs font-mono">
                                     <div>
                                         <span class="text-[#c86d51] font-black text-base">${Number(item.price_24h).toLocaleString()}đ</span>
@@ -4112,6 +4193,12 @@
                                         Giữ giấy tờ gốc
                                     </div>
                                 </div>
+                                ${isCameraItem(item) ? `
+                                    <div class="bg-[#f0fdf4] border border-[#bbf7d0] rounded-lg px-2 py-0.5 text-[10px] font-mono flex items-center justify-between text-emerald-800">
+                                        <span>Thuê 2 ngày: <strong class="text-emerald-900">${(item.price_2d && item.price_2d > 0 ? item.price_2d : Math.round(Number(item.price_24h) * 2 * 0.85)).toLocaleString()}đ</strong></span>
+                                        <span class="text-[9px] text-emerald-600 font-bold">Giảm 15%</span>
+                                    </div>
+                                ` : ''}
                                 <div class="flex items-center gap-1.5">
                                     ${isUnavail
                                         ? `<span class="w-full bg-[#f5f5f4] text-[#78716c] py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 font-sans font-bold"><i class="fa-solid fa-ban"></i> Tạm Ngưng</span>`
@@ -5490,13 +5577,13 @@
 
         function selectCameraDurationPackage(pkg) {
             currentCameraPkg = pkg;
-            ['4h', '8h', '1_day', 'multi_days'].forEach(p => {
+            ['4h', '8h', '1_day', '2_days', '3_days', '7_days', 'multi_days'].forEach(p => {
                 const btn = document.getElementById(`cam-pkg-${p}`);
                 if (!btn) return;
                 if (p === pkg) {
-                    btn.className = "py-2.5 px-1.5 rounded-xl border-2 border-cyan-500 bg-cyan-950/70 text-cyan-300 transition text-center flex flex-col items-center justify-center shadow-lg shadow-cyan-950";
+                    btn.className = "py-2 px-1 rounded-xl border-2 border-cyan-500 bg-cyan-950/80 text-cyan-300 transition text-center flex flex-col items-center justify-center shadow-lg shadow-cyan-950 font-bold";
                 } else {
-                    btn.className = "py-2.5 px-1.5 rounded-xl border border-gray-700 bg-gray-950 text-gray-300 hover:border-cyan-500 transition text-center flex flex-col items-center justify-center";
+                    btn.className = "py-2 px-1 rounded-xl border border-gray-700 bg-gray-950 text-gray-300 hover:border-cyan-500 transition text-center flex flex-col items-center justify-center font-medium";
                 }
             });
 
@@ -5517,6 +5604,12 @@
                 dtEnd.setTime(dtStart.getTime() + 8 * 3600000);
             } else if (pkg === '1_day') {
                 dtEnd.setTime(dtStart.getTime() + 24 * 3600000);
+            } else if (pkg === '2_days') {
+                dtEnd.setTime(dtStart.getTime() + 48 * 3600000);
+            } else if (pkg === '3_days') {
+                dtEnd.setTime(dtStart.getTime() + 72 * 3600000);
+            } else if (pkg === '7_days') {
+                dtEnd.setTime(dtStart.getTime() + 168 * 3600000);
             } else if (pkg === 'multi_days') {
                 const d = parseInt(document.getElementById('cam-multi-days-val').value) || 2;
                 dtEnd.setTime(dtStart.getTime() + d * 24 * 3600000);
@@ -5626,6 +5719,12 @@
                     document.getElementById('cam-pkg-price-4h').innerText = `${Number(item.price_4h).toLocaleString()}đ`;
                     document.getElementById('cam-pkg-price-8h').innerText = `${Number(item.price_8h).toLocaleString()}đ`;
                     document.getElementById('cam-pkg-price-1_day').innerText = `${Number(item.price_24h).toLocaleString()}đ`;
+                    const p2 = item.price_2d && item.price_2d > 0 ? item.price_2d : Math.round(Number(item.price_24h) * 2 * 0.85);
+                    const p3 = item.price_3d && item.price_3d > 0 ? item.price_3d : Math.round(Number(item.price_24h) * 3 * 0.80);
+                    const p7 = item.price_7d && item.price_7d > 0 ? item.price_7d : Math.round(Number(item.price_24h) * 7 * 0.65);
+                    if (document.getElementById('cam-pkg-price-2_days')) document.getElementById('cam-pkg-price-2_days').innerText = `${p2.toLocaleString()}đ`;
+                    if (document.getElementById('cam-pkg-price-3_days')) document.getElementById('cam-pkg-price-3_days').innerText = `${p3.toLocaleString()}đ`;
+                    if (document.getElementById('cam-pkg-price-7_days')) document.getElementById('cam-pkg-price-7_days').innerText = `${p7.toLocaleString()}đ`;
                     initBookingDates(false, false);
                     selectCameraDurationPackage('1_day');
                 } else {
@@ -6027,6 +6126,30 @@
             } else if (isCam && hours <= 8) {
                 rentalType = "ca 8h";
                 rentalPrice = target.price_8h || target.price_24h;
+            } else if (isCam) {
+                const days = Math.max(1.0, Math.round((diffSec / 86400) * 10) / 10);
+                const baseP = Number(target.price_24h) || 0;
+                const p2 = target.price_2d && target.price_2d > 0 ? target.price_2d : Math.round(baseP * 2 * 0.85);
+                const p3 = target.price_3d && target.price_3d > 0 ? target.price_3d : Math.round(baseP * 3 * 0.80);
+                const p7 = target.price_7d && target.price_7d > 0 ? target.price_7d : Math.round(baseP * 7 * 0.65);
+
+                if (days <= 1.0) {
+                    rentalType = "1 ngày (24h)";
+                    rentalPrice = baseP;
+                } else if (days <= 2.0) {
+                    rentalType = `${days} ngày (Gói 2D)`;
+                    rentalPrice = p2;
+                } else if (days <= 3.0) {
+                    rentalType = `${days} ngày (Gói 3D)`;
+                    rentalPrice = p3;
+                } else if (days <= 7.0) {
+                    rentalType = `${days} ngày (Gói 7D)`;
+                    rentalPrice = p7;
+                } else {
+                    rentalType = `${days} ngày`;
+                    const extraD = days - 7.0;
+                    rentalPrice = p7 + Math.round(extraD * (p7 / 7.0));
+                }
             } else {
                 const days = Math.max(1.0, Math.round((diffSec / 86400) * 10) / 10);
                 rentalType = `${days} ngày (24h)`;
@@ -8972,6 +9095,9 @@
             document.getElementById('add-price-4h').value = '150000';
             document.getElementById('add-price-8h').value = '250000';
             document.getElementById('add-price-24h').value = '350000';
+            document.getElementById('add-price-2d').value = '';
+            document.getElementById('add-price-3d').value = '';
+            document.getElementById('add-price-7d').value = '';
             document.getElementById('add-condition').value = 'Mới 99%, hoạt động hoàn hảo';
             document.getElementById('add-description').value = '';
             currentEditingGallery = [];
@@ -8994,6 +9120,9 @@
             document.getElementById('add-price-4h').value = item.price_4h;
             document.getElementById('add-price-8h').value = item.price_8h;
             document.getElementById('add-price-24h').value = item.price_24h;
+            document.getElementById('add-price-2d').value = item.price_2d || '';
+            document.getElementById('add-price-3d').value = item.price_3d || '';
+            document.getElementById('add-price-7d').value = item.price_7d || '';
             document.getElementById('add-condition').value = item.condition_status;
             document.getElementById('add-description').value = item.description || '';
             document.getElementById('add-item-img-url').value = item.image_url;
@@ -9128,9 +9257,12 @@
             const subcat = document.getElementById('add-item-subcat').value.trim() || 'Thiết bị';
             const brand = document.getElementById('add-item-brand').value.trim() || 'Tiduba';
             const serial = document.getElementById('add-item-serial').value.trim() || 'SN: TDB-001';
-            const p4h = Number(document.getElementById('add-price-4h').value);
-            const p8h = Number(document.getElementById('add-price-8h').value);
-            const p24h = Number(document.getElementById('add-price-24h').value);
+            const p4h = Number(document.getElementById('add-price-4h').value) || 0;
+            const p8h = Number(document.getElementById('add-price-8h').value) || 0;
+            const p24h = Number(document.getElementById('add-price-24h').value) || 0;
+            const p2d = Number(document.getElementById('add-price-2d').value) || 0;
+            const p3d = Number(document.getElementById('add-price-3d').value) || 0;
+            const p7d = Number(document.getElementById('add-price-7d').value) || 0;
             const imgUrl = document.getElementById('add-item-img-url').value.trim() || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&q=80';
             const cond = document.getElementById('add-condition').value.trim();
             const desc = document.getElementById('add-description').value.trim() || name;
@@ -9150,6 +9282,9 @@
                 price_4h: p4h,
                 price_8h: p8h,
                 price_24h: p24h,
+                price_2d: p2d,
+                price_3d: p3d,
+                price_7d: p7d,
                 deposit_amount: 0,
                 image_url: imgUrl,
                 gallery_json: galleryJsonStr,
