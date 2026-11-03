@@ -214,73 +214,57 @@
 </head>
 <body class="min-h-screen flex flex-col antialiased bg-[#faf7f2] text-[#1c1917]">
 
-    <!-- TOP ANNOUNCEMENT & 2 CHI NHÁNH & MBBANK RECONCILIATION -->
-    <div class="bg-[#f6efe6] border-b border-[#eadfd5] px-3 sm:px-6 py-1.5 text-xs text-[#52443a] font-sans">
-        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
-            <div class="flex items-center gap-2 overflow-x-auto no-scrollbar whitespace-nowrap text-[11px] sm:text-xs">
-                <span class="text-[#c86d51] font-bold flex items-center gap-1"><i class="fa-solid fa-store"></i> <strong>2 CHI NHÁNH PLEIKU:</strong></span>
-                <span class="bg-[#ede3d6] text-[#3e342d] px-2 py-0.5 rounded-full border border-[#ded0bf] font-medium">
-                    📍 <strong>CN1:</strong> 183A Huỳnh Thúc Kháng
-                </span>
-                <span class="bg-[#ede3d6] text-[#3e342d] px-2 py-0.5 rounded-full border border-[#ded0bf] font-medium">
-                    📍 <strong>CN2:</strong> 801 Lê Duẩn
-                </span>
+    <!-- TOP ANNOUNCEMENT BAR (PHONG CÁCH SHERENT VỚI THANH CHẠY TIN TỨC NÂU CAM ẤM) -->
+    <div class="bg-[#b37054] text-white px-3 sm:px-6 py-2 text-xs font-sans tracking-wide shadow-inner">
+        <div class="max-w-7xl mx-auto flex items-center justify-between gap-3">
+            <button type="button" onclick="stepTopAnnouncement(-1)" class="text-white/70 hover:text-white px-1 transition text-sm">
+                <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            <div id="top-announcement-text" class="flex-1 text-center font-medium truncate text-[11.5px] sm:text-xs">
+                ✦ Giảm 10% tổng hóa đơn với khách hàng thuê từ 03 sản phẩm ✦ Cọc 0đ giữ CCCD gốc ✦ Hotline: 0977.078.981 ✦
             </div>
-            <div class="flex items-center gap-3 text-[11px] sm:text-xs ml-auto whitespace-nowrap">
-                <a href="tel:0977078981" class="text-[#c86d51] font-bold hover:underline flex items-center gap-1"><i class="fa-solid fa-phone"></i> 0977.078.981</a>
-                <span class="text-[#d5c7b9]">•</span>
-                <button onclick="openOrderTrackerModal()" class="text-[#4b5563] hover:text-[#c86d51] font-semibold flex items-center gap-1 underline">
-                    <i class="fa-solid fa-magnifying-glass"></i> Tra Cứu Đơn
-                </button>
-            </div>
+            <button type="button" onclick="stepTopAnnouncement(1)" class="text-white/70 hover:text-white px-1 transition text-sm">
+                <i class="fa-solid fa-chevron-right"></i>
+            </button>
         </div>
     </div>
 
-    <!-- MAIN NAVBAR -->
-    <header class="border-b border-[#efe8df] bg-white/95 backdrop-blur-md sticky top-0 z-40 px-4 md:px-8 py-3.5 shadow-sm">
+    <!-- MAIN NAVBAR (PHONG CÁCH SHERENT: LOGO SERIF SANG TRỌNG & NÚT DRAWER MENU 3 GẠCH) -->
+    <header class="border-b border-[#efe8df] bg-[#faf7f2]/95 backdrop-blur-md sticky top-0 z-40 px-4 md:px-8 py-3.5 transition-all">
         <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
             
-            <!-- Logo & Brand (Clean Studio Aesthetic) -->
-            <div class="flex items-center gap-4">
-                <a href="#" onclick="showSection('catalog'); return false;" class="flex items-center gap-3 group">
-                    <div class="w-10 h-10 rounded-xl bg-white p-1 border border-[#e5dcd3] shadow-sm group-hover:scale-105 transition duration-300 flex-shrink-0 flex items-center justify-center">
-                        <img src="/static/logo.png" alt="Tiduba Store Logo" class="w-full h-full object-contain">
-                    </div>
-                    <div class="flex flex-col">
-                        <span class="text-xl md:text-2xl text-[#1c1917] font-bold tracking-tight uppercase" style="font-family: 'Times New Roman', Georgia, serif; letter-spacing: 0.5px;">
-                            Tiduba<span class="text-[#c86d51]"> Store</span>
-                        </span>
-                    </div>
+            <!-- Logo Thương Hiệu Chữ Serif Lớn Sang Trọng -->
+            <div class="flex items-center gap-3">
+                <a href="#" onclick="showSection('catalog'); return false;" class="flex items-center gap-2.5 group">
+                    <span class="text-2xl sm:text-3xl text-[#1c1917] font-serif font-black tracking-widest uppercase hover:text-[#b37054] transition duration-300" style="font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif; letter-spacing: 2px;">
+                        TIDUBA<span class="text-[#b37054]"> STORE</span>
+                    </span>
                 </a>
-
-                <!-- Desktop Nav Links -->
-                <nav class="hidden lg:flex items-center gap-5 ml-6 text-sm font-medium text-[#4b5563] whitespace-nowrap">
-                    <button onclick="filterCategory('CAMERA_GEAR')" class="hover:text-[#c86d51] transition flex items-center gap-1.5 py-1 whitespace-nowrap">
-                        <i class="fa-solid fa-camera text-xs text-[#6b7280]"></i> Máy Ảnh & Gear
-                    </button>
-                    <button onclick="filterCategory('COSTUME_FASHION')" class="hover:text-[#c86d51] transition flex items-center gap-1.5 py-1 whitespace-nowrap">
-                        <i class="fa-solid fa-shirt text-xs text-[#6b7280]"></i> Trang Phục Concept
-                    </button>
-                    <button onclick="openOrderTrackerModal()" class="hover:text-[#c86d51] transition flex items-center gap-1.5 py-1 whitespace-nowrap">
-                        <i class="fa-solid fa-magnifying-glass text-xs text-[#6b7280]"></i> Tra Cứu Đơn
-                    </button>
-                </nav>
             </div>
 
-            <!-- Right Controls: Search, Account, Cart, Admin -->
-            <div class="flex items-center gap-2 sm:gap-2.5 text-xs font-semibold whitespace-nowrap">
+            <!-- Desktop Quick Nav Links (Thanh lịch & Tối giản) -->
+            <nav class="hidden md:flex items-center gap-6 text-xs sm:text-sm font-medium text-[#57534e]">
+                <button onclick="showSection('catalog')" class="hover:text-[#b37054] transition py-1">Trang Chủ</button>
+                <button onclick="focusCollectionSection()" class="hover:text-[#b37054] text-[#b37054] font-bold transition py-1">Sản Phẩm</button>
+                <button onclick="filterCategory('Áo dài')" class="hover:text-[#b37054] transition py-1">Áo Dài</button>
+                <button onclick="filterCategory('CAMERA_GEAR')" class="hover:text-[#b37054] transition py-1">Máy Ảnh</button>
+                <button onclick="openOrderTrackerModal()" class="hover:text-[#b37054] transition py-1">Tra Cứu Đơn</button>
+            </nav>
+
+            <!-- Right Controls: Tra Cứu, Giỏ Hàng, Menu Drawer Hamburger -->
+            <div class="flex items-center gap-2 sm:gap-3 text-xs font-semibold whitespace-nowrap">
                 <!-- Search Quick Focus -->
-                <button onclick="focusSearchInput()" class="w-9 h-9 rounded-full bg-[#f6efe6] hover:bg-[#ede3d6] text-[#4b5563] flex items-center justify-center transition" title="Tìm kiếm">
+                <button onclick="focusSearchInput()" class="w-9 h-9 rounded-full bg-white hover:bg-[#ede3d6] text-[#4b5563] border border-[#e5dcd3] flex items-center justify-center transition shadow-sm" title="Tìm kiếm">
                     <i class="fa-solid fa-magnifying-glass text-sm"></i>
                 </button>
 
-                <!-- GIỎ HÀNG KIỂU SHOPEE -->
-                <button onclick="openCartDrawer()" id="nav-cart-btn" class="relative w-9 h-9 rounded-full bg-[#f6efe6] hover:bg-[#ede3d6] text-[#4b5563] flex items-center justify-center transition shadow-sm" title="Giỏ hàng">
-                    <i class="fa-solid fa-cart-shopping text-sm text-[#c86d51]"></i>
-                    <span id="cart-badge-count" class="hidden absolute -top-1 -right-1 bg-[#c86d51] text-white text-[10px] font-mono font-black px-1.5 py-0.2 rounded-full shadow">0</span>
+                <!-- GIỎ HÀNG -->
+                <button onclick="openCartDrawer()" id="nav-cart-btn" class="relative w-9 h-9 rounded-full bg-white hover:bg-[#ede3d6] text-[#4b5563] border border-[#e5dcd3] flex items-center justify-center transition shadow-sm" title="Giỏ hàng">
+                    <i class="fa-solid fa-cart-shopping text-sm text-[#b37054]"></i>
+                    <span id="cart-badge-count" class="hidden absolute -top-1 -right-1 bg-[#b37054] text-white text-[10px] font-mono font-black px-1.5 py-0.2 rounded-full shadow">0</span>
                 </button>
 
-                <!-- Dropdown Menu Quản Trị Viên (Gọn gàng, loại bỏ hoàn toàn thanh nút bừa bộn cũ) -->
+                <!-- Dropdown Menu Quản Trị Viên (Nếu Đăng Nhập Admin) -->
                 <div class="relative hidden" id="admin-header-nav-wrap">
                     <button type="button" onclick="toggleAdminNavDropdown()" id="admin-nav-toggle-btn" class="bg-gradient-to-r from-purple-950 via-indigo-950 to-purple-950 hover:from-purple-900 hover:to-indigo-900 text-purple-200 border border-purple-500/70 px-3 py-1.5 rounded-xl font-bold font-mono text-xs flex items-center gap-2 shadow-sm transition">
                         <i class="fa-solid fa-crown text-yellow-400"></i>
@@ -327,65 +311,123 @@
                     </div>
                 </div>
 
-                <!-- Đơn Thuê Của Tôi (Dành cho Khách Hàng) -->
-                <button onclick="showSection('my-rentals')" id="nav-my-rentals-btn" class="hidden sm:flex bg-[#f6efe6] hover:bg-[#ede3d6] text-[#374151] px-3 py-1.5 rounded-xl items-center gap-1.5 transition whitespace-nowrap text-xs font-medium">
-                    <i class="fa-solid fa-clock-rotate-left text-[#c86d51]"></i> <span>Đơn Thuê</span>
-                </button>
-
-                <!-- Auth User Account Box -->
+                <!-- Auth User Box -->
                 <div id="auth-box">
-                    <button onclick="openAuthModal()" class="w-9 h-9 sm:w-auto sm:px-3.5 sm:py-1.5 rounded-full sm:rounded-xl bg-[#c86d51] hover:bg-[#b55d42] text-white font-bold flex items-center justify-center gap-1.5 shadow-sm transition whitespace-nowrap">
-                        <i class="fa-regular fa-user"></i>
-                        <span class="hidden sm:inline text-xs">Tài Khoản</span>
+                    <button onclick="openAuthModal()" class="w-9 h-9 sm:w-auto sm:px-3 sm:py-1.5 rounded-full sm:rounded-xl bg-white hover:bg-[#ede3d6] text-[#1c1917] border border-[#e5dcd3] font-semibold flex items-center justify-center gap-1.5 shadow-sm transition whitespace-nowrap text-xs">
+                        <i class="fa-regular fa-user text-[#b37054]"></i>
+                        <span class="hidden sm:inline">Tài Khoản</span>
                     </button>
                 </div>
+
+                <!-- NÚT HAMBURGER 3 GẠCH MỞ DRAWER MENU (HÌNH 1, 2) -->
+                <button type="button" onclick="openSherentDrawerMenu()" class="w-9 h-9 rounded-full bg-white hover:bg-[#ede3d6] text-[#1c1917] border border-[#e5dcd3] flex items-center justify-center transition shadow-sm" title="Menu">
+                    <i class="fa-solid fa-bars text-sm"></i>
+                </button>
             </div>
         </div>
     </header>
-    <!-- HERO BANNER (CHUẨN GIAO DIỆN STUDIO SANG TRỌNG THEO PHONG CÁCH SHERENT & FLUTTER UI) -->
+
+    <!-- ============================================================== -->
+    <!-- OFFCANVAS DRAWER MENU TRƯỢT PHONG CÁCH SHERENT (HÌNH 2)       -->
+    <!-- ============================================================== -->
+    <div id="sherent-drawer-backdrop" onclick="closeSherentDrawerMenu()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-opacity duration-300 opacity-0 pointer-events-none"></div>
+    <div id="sherent-drawer-menu" class="fixed top-0 right-0 h-full w-[310px] sm:w-[360px] max-w-[85vw] bg-white z-50 shadow-2xl flex flex-col justify-between transform translate-x-full transition-transform duration-300 ease-out font-sans overflow-hidden">
+        <!-- Top Drawer Header -->
+        <div class="p-5 border-b border-[#efe8df] flex items-center justify-between">
+            <span class="text-xl font-serif font-black tracking-widest text-[#1c1917] uppercase" style="font-family: 'Playfair Display', Georgia, serif;">
+                TIDUBA<span class="text-[#b37054]"> STORE</span>
+            </span>
+            <button type="button" onclick="closeSherentDrawerMenu()" class="w-8 h-8 rounded-full bg-[#faf7f2] hover:bg-[#ede3d6] text-[#57534e] flex items-center justify-center transition">
+                <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+        </div>
+
+        <!-- Middle Drawer Navigation Links -->
+        <div class="flex-1 overflow-y-auto custom-scroll p-5 space-y-4 text-sm font-medium text-[#292524]">
+            <a href="#" onclick="showSection('catalog'); closeSherentDrawerMenu(); return false;" class="block py-1 hover:text-[#b37054] transition text-base">
+                Trang chủ
+            </a>
+            <a href="#" onclick="focusCollectionSection(); closeSherentDrawerMenu(); return false;" class="block py-2 px-4 rounded-full border border-[#b37054] text-[#b37054] font-bold bg-[#fcf6f2] transition text-base">
+                Sản phẩm
+            </a>
+            <a href="#" onclick="filterCategory('Áo dài'); closeSherentDrawerMenu(); return false;" class="block py-1 hover:text-[#b37054] transition">
+                Áo dài thiết kế
+            </a>
+            <a href="#" onclick="filterCategory('CAMERA_GEAR'); closeSherentDrawerMenu(); return false;" class="block py-1 hover:text-[#b37054] transition">
+                Máy ảnh & Ống kính
+            </a>
+            <a href="#" onclick="filterCategory('COSTUME_FASHION'); closeSherentDrawerMenu(); return false;" class="block py-1 hover:text-[#b37054] transition">
+                Trang phục Concept & Váy Tiệc
+            </a>
+            <a href="#" onclick="showSection('my-rentals'); closeSherentDrawerMenu(); return false;" class="block py-1 hover:text-[#b37054] transition">
+                Đơn thuê của tôi
+            </a>
+            <a href="#" onclick="openOrderTrackerModal(); closeSherentDrawerMenu(); return false;" class="block py-1 hover:text-[#b37054] transition">
+                Tra cứu đơn hàng
+            </a>
+
+            <!-- Thông tin chi nhánh -->
+            <div class="pt-3 border-t border-[#efe8df] space-y-2 text-xs text-[#78716c]">
+                <div class="font-bold text-[#1c1917] uppercase tracking-wide font-sans">Chi Nhánh Cửa Hàng:</div>
+                <div>📍 <strong>CN1:</strong> 120 Huỳnh Thúc Kháng, TP. Pleiku</div>
+                <div>📍 <strong>CN2:</strong> 801 Lê Duẩn, P. An Phú, TP. Pleiku</div>
+                <div>⏰ Giờ mở cửa: 08:00 - 20:00 hàng ngày</div>
+            </div>
+
+            <!-- Nút Action Lớn Phong Cách Sherent (Hình 2) -->
+            <div class="pt-3 space-y-2.5">
+                <a href="https://www.facebook.com/tidubachuyenchothueothietkeo" target="_blank" class="w-full bg-[#b37054] hover:bg-[#9c5942] text-white font-bold py-3 px-4 rounded-full text-xs sm:text-sm text-center flex items-center justify-center gap-2 shadow-md transition">
+                    <i class="fa-brands fa-facebook-messenger text-base"></i> Tư vấn qua Messenger
+                </a>
+                <a href="tel:0977078981" class="w-full bg-white hover:bg-[#faf7f2] text-[#44403c] border border-[#d6c7b7] font-semibold py-2.5 px-3 rounded-full text-xs text-center flex flex-col items-center justify-center transition shadow-sm">
+                    <span class="font-bold text-[#b37054] text-xs">Hotline: 0977.078.981</span>
+                    <span class="text-[10px] text-[#78716c]">Tiếp nhận phản ánh, góp ý</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Bottom Drawer Announcement Bar (Hình 2) -->
+        <div class="bg-[#b37054] text-white p-2.5 text-center text-xs font-medium">
+            ✦ Ưu đãi cọc 0đ khi để lại CCCD gốc ✦
+        </div>
+    </div>
+    <!-- HERO BANNER (CHUẨN GIAO DIỆN STUDIO SANG TRỌNG PHONG CÁCH SHERENT & EDITORIAL LOOKBOOK) -->
     <div class="relative overflow-hidden bg-[#faf6f0] border-b border-[#efe8df] pt-6 md:pt-10 pb-8 px-4 md:px-8">
         <div class="max-w-7xl mx-auto space-y-6">
             
-            <!-- Hero Top Row: Text Description + Lifestyle Photo Banner -->
+            <!-- Hero Top Row: Lifestyle Mockup + Text Editorial Studio -->
             <div class="relative rounded-3xl overflow-hidden bg-[#f4ece3] border border-[#e8ded2] shadow-sm">
-                <!-- Background Large Overlay Image on Right -->
-                <div class="grid grid-cols-1 lg:grid-cols-12 min-h-[360px] md:min-h-[420px]">
+                <div class="grid grid-cols-1 lg:grid-cols-12 min-h-[380px] md:min-h-[440px]">
                     
                     <!-- Left Hero Content (7 Cols) -->
-                    <div class="lg:col-span-7 p-6 sm:p-8 md:p-12 flex flex-col justify-center space-y-4 z-10 bg-gradient-to-r from-[#f4ece3] via-[#f4ece3]/95 to-transparent">
-                        <div>
-                            <span class="text-xs font-bold text-[#8c5e4f] uppercase tracking-widest font-sans" id="site-hero-subtitle">
-                                TIDUBA STORE • CHO THUÊ MÁY ẢNH & TRANG PHỤC THIẾT KẾ
+                    <div class="lg:col-span-7 p-6 sm:p-8 md:p-12 flex flex-col justify-center space-y-3.5 z-10 bg-gradient-to-r from-[#f4ece3] via-[#f4ece3]/95 to-transparent">
+                        <div class="space-y-1">
+                            <span class="text-[11px] sm:text-xs font-bold text-[#8c5e4f] uppercase tracking-widest font-sans" id="site-hero-subtitle">
+                                CHO THUÊ VÁY • ĐẦM • ÁO DÀI • CỔ PHỤC • MÁY ẢNH & GEAR
                             </span>
-                            <h1 class="text-2xl sm:text-4xl md:text-5xl font-serif font-bold text-[#1c1917] leading-tight mt-1 tracking-tight" style="font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;" id="site-hero-title">
-                                Không đơn thuần là thuê một thiết bị hay chiếc váy,<br>
-                                <span class="italic text-[#c86d51]">bạn lưu giữ một diện mạo & khoảnh khắc HOÀN HẢO</span>
+                            <h1 class="text-2xl sm:text-4xl md:text-5xl font-serif font-normal text-[#1c1917] leading-tight tracking-tight" style="font-family: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;" id="site-hero-title">
+                                Không đơn thuần là thuê một chiếc váy,<br>
+                                <span class="italic text-[#b37054] font-medium">bạn khoác lên một diện mạo HOÀN HẢO</span>
                             </h1>
                         </div>
                         
                         <p class="text-xs sm:text-sm text-[#57534e] leading-relaxed max-w-xl font-sans" id="site-hero-desc">
-                            Tiduba Store cam kết 100% cảm biến sạch, lens trong không bụi mờ và trang phục giặt sấy khử khuẩn thơm tho. Tự do chọn ngày giờ nhận - trả đồ thông minh, cọc 0đ với CCCD gốc và thanh toán VietQR tức thì.
+                            Tiduba Store cam kết 100% cảm biến sạch, lens trong không bụi mờ và trang phục giặt sấy khử khuẩn thơm tho. Tự do chọn ngày giờ nhận - trả đồ thông minh và thanh toán VietQR tức thì.
                         </p>
 
-                        <!-- 4 Soft Pill Badges (Flutter Style) -->
-                        <div class="flex flex-wrap items-center gap-2 pt-2 text-xs font-medium">
-                            <span class="bg-[#e8f5e9] text-[#2e7d32] border border-[#c8e6c9] px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
-                                <i class="fa-solid fa-circle-check text-xs text-[#2e7d32]"></i> Hợp đồng điện tử ký số OTP
-                            </span>
-                            <span class="bg-[#eff6ff] text-[#1e40af] border border-[#bfdbfe] px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
-                                <i class="fa-solid fa-bell text-xs text-[#1e40af]"></i> Cảnh báo giờ trả 24/7
-                            </span>
-                            <span class="bg-[#fff7ed] text-[#c2410c] border border-[#ffedd5] px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
-                                <i class="fa-solid fa-shield-halved text-xs text-[#c2410c]"></i> Cọc 0đ giữ CCCD gốc
-                            </span>
-                            <span class="bg-[#fdf4ff] text-[#86198f] border border-[#f5d0fe] px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
-                                <i class="fa-solid fa-percent text-xs text-[#86198f]"></i> Thuê nhiều ngày giảm 35%
-                            </span>
+                        <!-- Địa Điểm & Khám Phá -->
+                        <div class="pt-2 flex flex-wrap items-center gap-2 text-xs">
+                            <a href="https://maps.app.goo.gl/N1uMz2bC7riTxBYv7" target="_blank" class="inline-flex items-center gap-1.5 bg-white hover:bg-[#faf7f2] text-[#2e7d32] border border-[#c8e6c9] px-3.5 py-1.5 rounded-full font-medium shadow-sm transition">
+                                <i class="fa-solid fa-location-dot text-[#2e7d32]"></i> Khám phá địa điểm: <strong>120 Huỳnh Thúc Kháng, TP. Pleiku</strong>
+                            </a>
+                            <a href="tel:0977078981" class="inline-flex items-center gap-1.5 bg-white hover:bg-[#faf7f2] text-[#b37054] border border-[#eadfd5] px-3.5 py-1.5 rounded-full font-medium shadow-sm transition">
+                                <i class="fa-solid fa-phone"></i> Hotline: <strong>0977.078.981</strong>
+                            </a>
                         </div>
                     </div>
 
-                    <!-- Right Hero Image -->
-                    <div class="lg:col-span-5 relative min-h-[260px] lg:min-h-full flex items-center justify-center p-2 sm:p-4 bg-white/40">
+                    <!-- Right Hero Image: Lifestyle Studio Lookbook -->
+                    <div class="lg:col-span-5 relative min-h-[260px] lg:min-h-full flex items-center justify-center p-4 bg-white/40">
                         <img id="site-hero-img" src="/static/banner_tiduba_new.png" alt="Tiduba - Chuyên thuê đồ thiết kế Váy tiệc, áo dài, du lịch" class="w-full h-full object-contain max-h-[380px] rounded-2xl drop-shadow-md">
                         <div class="absolute top-4 right-4 text-right hidden sm:block">
                             <span class="text-lg md:text-xl font-bold text-[#1c1917] tracking-wider uppercase font-serif" style="font-family: 'Playfair Display', Georgia, serif;">
@@ -399,80 +441,8 @@
                 </div>
             </div>
 
-            <!-- ƯU ĐÃI ĐANG CÓ (PROMOTIONS SHOWCASE - THEO PHONG CÁCH SHERENT) -->
-            <div class="space-y-2.5">
-                <div class="flex items-center justify-between">
-                    <span class="text-xs font-bold text-[#8c5e4f] uppercase tracking-wider flex items-center gap-1.5 font-sans">
-                        <i class="fa-solid fa-gift text-[#c86d51]"></i> ƯU ĐÃI HIỆN CÓ TẠI TIDUBA STORE:
-                    </span>
-                    <span class="text-[11px] text-[#78716c] font-sans">Áp dụng tự động khi đặt đơn</span>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-sans">
-                    <!-- Promo 1 -->
-                    <div class="bg-white p-3.5 rounded-2xl border border-[#efe8df] hover:border-[#c86d51] shadow-sm hover:shadow-md transition flex items-start gap-3 group">
-                        <div class="w-10 h-10 rounded-xl bg-[#fff7ed] border border-[#ffedd5] text-[#c2410c] flex items-center justify-center flex-shrink-0 text-base group-hover:scale-105 transition">
-                            <i class="fa-solid fa-layer-group"></i>
-                        </div>
-                        <div class="space-y-0.5">
-                            <div class="font-bold text-[#1c1917]">Ưu Đãi Thuê Nhóm</div>
-                            <p class="text-[11px] text-[#78716c] leading-relaxed">Giảm ngay <strong>10%</strong> tổng hóa đơn khi đặt thuê từ 3 sản phẩm cùng lúc.</p>
-                        </div>
-                    </div>
-                    <!-- Promo 2 -->
-                    <div class="bg-white p-3.5 rounded-2xl border border-[#efe8df] hover:border-[#c86d51] shadow-sm hover:shadow-md transition flex items-start gap-3 group">
-                        <div class="w-10 h-10 rounded-xl bg-[#ecfdf5] border border-[#a7f3d0] text-[#047857] flex items-center justify-center flex-shrink-0 text-base group-hover:scale-105 transition">
-                            <i class="fa-solid fa-camera"></i>
-                        </div>
-                        <div class="space-y-0.5">
-                            <div class="font-bold text-[#1c1917]">Gửi Feedback Xinh</div>
-                            <p class="text-[11px] text-[#78716c] leading-relaxed">Gửi ảnh chụp thực tế nhận ngay <strong>Voucher giảm 5%</strong> cho lần thuê tiếp theo.</p>
-                        </div>
-                    </div>
-                    <!-- Promo 3 -->
-                    <div class="bg-white p-3.5 rounded-2xl border border-[#efe8df] hover:border-[#c86d51] shadow-sm hover:shadow-md transition flex items-start gap-3 group">
-                        <div class="w-10 h-10 rounded-xl bg-[#f0f9ff] border border-[#bae6fd] text-[#0369a1] flex items-center justify-center flex-shrink-0 text-base group-hover:scale-105 transition">
-                            <i class="fa-solid fa-tags"></i>
-                        </div>
-                        <div class="space-y-0.5">
-                            <div class="font-bold text-[#1c1917]">Gói Thuê Dài Ngày</div>
-                            <p class="text-[11px] text-[#78716c] leading-relaxed">Thuê 2 ngày chiết khấu 15%, 3 ngày giảm 20%, 7 ngày tiết kiệm đến <strong>35%</strong>.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Floating Rounded Search & Filter Bar (Matching Screenshot Container) -->
-            <div class="relative bg-[#ede3d6] rounded-2xl md:rounded-full p-2.5 md:p-3 border border-[#ded0bf] shadow-sm max-w-4xl mx-auto">
-                <div class="flex flex-col sm:flex-row items-center gap-2 md:gap-3">
-                    <!-- Search Input -->
-                    <div class="relative flex-1 w-full">
-                        <i class="fa-solid fa-magnifying-glass absolute left-4 top-3 text-[#78716c] text-xs"></i>
-                        <input type="text" id="catalog-search" oninput="searchItems()" placeholder="Bạn đang tìm gì? (vd: Sony A74, Áo dài, Váy tiệc, Canon...)" class="w-full bg-white border border-[#ded0bf] rounded-xl md:rounded-full pl-10 pr-4 py-2 text-xs text-[#1c1917] placeholder-[#a8a29e] focus:outline-none focus:border-[#c86d51] shadow-inner font-sans">
-                    </div>
-
-                    <!-- Date Range Picker -->
-                    <div class="relative w-full sm:w-auto flex items-center gap-1.5 bg-white border border-[#ded0bf] rounded-xl md:rounded-full px-3 py-1.5 text-xs text-[#44403c] shadow-inner">
-                        <i class="fa-regular fa-calendar text-[#78716c] text-xs"></i>
-                        <input type="datetime-local" id="filter-start-date" onchange="searchItems()" class="bg-transparent text-[11px] text-[#44403c] focus:outline-none" title="Từ ngày">
-                        <span class="text-[#a8a29e]">-</span>
-                        <input type="datetime-local" id="filter-end-date" onchange="searchItems()" class="bg-transparent text-[11px] text-[#44403c] focus:outline-none" title="Đến ngày">
-                        <button onclick="clearDateFilter()" class="text-[#a8a29e] hover:text-[#c86d51] ml-1" title="Bỏ lọc ngày"><i class="fa-solid fa-rotate-left text-[10px]"></i></button>
-                    </div>
-
-                    <!-- Sliders Filter Button -->
-                    <button onclick="focusSearchInput()" class="w-9 h-9 rounded-xl md:rounded-full bg-white hover:bg-[#faf7f2] border border-[#ded0bf] text-[#44403c] flex items-center justify-center transition flex-shrink-0 shadow-inner" title="Bộ lọc nâng cao">
-                        <i class="fa-solid fa-sliders text-xs"></i>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Fast Category & Brand Chips (Nạp tự động từ Cấu hình Danh Mục của Admin) -->
-            <div id="dynamic-category-chips-bar" class="flex items-center gap-2 overflow-x-auto pb-2 custom-scroll text-xs">
-                <!-- Javascript nạp danh sách thư mục / chip lọc -->
-            </div>
-
             <!-- Highlight Featured Cards Row (Quản Lý Động Từ Database - Admin Có Thể Sửa / Xóa) -->
-            <div class="mt-4 space-y-2">
+            <div class="space-y-2">
                 <div id="feature-highlights-admin-bar" class="hidden flex items-center justify-between text-xs font-mono pb-1">
                     <span class="text-amber-800 font-bold flex items-center gap-1.5">
                         <i class="fa-solid fa-wand-magic-sparkles text-amber-600"></i> Quản Lý Thẻ Nổi Bật:
@@ -489,7 +459,7 @@
             </div>
 
             <!-- Live Alert Widget (CHỈ HIỂN THỊ KHI ĐĂNG NHẬP VỚI TƯ CÁCH ADMIN - ẨN HOÀN TOÀN VỚI KHÁCH) -->
-            <div id="live-alert-admin-widget" class="hidden mt-6 bg-[#fff7ed] border border-[#fdba74] rounded-2xl p-4 md:p-5 space-y-3 shadow-sm">
+            <div id="live-alert-admin-widget" class="hidden mt-4 bg-[#fff7ed] border border-[#fdba74] rounded-2xl p-4 md:p-5 space-y-3 shadow-sm">
                 <div class="flex items-center justify-between text-xs font-bold font-mono">
                     <span class="text-[#c2410c] flex items-center gap-1.5">
                         <i class="fa-solid fa-bell text-[#ea580c] pulse-warning"></i> TRẠNG THÁI TRẢ ĐỒ HÔM NAY (QUẢN TRỊ VIÊN)
@@ -519,49 +489,117 @@
     <main class="max-w-7xl mx-auto px-4 md:px-8 py-6 md:py-8 flex-1 w-full space-y-8">
 
         <!-- ============================================================== -->
-        <!-- SECTION 1: CATALOG KHÁCH HÀNG THUÊ ĐỒ & MÁY ẢNH & COMBOS       -->
+        <!-- SECTION 1: CATALOG BỘ SƯU TẬP CHỌN MẪU BẠN THÍCH (HÌNH 3)      -->
         <!-- ============================================================== -->
-        <section id="sec-catalog" class="space-y-4 md:space-y-6">
-            <!-- Header Title Row for Catalog -->
-            <div class="flex items-center justify-between border-b border-[#efe8df] pb-3">
-                <div class="flex items-center gap-2">
-                    <span class="w-2.5 h-6 rounded-full bg-[#c86d51]"></span>
-                    <h2 class="text-lg md:text-xl font-bold text-[#1c1917] tracking-tight">Thiết Bị & Trang Phục Cho Thuê</h2>
-                </div>
-                <div class="text-xs text-[#78716c] font-sans">
-                    Tìm thấy <strong class="text-[#c86d51] font-bold" id="catalog-count-badge">--</strong> sản phẩm
-                </div>
+        <section id="sec-catalog" class="space-y-5">
+            <!-- Header Title: Bộ Sưu Tập • Chọn Mẫu Bạn Thích (Phong Cách Sherent Hình 3) -->
+            <div id="collection-anchor" class="space-y-1 pt-2">
+                <div class="text-[11.5px] font-bold text-[#8c5e4f] uppercase tracking-widest font-sans">BỘ SƯU TẬP</div>
+                <h2 class="text-3xl sm:text-4xl font-serif text-[#1c1917] font-normal tracking-tight" style="font-family: 'Playfair Display', Georgia, serif;">
+                    Chọn mẫu bạn thích
+                </h2>
             </div>
 
-            <!-- Smart Sort & Quick Filter Bar (TÍNH NĂNG MỚI: LỌC NHANH SẴN SÀNG, CHI NHÁNH & SẮP XẾP) -->
-            <div class="bg-[#faf6f0] p-3 sm:p-4 rounded-2xl border border-[#efe8df] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs font-sans shadow-sm">
-                <!-- Left: Filter Pills -->
-                <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-                    <button type="button" onclick="setCatalogQuickFilter('all')" id="qf-btn-all" class="px-3 py-1.5 rounded-full font-bold bg-[#c86d51] text-white border border-[#c86d51] shadow-sm transition whitespace-nowrap">
-                        Tất Cả Kho
-                    </button>
-                    <button type="button" onclick="setCatalogQuickFilter('available_only')" id="qf-btn-available_only" class="px-3 py-1.5 rounded-full font-medium bg-white text-[#44403c] border border-[#ded0bf] hover:border-[#c86d51] transition whitespace-nowrap flex items-center gap-1">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Có Sẵn Thuê Ngay
-                    </button>
-                    <button type="button" onclick="setCatalogQuickFilter('branch_CN1')" id="qf-btn-branch_CN1" class="px-3 py-1.5 rounded-full font-medium bg-white text-[#44403c] border border-[#ded0bf] hover:border-[#c86d51] transition whitespace-nowrap">
-                        📍 CN1 (Huỳnh Thúc Kháng)
-                    </button>
-                    <button type="button" onclick="setCatalogQuickFilter('branch_CN2')" id="qf-btn-branch_CN2" class="px-3 py-1.5 rounded-full font-medium bg-white text-[#44403c] border border-[#ded0bf] hover:border-[#c86d51] transition whitespace-nowrap">
-                        📍 CN2 (Lê Duẩn)
-                    </button>
+            <!-- Khung Bộ Lọc Chuẩn Phong Cách Sherent (Hình 3) -->
+            <div class="bg-white p-4 sm:p-6 rounded-3xl border border-[#eadfd5] shadow-sm space-y-4 font-sans">
+                <!-- Ô Tìm Kiếm Bo Tròn Mềm Mại -->
+                <div class="relative w-full">
+                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-3.5 text-[#78716c] text-sm"></i>
+                    <input type="text" id="catalog-search" oninput="searchItems()" placeholder="Tìm tên mẫu hoặc thương hiệu..." class="w-full bg-[#faf7f2] border border-[#e5dcd3] rounded-2xl pl-11 pr-4 py-2.5 text-xs sm:text-sm text-[#1c1917] placeholder-[#a8a29e] focus:outline-none focus:border-[#b37054] shadow-inner font-sans">
                 </div>
 
-                <!-- Right: Sort Selector -->
-                <div class="flex items-center gap-2 self-end sm:self-auto flex-shrink-0">
-                    <span class="text-[#78716c] font-medium text-[11px] whitespace-nowrap flex items-center gap-1">
-                        <i class="fa-solid fa-arrow-down-wide-short text-[#c86d51]"></i> Sắp xếp:
-                    </span>
-                    <select id="catalog-sort-select" onchange="onCatalogSortChange(this.value)" class="bg-white border border-[#ded0bf] rounded-xl px-3 py-1.5 text-xs text-[#1c1917] font-medium focus:outline-none focus:border-[#c86d51] shadow-sm cursor-pointer">
-                        <option value="default">🌟 Đề Xuất / Phổ Biến</option>
-                        <option value="price_asc">💸 Giá: Thấp đến Cao</option>
-                        <option value="price_desc">💎 Giá: Cao đến Thấp</option>
-                        <option value="newest">🆕 Mới Nhất</option>
-                    </select>
+                <!-- Hàng Chip Danh Mục Chọn Lọc Kiểu Sherent (Hình 3) -->
+                <div class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar text-xs font-medium">
+                    <button type="button" onclick="filterSherentCategory('ALL')" id="sher-cat-ALL" class="sher-cat-btn px-4 py-2 rounded-xl bg-[#b37054] text-white font-bold transition whitespace-nowrap shadow-sm">Tất cả</button>
+                    <button type="button" onclick="filterSherentCategory('Đầm & Váy')" id="sher-cat-dam-vay" class="sher-cat-btn px-4 py-2 rounded-xl bg-[#faf7f2] hover:bg-[#ede3d6] text-[#44403c] border border-[#e5dcd3] transition whitespace-nowrap">Đầm & Váy</button>
+                    <button type="button" onclick="filterSherentCategory('Áo dài')" id="sher-cat-ao-dai" class="sher-cat-btn px-4 py-2 rounded-xl bg-[#faf7f2] hover:bg-[#ede3d6] text-[#44403c] border border-[#e5dcd3] transition whitespace-nowrap">Áo dài</button>
+                    <button type="button" onclick="filterSherentCategory('Pháp phục')" id="sher-cat-phap-phuc" class="sher-cat-btn px-4 py-2 rounded-xl bg-[#faf7f2] hover:bg-[#ede3d6] text-[#44403c] border border-[#e5dcd3] transition whitespace-nowrap">Pháp phục</button>
+                    <button type="button" onclick="filterSherentCategory('Gấm')" id="sher-cat-gam" class="sher-cat-btn px-4 py-2 rounded-xl bg-[#faf7f2] hover:bg-[#ede3d6] text-[#44403c] border border-[#e5dcd3] transition whitespace-nowrap">Gấm</button>
+                    <button type="button" onclick="filterSherentCategory('CAMERA_GEAR')" id="sher-cat-camera" class="sher-cat-btn px-4 py-2 rounded-xl bg-[#faf7f2] hover:bg-[#ede3d6] text-[#44403c] border border-[#e5dcd3] transition whitespace-nowrap">Máy ảnh & Lens</button>
+                    <button type="button" onclick="filterSherentCategory('Phụ kiện')" id="sher-cat-phu-kien" class="sher-cat-btn px-4 py-2 rounded-xl bg-[#faf7f2] hover:bg-[#ede3d6] text-[#44403c] border border-[#e5dcd3] transition whitespace-nowrap">Phụ kiện</button>
+                </div>
+
+                <!-- 4 Dropdown Lọc Phong Cách Sherent (Hình 3) -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 text-xs">
+                    <!-- Dropdown 1: Size -->
+                    <div class="relative">
+                        <select id="filter-size-select" onchange="onSherentDropdownFilterChanged()" class="w-full bg-[#faf7f2] border border-[#e5dcd3] rounded-2xl px-3.5 py-2.5 text-[#292524] font-medium appearance-none focus:outline-none focus:border-[#b37054] cursor-pointer">
+                            <option value="">Size</option>
+                            <option value="Free Size">Free Size</option>
+                            <option value="S">Size S</option>
+                            <option value="M">Size M</option>
+                            <option value="L">Size L</option>
+                            <option value="XL">Size XL</option>
+                            <option value="Body">Body Máy Ảnh</option>
+                            <option value="Lens">Ống Kính (Lens)</option>
+                        </select>
+                        <i class="fa-solid fa-chevron-down absolute right-3.5 top-3.5 text-xs text-[#78716c] pointer-events-none"></i>
+                    </div>
+
+                    <!-- Dropdown 2: Thương hiệu -->
+                    <div class="relative">
+                        <select id="filter-brand-select" onchange="onSherentDropdownFilterChanged()" class="w-full bg-[#faf7f2] border border-[#e5dcd3] rounded-2xl px-3.5 py-2.5 text-[#292524] font-medium appearance-none focus:outline-none focus:border-[#b37054] cursor-pointer">
+                            <option value="">Thương hiệu</option>
+                            <option value="Sony">Sony</option>
+                            <option value="Canon">Canon</option>
+                            <option value="Fujifilm">Fujifilm</option>
+                            <option value="Sò Vintage">Sò Vintage</option>
+                            <option value="Tiệm Thơ">Tiệm Thơ</option>
+                            <option value="Tiduba">Tiduba Thiết Kế</option>
+                        </select>
+                        <i class="fa-solid fa-chevron-down absolute right-3.5 top-3.5 text-xs text-[#78716c] pointer-events-none"></i>
+                    </div>
+
+                    <!-- Dropdown 3: Mức giá -->
+                    <div class="relative">
+                        <select id="filter-price-select" onchange="onSherentDropdownFilterChanged()" class="w-full bg-[#faf7f2] border border-[#e5dcd3] rounded-2xl px-3.5 py-2.5 text-[#292524] font-medium appearance-none focus:outline-none focus:border-[#b37054] cursor-pointer">
+                            <option value="">Mức giá</option>
+                            <option value="under_100k">Dưới 100.000đ</option>
+                            <option value="100k_200k">100.000đ - 200.000đ</option>
+                            <option value="200k_400k">200.000đ - 400.000đ</option>
+                            <option value="above_400k">Trên 400.000đ</option>
+                        </select>
+                        <i class="fa-solid fa-chevron-down absolute right-3.5 top-3.5 text-xs text-[#78716c] pointer-events-none"></i>
+                    </div>
+
+                    <!-- Dropdown 4: Sắp xếp -->
+                    <div class="relative">
+                        <select id="filter-sort-select" onchange="onSherentDropdownFilterChanged()" class="w-full bg-[#faf7f2] border border-[#e5dcd3] rounded-2xl px-3.5 py-2.5 text-[#292524] font-medium appearance-none focus:outline-none focus:border-[#b37054] cursor-pointer">
+                            <option value="popular">Sắp xếp</option>
+                            <option value="popular">🌟 Đề Xuất / Phổ Biến</option>
+                            <option value="price_asc">💸 Giá: Thấp đến Cao</option>
+                            <option value="price_desc">💎 Giá: Cao đến Thấp</option>
+                            <option value="newest">🆕 Mới Nhất</option>
+                        </select>
+                        <i class="fa-solid fa-chevron-down absolute right-3.5 top-3.5 text-xs text-[#78716c] pointer-events-none"></i>
+                    </div>
+                </div>
+
+                <!-- Hàng Chân: Lọc Chi Nhánh + Xóa Bộ Lọc + Số Lượng Sản Phẩm (Hình 3) -->
+                <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#f2ece4] text-xs">
+                    <!-- Chi nhánh & Có sẵn -->
+                    <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar text-[11px]">
+                        <button type="button" onclick="setCatalogQuickFilter('all')" id="qf-btn-all" class="px-2.5 py-1 rounded-full font-bold bg-[#b37054] text-white transition whitespace-nowrap">
+                            Tất Cả Kho
+                        </button>
+                        <button type="button" onclick="setCatalogQuickFilter('available_only')" id="qf-btn-available_only" class="px-2.5 py-1 rounded-full font-medium bg-[#faf7f2] text-[#44403c] border border-[#ded0bf] hover:border-[#b37054] transition whitespace-nowrap flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Có Sẵn
+                        </button>
+                        <button type="button" onclick="setCatalogQuickFilter('branch_CN1')" id="qf-btn-branch_CN1" class="px-2.5 py-1 rounded-full font-medium bg-[#faf7f2] text-[#44403c] border border-[#ded0bf] hover:border-[#b37054] transition whitespace-nowrap">
+                            📍 CN1 (120 Huỳnh Thúc Kháng)
+                        </button>
+                        <button type="button" onclick="setCatalogQuickFilter('branch_CN2')" id="qf-btn-branch_CN2" class="px-2.5 py-1 rounded-full font-medium bg-[#faf7f2] text-[#44403c] border border-[#ded0bf] hover:border-[#b37054] transition whitespace-nowrap">
+                            📍 CN2 (801 Lê Duẩn)
+                        </button>
+                    </div>
+
+                    <!-- Xóa Bộ Lọc (Hình 3) & Số lượng -->
+                    <div class="flex items-center gap-3 ml-auto">
+                        <span class="text-[#78716c] text-[11.5px]">Tìm thấy <strong class="text-[#b37054] font-bold" id="catalog-count-badge">--</strong> mẫu</span>
+                        <button type="button" onclick="resetAllSherentFilters()" class="text-[#78716c] hover:text-[#b37054] font-medium hover:underline flex items-center gap-1 text-[11.5px] transition">
+                            <i class="fa-solid fa-rotate-left text-[10px]"></i> Xoá bộ lọc
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -777,7 +815,7 @@
                     <div class="flex flex-wrap items-center gap-2">
                         <select id="sched-filter-branch" onchange="fetchAdminScheduleCalendar()" class="bg-gray-900 border border-gray-700 text-white rounded-lg p-1.5 text-xs font-mono">
                             <option value="">Tất cả chi nhánh</option>
-                            <option value="CN1">CN1: 183A Huỳnh Thúc Kháng</option>
+                            <option value="CN1">CN1: 120 Huỳnh Thúc Kháng</option>
                             <option value="CN2">CN2: 801 Lê Duẩn</option>
                         </select>
                         <select id="sched-filter-category" onchange="fetchAdminScheduleCalendar()" class="bg-gray-900 border border-gray-700 text-white rounded-lg p-1.5 text-xs font-mono">
@@ -1727,7 +1765,7 @@
                             <div>
                                 <label class="block text-[11px] font-bold text-emerald-800 mb-1">🏢 Xuất đơn tại Chi nhánh:</label>
                                 <select id="pos-branch-code" onchange="posRecalculateActiveInvoice()" class="w-full bg-white border border-emerald-400 rounded-xl p-2 text-xs font-bold text-gray-800">
-                                    <option value="CN1">📍 CN1 (Trụ Sở): 183A Huỳnh Thúc Kháng, Pleiku, Gia Lai (0977.078.981)</option>
+                                    <option value="CN1">📍 CN1 (Trụ Sở): 120 Huỳnh Thúc Kháng, Pleiku, Gia Lai (0977.078.981)</option>
                                     <option value="CN2">📍 CN2: 801 Lê Duẩn, P. An Phú, TP. Pleiku, Gia Lai (0977.078.981)</option>
                                 </select>
                             </div>
@@ -1859,7 +1897,7 @@
                             <i class="fa-solid fa-store"></i> Chi nhánh nhận & trả đồ cho đơn hàng:
                         </label>
                         <select id="cart-branch-code" class="w-full bg-gray-900 border border-amber-500/60 rounded-xl p-2.5 text-white font-sans text-xs focus:border-amber-400">
-                            <option value="CN1">📍 CN1 (Trụ Sở): 183A Huỳnh Thúc Kháng, Pleiku, Gia Lai (0977.078.981)</option>
+                            <option value="CN1">📍 CN1 (Trụ Sở): 120 Huỳnh Thúc Kháng, Pleiku, Gia Lai (0977.078.981)</option>
                             <option value="CN2">📍 CN2: 801 Lê Duẩn, P. An Phú, TP. Pleiku, Gia Lai (0977.078.981)</option>
                         </select>
                     </div>
@@ -1931,9 +1969,9 @@
                     <div class="text-amber-300 font-bold flex items-center gap-1.5 text-sm">
                         <i class="fa-solid fa-store text-amber-400"></i> CHI NHÁNH 1 (TRỤ SỞ CHÍNH - GIA LAI):
                     </div>
-                    <div class="text-gray-300 font-sans"><strong>Địa chỉ:</strong> 183A Huỳnh Thúc Kháng, P. Diên Hồng, TP. Pleiku, Gia Lai</div>
+                    <div class="text-gray-300 font-sans"><strong>Địa chỉ:</strong> 120 Huỳnh Thúc Kháng, P. Diên Hồng, TP. Pleiku, Gia Lai</div>
                     <div class="text-gray-400 font-sans"><strong>Hotline / Zalo:</strong> <a href="tel:0977078981" class="text-cyan-400 hover:underline">0977.078.981</a> | <strong>Giờ mở cửa:</strong> 08:00 - 20:00</div>
-                    <a href="https://maps.app.goo.gl/rVJwRPcvrSHhcrDN6" target="_blank" class="inline-block text-[11px] text-amber-400 hover:underline mt-1 font-sans">
+                    <a href="https://maps.app.goo.gl/N1uMz2bC7riTxBYv7" target="_blank" class="inline-block text-[11px] text-amber-400 hover:underline mt-1 font-sans">
                         <i class="fa-solid fa-map-location-dot"></i> Mở Google Maps chỉ đường tới CN1 &rarr;
                     </a>
                 </div>
@@ -1979,7 +2017,7 @@
                 </span>
             </a>
             <!-- Chỉ Đường Google Maps -->
-            <a href="https://maps.app.goo.gl/rVJwRPcvrSHhcrDN6" target="_blank" class="flex items-center gap-2 bg-white/95 hover:bg-amber-50 text-[#c86d51] border border-amber-200 px-3 py-1.5 rounded-full shadow-lg transition text-xs font-bold font-mono">
+            <a href="https://maps.app.goo.gl/N1uMz2bC7riTxBYv7" target="_blank" class="flex items-center gap-2 bg-white/95 hover:bg-amber-50 text-[#c86d51] border border-amber-200 px-3 py-1.5 rounded-full shadow-lg transition text-xs font-bold font-mono">
                 <span>Bản đồ shop</span>
                 <span class="w-7 h-7 rounded-full bg-[#c86d51] text-white flex items-center justify-center">
                     <i class="fa-solid fa-location-dot text-xs"></i>
@@ -2143,7 +2181,7 @@
                         <i class="fa-solid fa-store"></i> Chọn Chi Nhánh Nhận & Trả Đồ:
                     </label>
                     <select id="book-branch-code" class="w-full bg-gray-950 border border-amber-500/60 rounded-xl p-2.5 text-xs text-white font-sans focus:outline-none focus:border-amber-400">
-                        <option value="CN1">📍 CN1 (Trụ Sở Chính): 183A Huỳnh Thúc Kháng, Pleiku, Gia Lai (0977.078.981)</option>
+                        <option value="CN1">📍 CN1 (Trụ Sở Chính): 120 Huỳnh Thúc Kháng, Pleiku, Gia Lai (0977.078.981)</option>
                         <option value="CN2">📍 CN2: 801 Lê Duẩn, P. An Phú, TP. Pleiku, Gia Lai (0977.078.981)</option>
                     </select>
                 </div>
@@ -2827,7 +2865,7 @@
                     <div class="text-center space-y-0.5 pb-2 border-b border-dashed border-black">
                         <div class="text-2xl font-black tracking-widest text-black" style="font-family: Arial, sans-serif; letter-spacing: 2px;">TIDUBA</div>
                         <div class="text-[10px] font-bold leading-tight text-black pt-0.5 font-sans">
-                            <div>CN1: 183A Huỳnh Thúc Kháng - Pleiku - Gia Lai</div>
+                            <div>CN1: 120 Huỳnh Thúc Kháng - Pleiku - Gia Lai</div>
                             <div>CN2: 801 Lê Duẩn - Pleiku - Gia Lai</div>
                             <div class="font-black text-[11px] mt-0.5">Hotline: 0977 078 981</div>
                         </div>
@@ -3571,6 +3609,18 @@
                         </label>
                     </div>
 
+                    <!-- CHỌN CHI NHÁNH NHẬP KHO (YÊU CẦU 6) -->
+                    <div class="bg-gray-950 p-3.5 rounded-2xl border border-gray-800 space-y-1.5 font-mono">
+                        <label class="block text-gray-200 font-bold text-xs flex items-center justify-between">
+                            <span class="flex items-center gap-1.5 text-teal-300"><i class="fa-solid fa-store"></i> Chọn Chi Nhánh Nhập Kho:</span>
+                            <span class="text-[10px] text-gray-400">Gán vị trí kho cho các sản phẩm trong file</span>
+                        </label>
+                        <select id="kv-import-branch-select" class="w-full bg-gray-900 border border-teal-600/70 rounded-xl p-2.5 text-white font-mono text-xs focus:outline-none focus:border-teal-400 cursor-pointer">
+                            <option value="CN1">📍 Chi nhánh 1: 120 Huỳnh Thúc Kháng, P. Diên Hồng, TP. Pleiku</option>
+                            <option value="CN2">📍 Chi nhánh 2: 801 Lê Duẩn, P. An Phú, TP. Pleiku</option>
+                        </select>
+                    </div>
+
                     <button type="button" onclick="submitImportKiotvietFile()" id="btn-kv-upload-file" class="w-full bg-gradient-to-r from-teal-600 via-emerald-600 to-green-700 hover:from-teal-500 hover:to-green-600 text-gray-950 font-black py-3 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-teal-950">
                         <i class="fa-solid fa-upload"></i> NẠP TOÀN BỘ SẢN PHẨM TỪ FILE VÀO KHO WEB & APP
                     </button>
@@ -3999,21 +4049,122 @@
             showSection('kiotviet-pos');
         }
 
-        function filterCategory(cat) {
+        // TOP ANNOUNCEMENT BAR TICKER (PHONG CÁCH SHERENT HÌNH 1 & 2)
+        const topAnnouncements = [
+            "✦ Giảm 10% tổng hóa đơn với khách hàng thuê từ 03 sản phẩm ✦ Cọc 0đ giữ CCCD gốc ✦ Hotline: 0977.078.981 ✦",
+            "✦ CN1: 120 Huỳnh Thúc Kháng (Trụ Sở Mới) ✦ CN2: 801 Lê Duẩn ✦ Giờ mở cửa: 08:00 - 20:00 ✦",
+            "✦ Miễn cọc thế chân khi để lại CCCD gốc tại quầy ✦ Ký hợp đồng OTP điện tử bảo mật ✦"
+        ];
+        let currentAnnounceIdx = 0;
+        function stepTopAnnouncement(dir) {
+            currentAnnounceIdx = (currentAnnounceIdx + dir + topAnnouncements.length) % topAnnouncements.length;
+            const el = document.getElementById('top-announcement-text');
+            if (el) el.innerText = topAnnouncements[currentAnnounceIdx];
+        }
+        setInterval(() => stepTopAnnouncement(1), 6000);
+
+        // SHERENT OFFCANVAS DRAWER MENU (HÌNH 2)
+        function openSherentDrawerMenu() {
+            const drawer = document.getElementById('sherent-drawer-menu');
+            const backdrop = document.getElementById('sherent-drawer-backdrop');
+            if (drawer && backdrop) {
+                drawer.classList.remove('translate-x-full');
+                backdrop.classList.remove('opacity-0', 'pointer-events-none');
+                backdrop.classList.add('opacity-100');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+
+        function closeSherentDrawerMenu() {
+            const drawer = document.getElementById('sherent-drawer-menu');
+            const backdrop = document.getElementById('sherent-drawer-backdrop');
+            if (drawer && backdrop) {
+                drawer.classList.add('translate-x-full');
+                backdrop.classList.add('opacity-0', 'pointer-events-none');
+                backdrop.classList.remove('opacity-100');
+                document.body.style.overflow = '';
+            }
+        }
+
+        function focusCollectionSection() {
+            showSection('catalog');
+            const el = document.getElementById('collection-anchor');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // BỘ LỌC BỘ SƯU TẬP SHERENT (HÌNH 3)
+        let activeSherentCategory = 'ALL';
+        let filterDropdownSize = '';
+        let filterDropdownBrand = '';
+        let filterDropdownPrice = '';
+        let filterDropdownSort = 'popular';
+
+        function filterSherentCategory(cat) {
+            activeSherentCategory = cat;
             currentCategory = cat;
-            ['ALL', 'CAMERA_GEAR', 'COSTUME_FASHION', 'COMBOS'].forEach(c => {
-                const btn = document.getElementById(`cat-btn-${c}`);
+
+            document.querySelectorAll('.sher-cat-btn').forEach(btn => {
+                btn.className = "sher-cat-btn px-4 py-2 rounded-xl bg-[#faf7f2] hover:bg-[#ede3d6] text-[#44403c] border border-[#e5dcd3] transition whitespace-nowrap font-medium";
+            });
+            const activeBtn = (cat === 'ALL') ? document.getElementById('sher-cat-ALL')
+                : (cat === 'Đầm & Váy') ? document.getElementById('sher-cat-dam-vay')
+                : (cat === 'Áo dài') ? document.getElementById('sher-cat-ao-dai')
+                : (cat === 'Pháp phục') ? document.getElementById('sher-cat-phap-phuc')
+                : (cat === 'Gấm') ? document.getElementById('sher-cat-gam')
+                : (cat === 'CAMERA_GEAR') ? document.getElementById('sher-cat-camera')
+                : (cat === 'Phụ kiện') ? document.getElementById('sher-cat-phu-kien')
+                : null;
+            if (activeBtn) {
+                activeBtn.className = "sher-cat-btn px-4 py-2 rounded-xl bg-[#b37054] text-white font-bold transition whitespace-nowrap shadow-sm";
+            }
+
+            renderCatalog();
+        }
+
+        function onSherentDropdownFilterChanged() {
+            filterDropdownSize = document.getElementById('filter-size-select') ? document.getElementById('filter-size-select').value : '';
+            filterDropdownBrand = document.getElementById('filter-brand-select') ? document.getElementById('filter-brand-select').value : '';
+            filterDropdownPrice = document.getElementById('filter-price-select') ? document.getElementById('filter-price-select').value : '';
+            filterDropdownSort = document.getElementById('filter-sort-select') ? document.getElementById('filter-sort-select').value : 'popular';
+            catalogSortOrder = filterDropdownSort;
+            renderCatalog();
+        }
+
+        function resetAllSherentFilters() {
+            const sInp = document.getElementById('catalog-search');
+            if (sInp) sInp.value = '';
+            
+            const sizeSel = document.getElementById('filter-size-select');
+            if (sizeSel) sizeSel.value = '';
+            const brandSel = document.getElementById('filter-brand-select');
+            if (brandSel) brandSel.value = '';
+            const priceSel = document.getElementById('filter-price-select');
+            if (priceSel) priceSel.value = '';
+            const sortSel = document.getElementById('filter-sort-select');
+            if (sortSel) sortSel.value = 'popular';
+
+            filterDropdownSize = '';
+            filterDropdownBrand = '';
+            filterDropdownPrice = '';
+            filterDropdownSort = 'popular';
+            catalogSortOrder = 'default';
+            catalogQuickFilter = 'all';
+
+            // Reset chip nhanh
+            ['all', 'available_only', 'branch_CN1', 'branch_CN2'].forEach(k => {
+                const btn = document.getElementById(`qf-btn-${k}`);
                 if (btn) {
-                    if (c === cat) {
-                        btn.className = "px-3.5 py-1.5 rounded-lg bg-amber-500 text-gray-950 font-bold transition whitespace-nowrap";
-                    } else {
-                        btn.className = (c === 'COMBOS') 
-                            ? "px-3.5 py-1.5 rounded-lg text-amber-300 hover:text-white transition flex items-center gap-1.5 whitespace-nowrap bg-amber-950/40 border border-amber-500/30"
-                            : "px-3.5 py-1.5 rounded-lg text-gray-400 hover:text-white transition flex items-center gap-1.5 whitespace-nowrap";
-                    }
+                    btn.className = (k === 'all')
+                        ? "px-2.5 py-1 rounded-full font-bold bg-[#b37054] text-white transition whitespace-nowrap"
+                        : "px-2.5 py-1 rounded-full font-medium bg-[#faf7f2] text-[#44403c] border border-[#ded0bf] hover:border-[#b37054] transition whitespace-nowrap";
                 }
             });
-            renderCatalog();
+
+            filterSherentCategory('ALL');
+        }
+
+        function filterCategory(cat) {
+            filterSherentCategory(cat);
         }
 
         async function fetchCatalog() {
@@ -4091,6 +4242,49 @@
                            catNorm.includes(bf);
                 });
             }
+
+            // Bộ lọc Dropdown Size (Hình 3)
+            if (filterDropdownSize) {
+                const sz = normalizeSearchText(filterDropdownSize);
+                filtered = filtered.filter(i => {
+                    const so = normalizeSearchText(i.serial_or_size);
+                    const nm = normalizeSearchText(i.name);
+                    const sc = normalizeSearchText(i.subcategory);
+                    if (sz === 's') return (/\bs\b/.test(so) || /\bsize s\b/.test(nm) || so === 's');
+                    if (sz === 'm') return (/\bm\b/.test(so) || /\bsize m\b/.test(nm) || so === 'm');
+                    if (sz === 'l') return (/\bl\b/.test(so) || /\bsize l\b/.test(nm) || so === 'l');
+                    if (sz === 'xl') return (/\bxl\b/.test(so) || /\bsize xl\b/.test(nm) || so === 'xl');
+                    if (sz === 'free size') return (so.includes('free') || nm.includes('free') || so === '' || so === 'fs');
+                    if (sz === 'body') return (sc.includes('body') || nm.includes('body') || nm.includes('a7') || nm.includes('canon') || nm.includes('fuji'));
+                    if (sz === 'lens') return (sc.includes('lens') || nm.includes('lens') || nm.includes('ong kinh') || so.includes('mm'));
+                    return so.includes(sz) || nm.includes(sz) || sc.includes(sz);
+                });
+            }
+
+            // Bộ lọc Dropdown Thương hiệu (Hình 3)
+            if (filterDropdownBrand) {
+                const br = normalizeSearchText(filterDropdownBrand);
+                filtered = filtered.filter(i => {
+                    const b = normalizeSearchText(i.brand);
+                    const n = normalizeSearchText(i.name);
+                    const s = normalizeSearchText(i.subcategory);
+                    return b.includes(br) || n.includes(br) || s.includes(br);
+                });
+            }
+
+            // Bộ lọc Dropdown Mức giá (Hình 3)
+            if (filterDropdownPrice) {
+                if (filterDropdownPrice === 'under_100k') {
+                    filtered = filtered.filter(i => (Number(i.price_24h) || 0) < 100000);
+                } else if (filterDropdownPrice === '100k_200k') {
+                    filtered = filtered.filter(i => (Number(i.price_24h) || 0) >= 100000 && (Number(i.price_24h) || 0) <= 200000);
+                } else if (filterDropdownPrice === '200k_400k') {
+                    filtered = filtered.filter(i => (Number(i.price_24h) || 0) > 200000 && (Number(i.price_24h) || 0) <= 400000);
+                } else if (filterDropdownPrice === 'above_400k') {
+                    filtered = filtered.filter(i => (Number(i.price_24h) || 0) > 400000);
+                }
+            }
+
             if (activePriceFilter) {
                 if (activePriceFilter === 'tier1') {
                     filtered = filtered.filter(i => (i.price_24h || 0) < 200000);
@@ -4105,7 +4299,8 @@
                     const nameNorm = normalizeSearchText(i.name);
                     const subNorm = normalizeSearchText(i.subcategory);
                     const brandNorm = normalizeSearchText(i.brand);
-                    return nameNorm.includes(searchVal) || subNorm.includes(searchVal) || brandNorm.includes(searchVal);
+                    const codeNorm = normalizeSearchText(i.serial_or_size);
+                    return nameNorm.includes(searchVal) || subNorm.includes(searchVal) || brandNorm.includes(searchVal) || codeNorm.includes(searchVal);
                 });
             }
 
@@ -4120,18 +4315,20 @@
 
             // Áp dụng sắp xếp
             filtered = [...filtered];
-            if (catalogSortOrder === 'price_asc') {
+            const sortMode = filterDropdownSort || catalogSortOrder;
+            if (sortMode === 'price_asc') {
                 filtered.sort((a, b) => (Number(a.price_24h) || 0) - (Number(b.price_24h) || 0));
-            } else if (catalogSortOrder === 'price_desc') {
+            } else if (sortMode === 'price_desc') {
                 filtered.sort((a, b) => (Number(b.price_24h) || 0) - (Number(a.price_24h) || 0));
-            } else if (catalogSortOrder === 'newest') {
+            } else if (sortMode === 'newest') {
                 filtered.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
             }
 
-            document.getElementById('catalog-count-badge').innerText = filtered.length;
+            const badgeCountEl = document.getElementById('catalog-count-badge');
+            if (badgeCountEl) badgeCountEl.innerText = filtered.length;
 
             if (filtered.length === 0) {
-                grid.innerHTML = `<div class="col-span-full p-12 text-center text-gray-500 font-mono text-xs luxury-card rounded-2xl">Không tìm thấy thiết bị hoặc trang phục nào phù hợp.</div>`;
+                grid.innerHTML = `<div class="col-span-full p-12 text-center text-gray-500 font-mono text-xs luxury-card rounded-2xl">Không tìm thấy thiết bị hoặc trang phục nào phù hợp với bộ lọc hiện tại.</div>`;
                 return;
             }
 
@@ -4149,86 +4346,101 @@
                 else if (isRented) { statusLabel = 'ĐANG THUÊ'; statusClass = 'bg-rose-100 text-rose-700 border border-rose-300 font-black'; }
                 else { statusLabel = 'TẠM NGƯNG'; statusClass = 'bg-[#f5f5f4] text-[#78716c] border border-[#e7e5e4] font-bold'; }
 
+                const estTagPrice = Number(item.price_24h || 100000) * 5;
+
                 return `
-                    <div class="bg-white rounded-2xl overflow-hidden border border-[#eee7de] shadow-sm hover:shadow-md transition duration-300 flex flex-col justify-between group ${isUnavail ? 'opacity-60' : ''}">
-                        <div onclick="openProductGalleryModal(${item.id})" class="cursor-pointer relative overflow-hidden aspect-[4/3] bg-[#f5ede3]" title="Bấm để xem album ảnh phóng to">
-                            <img src="${item.image_url}" alt="${item.name}" loading="lazy" decoding="async" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
-                            <span class="absolute top-2.5 left-2.5 text-[10px] font-sans font-bold px-2.5 py-0.5 rounded-full ${item.category === 'CAMERA_GEAR' ? 'bg-[#f0f9ff] text-[#0369a1] border border-[#bae6fd]' : 'bg-[#fdf2f8] text-[#be185d] border border-[#fbcfe8]'}">
-                                ${item.subcategory}
+                    <div class="bg-white/95 rounded-3xl p-2.5 sm:p-3 border border-[#ede3d6] shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between group ${isUnavail ? 'opacity-60' : ''}">
+                        
+                        <!-- Ảnh Khung Vòm Cung Nghệ Thuật (Arch Window Phong Cách Sherent Hình 4) -->
+                        <div onclick="openProductGalleryModal(${item.id})" class="cursor-pointer relative overflow-hidden aspect-[3/4] rounded-t-[75px] sm:rounded-t-[90px] rounded-b-2xl bg-[#f5ede3] shadow-inner" title="Bấm để xem album ảnh phóng to">
+                            <img src="${item.image_url}" alt="${item.name}" loading="lazy" decoding="async" class="w-full h-full object-cover group-hover:scale-105 transition duration-700">
+                            
+                            <span class="absolute top-3 left-3 text-[10px] font-sans font-bold px-2.5 py-0.5 rounded-full shadow-sm ${item.category === 'CAMERA_GEAR' ? 'bg-[#f0f9ff]/90 text-[#0369a1] border border-[#bae6fd]' : 'bg-[#fdf2f8]/90 text-[#be185d] border border-[#fbcfe8]'}">
+                                ${item.subcategory || 'Thiết kế'}
                             </span>
-                            <span class="absolute top-2.5 right-2.5 text-[10px] font-sans font-bold px-2 py-0.5 rounded-full ${statusClass}">
+                            <span class="absolute top-3 right-3 text-[10px] font-sans font-bold px-2.5 py-0.5 rounded-full shadow-sm ${statusClass}">
                                 ${statusLabel}
                             </span>
+                            
                             <!-- Icon gợi ý xem album ảnh -->
-                            <span class="absolute bottom-2.5 left-2.5 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg flex items-center gap-1 shadow-sm backdrop-blur-sm">
+                            <span class="absolute bottom-2.5 left-2.5 bg-black/60 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm backdrop-blur-sm">
                                 <i class="fa-regular fa-images"></i> Xem ảnh
                             </span>
                         </div>
-                        <div class="p-3 sm:p-4 space-y-2 flex-1 flex flex-col justify-between">
-                            <div>
-                                <div class="text-[11px] font-sans text-[#78716c] flex items-center justify-between">
-                                    <span>${item.brand}</span>
-                                    <span class="font-mono text-[10px]">${item.serial_or_size}</span>
-                                </div>
-                                <h4 onclick="openProductGalleryModal(${item.id})" class="cursor-pointer text-sm font-bold text-[#1c1917] mt-1 line-clamp-2 leading-snug hover:text-[#c86d51] transition" title="Bấm để xem album ảnh phóng to">${item.name}</h4>
-                                <div class="text-[11px] text-[#78716c] mt-1.5 flex items-center justify-between">
-                                    <span class="flex items-center gap-1 text-[#b45309] font-medium"><i class="fa-solid fa-sparkles text-[10px]"></i> ${item.condition_status}</span>
-                                    <div class="flex items-center gap-1.5">
-                                        <button onclick="openCalendarModal(${item.id}, '${encodeURIComponent(item.name)}')" class="text-slate-600 hover:text-[#c86d51] bg-[#f5ede3] hover:bg-[#ede2d4] px-1.5 py-0.5 rounded flex items-center gap-1 font-medium text-[10px] transition" title="Xem lịch bận">
-                                            <i class="fa-regular fa-calendar-days text-[10px] text-[#c86d51]"></i> Lịch
-                                        </button>
-                                        <button onclick="openReviewsModal(${item.id}, '${encodeURIComponent(item.name)}')" class="text-[#c86d51] hover:underline flex items-center gap-0.5 font-medium">
-                                            ⭐ 5.0
-                                        </button>
-                                    </div>
+
+                        <!-- Thông Tin Sản Phẩm Phong Cách Studio Sang Trọng (Hình 4) -->
+                        <div class="pt-3 px-1 pb-1 space-y-2 flex-1 flex flex-col justify-between font-sans">
+                            <div class="space-y-0.5">
+                                <h4 onclick="openProductGalleryModal(${item.id})" class="cursor-pointer font-serif text-base sm:text-lg font-bold text-[#1c1917] leading-snug hover:text-[#b37054] transition line-clamp-1" style="font-family: 'Playfair Display', Georgia, serif;" title="${item.name}">
+                                    ${item.name}
+                                </h4>
+                                <div class="text-xs text-[#78716c] font-sans flex items-center justify-between">
+                                    <span class="truncate">${item.brand || 'Tiduba'} • ${item.serial_or_size || 'Free Size'}</span>
+                                    <button onclick="openReviewsModal(${item.id}, '${encodeURIComponent(item.name)}')" class="text-[#b37054] hover:underline flex items-center gap-0.5 font-bold text-[11px] flex-shrink-0 ml-1">
+                                        ⭐ 5.0
+                                    </button>
                                 </div>
                             </div>
-                            <div class="pt-2 border-t border-[#f2ece4] space-y-1.5">
-                                <div class="flex items-center justify-between text-xs font-mono">
+
+                            <!-- Bảng Giá Chuẩn Hình 4: Phí thuê, Phí cọc, Giá tag -->
+                            <div class="pt-1.5 border-t border-[#f2ece4] space-y-1 text-xs font-sans">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[#78716c]">Phí thuê:</span>
                                     <div>
-                                        <span class="text-[#c86d51] font-black text-base">${Number(item.price_24h).toLocaleString()}đ</span>
-                                        <span class="text-[#78716c] text-[10px]">/ngày</span>
-                                    </div>
-                                    <div class="text-[#8c5e4f] text-[11px] font-sans font-medium">
-                                        Giữ giấy tờ gốc
+                                        <strong class="text-[#1c1917] font-bold text-sm sm:text-base">${Number(item.price_24h).toLocaleString()}đ</strong>
+                                        <span class="text-[#78716c] text-[10.5px]">/ 1 ngày</span>
                                     </div>
                                 </div>
+                                <div class="flex items-center justify-between text-[#78716c] text-[11px]">
+                                    <span>Phí cọc:</span>
+                                    <span class="font-medium text-[#2e7d32]">0đ <span class="text-[10px] text-[#78716c]">(Giữ CCCD)</span></span>
+                                </div>
+                                <div class="flex items-center justify-between text-[#a8a29e] text-[10.5px]">
+                                    <span>Giá tag:</span>
+                                    <span class="font-mono">${Number(estTagPrice).toLocaleString()}đ</span>
+                                </div>
                                 ${isCameraItem(item) ? `
-                                    <div class="bg-[#f0fdf4] border border-[#bbf7d0] rounded-lg px-2 py-0.5 text-[10px] font-mono flex items-center justify-between text-emerald-800">
-                                        <span>Thuê 2 ngày: <strong class="text-emerald-900">${(item.price_2d && item.price_2d > 0 ? item.price_2d : Math.round(Number(item.price_24h) * 2 * 0.85)).toLocaleString()}đ</strong></span>
+                                    <div class="bg-[#f0fdf4] border border-[#bbf7d0] rounded-lg px-2 py-0.5 text-[10px] font-mono flex items-center justify-between text-emerald-800 mt-1">
+                                        <span>Thuê 2 ngày: <strong>${(item.price_2d && item.price_2d > 0 ? item.price_2d : Math.round(Number(item.price_24h) * 2 * 0.85)).toLocaleString()}đ</strong></span>
                                         <span class="text-[9px] text-emerald-600 font-bold">Giảm 15%</span>
                                     </div>
                                 ` : ''}
-                                <div class="flex items-center gap-1.5">
-                                    ${isUnavail
-                                        ? `<span class="w-full bg-[#f5f5f4] text-[#78716c] py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 font-sans font-bold"><i class="fa-solid fa-ban"></i> Tạm Ngưng</span>`
-                                        : `
-                                            <button onclick="addToCart(${item.id})" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#fef3c7] hover:bg-[#fde68a] text-[#92400e] border border-[#fcd34d] flex items-center justify-center text-sm shadow-sm transition flex-shrink-0" title="Thêm vào giỏ hàng">
-                                                <i class="fa-solid fa-cart-plus"></i>
-                                            </button>
-                                            <button onclick="openBookingModal(${item.id})" class="flex-1 h-9 sm:h-10 bg-[#c86d51] hover:bg-[#b55d42] text-white font-bold shadow-sm px-2 sm:px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer" title="${isRented ? 'Món này đang có khách thuê, bấm để đặt thuê ngày/giờ khác' : 'Bấm để đặt thuê ngay'}">
-                                                <i class="fa-solid ${isRented ? 'fa-calendar-check' : 'fa-bolt'}"></i>
-                                                <span>${isRented ? 'Thuê Ngày Khác' : 'Thuê Ngay'}</span>
-                                            </button>
-                                        `
-                                    }
-                                </div>
-                                ${isAdminView ? `
-                                    <div class="mt-1.5 pt-1.5 border-t border-[#f2ece4] flex items-center justify-between text-[11px] font-sans">
-                                        <button onclick="openEditItemModal(${item.id})" class="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1">
-                                            <i class="fa-solid fa-pen-to-square"></i> Sửa
-                                        </button>
-                                        <div class="flex items-center gap-1">
-                                            <button onclick="adminToggleItemAvailability(${item.id})" class="text-[10px] font-bold px-2 py-0.5 rounded border ${isUnavail ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-rose-50 text-rose-700 border-rose-300'}">
-                                                ${isUnavail ? 'Mở Lại' : 'Hạ Xuống'}
-                                            </button>
-                                            <button onclick="adminPermanentDeleteItem(${item.id}, '${item.name.replace(/'/g, '')}')" class="text-rose-600 hover:text-rose-800 px-1 py-0.5" title="Xóa món này">
-                                                <i class="fa-solid fa-trash-can"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                ` : ''}
                             </div>
+
+                            <!-- Nút Hành Động Bo Tròn Đẹp Mắt (Hình 4) -->
+                            <div class="pt-1 flex items-center gap-1.5">
+                                <button onclick="openCalendarModal(${item.id}, '${encodeURIComponent(item.name)}')" class="w-8 h-8 rounded-xl bg-[#faf7f2] hover:bg-[#ede3d6] text-[#78716c] border border-[#e5dcd3] flex items-center justify-center text-xs transition flex-shrink-0" title="Xem lịch bận">
+                                    <i class="fa-regular fa-calendar-days text-[#b37054]"></i>
+                                </button>
+                                ${isUnavail
+                                    ? `<span class="flex-1 bg-[#f5f5f4] text-[#78716c] py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 font-sans font-bold"><i class="fa-solid fa-ban"></i> Tạm Ngưng</span>`
+                                    : `
+                                        <button onclick="addToCart(${item.id})" class="w-8 h-8 rounded-xl bg-[#fff7ed] hover:bg-[#ffedd5] text-[#b37054] border border-[#fed7aa] flex items-center justify-center text-xs shadow-sm transition flex-shrink-0" title="Thêm vào giỏ hàng">
+                                            <i class="fa-solid fa-cart-plus"></i>
+                                        </button>
+                                        <button onclick="openBookingModal(${item.id})" class="flex-1 h-8 bg-[#b37054] hover:bg-[#9c5942] text-white font-bold shadow-sm px-2.5 rounded-xl text-xs transition flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer" title="${isRented ? 'Món này đang có khách thuê, bấm để đặt thuê ngày/giờ khác' : 'Bấm để đặt thuê ngay'}">
+                                            <i class="fa-solid ${isRented ? 'fa-calendar-check' : 'fa-bolt'} text-[11px]"></i>
+                                            <span>${isRented ? 'Thuê Ngày Khác' : 'Thuê Ngay'}</span>
+                                        </button>
+                                    `
+                                }
+                            </div>
+
+                            ${isAdminView ? `
+                                <div class="mt-1 pt-1.5 border-t border-[#f2ece4] flex items-center justify-between text-[11px] font-sans">
+                                    <button onclick="openEditItemModal(${item.id})" class="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1">
+                                        <i class="fa-solid fa-pen-to-square"></i> Sửa
+                                    </button>
+                                    <div class="flex items-center gap-1">
+                                        <button onclick="adminToggleItemAvailability(${item.id})" class="text-[10px] font-bold px-2 py-0.5 rounded border ${isUnavail ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-rose-50 text-rose-700 border-rose-300'}">
+                                            ${isUnavail ? 'Mở Lại' : 'Hạ Xuống'}
+                                        </button>
+                                        <button onclick="adminPermanentDeleteItem(${item.id}, '${item.name.replace(/'/g, '')}')" class="text-rose-600 hover:text-rose-800 px-1 py-0.5" title="Xóa món này">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            ` : ''}
                         </div>
                     </div>
                 `;
@@ -7661,7 +7873,7 @@
                             </div>
                             ${list.map(r => {
                                 const isRet = r.status === 'RETURNED';
-                                const b = r.branch_info || { name: 'CN1 (Pleiku)', short_address: '183A Huỳnh Thúc Kháng', phone: '0977.078.981' };
+                                const b = r.branch_info || { name: 'CN1 (Pleiku)', short_address: '120 Huỳnh Thúc Kháng', phone: '0977.078.981' };
                                 return `
                                     <div class="bg-gray-950 p-3 rounded-xl border border-gray-800 space-y-1.5 text-xs font-mono">
                                         <div class="flex items-center justify-between">
@@ -7688,7 +7900,7 @@
 
                 // CODE_LOOKUP: Đơn lẻ
                 const r = data.rental;
-                const b = r.branch_info || { name: 'Chi nhánh 1 (Pleiku, Gia Lai)', short_address: '183A Huỳnh Thúc Kháng, Pleiku, Gia Lai', phone: '0977.078.981' };
+                const b = r.branch_info || { name: 'Chi nhánh 1 (Pleiku, Gia Lai)', short_address: '120 Huỳnh Thúc Kháng, Pleiku, Gia Lai', phone: '0977.078.981' };
                 const isReturned = r.status === 'RETURNED';
 
                 box.innerHTML = `
@@ -7789,7 +8001,7 @@
                                 <span class="text-xs font-mono font-bold text-[#c86d51]">${r.rental_code}</span>
                                 <span class="text-xs font-mono px-2.5 py-0.5 rounded-full border ${statusBadgeClass}">${statusBadgeText}</span>
                                 <span class="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-medium">
-                                    📍 ${r.branch_code === 'CN2' ? 'CN2: 801 Lê Duẩn, P. An Phú, Pleiku' : 'CN1: 183A Huỳnh Thúc Kháng, Pleiku'}
+                                    📍 ${r.branch_code === 'CN2' ? 'CN2: 801 Lê Duẩn, P. An Phú, Pleiku' : 'CN1: 120 Huỳnh Thúc Kháng, Pleiku'}
                                 </span>
                             </div>
                             <span class="text-xs text-slate-500 font-mono">Đặt lúc: ${r.created_at}</span>
@@ -8842,7 +9054,7 @@
                     <tr class="hover:bg-gray-800/80 transition ${r.is_overdue ? 'bg-rose-950/40' : 'bg-[#111827]'}">
                         <td class="p-3">
                             <div class="font-bold text-amber-400 text-sm">${safeCode}</div>
-                            <div class="mt-0.5">${safeBranchCode === 'CN2' ? '<span class="text-[9px] bg-cyan-950 text-cyan-300 border border-cyan-700 px-1.5 py-0.2 rounded font-mono font-bold">CN2: 801 Lê Duẩn</span>' : '<span class="text-[9px] bg-amber-950 text-amber-300 border border-amber-700 px-1.5 py-0.2 rounded font-mono font-bold">CN1: 183A Huỳnh Thúc Kháng</span>'}</div>
+                            <div class="mt-0.5">${safeBranchCode === 'CN2' ? '<span class="text-[9px] bg-cyan-950 text-cyan-300 border border-cyan-700 px-1.5 py-0.2 rounded font-mono font-bold">CN2: 801 Lê Duẩn</span>' : '<span class="text-[9px] bg-amber-950 text-amber-300 border border-amber-700 px-1.5 py-0.2 rounded font-mono font-bold">CN1: 120 Huỳnh Thúc Kháng</span>'}</div>
                         </td>
                         <td class="p-3">
                             <div class="font-bold text-white text-xs">${safeCustomerName}</div>
@@ -10203,7 +10415,7 @@
                 else if (ev.event_type === 'PICKUP' || ev.event_type === 'IN_DAY') badgeColor = 'bg-blue-950 text-blue-300 border-blue-700';
                 else if (ev.event_type === 'RETURN') badgeColor = 'bg-teal-950 text-teal-300 border-teal-700';
 
-                const branchShort = ev.branch_code === 'CN2' ? 'CN2: 801 Lê Duẩn' : 'CN1: 183A Huỳnh Thúc Kháng';
+                const branchShort = ev.branch_code === 'CN2' ? 'CN2: 801 Lê Duẩn' : 'CN1: 120 Huỳnh Thúc Kháng';
 
                 return `
                     <div class="bg-gray-950 p-4 rounded-xl border border-gray-800 hover:border-purple-600/60 transition flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs font-mono">
@@ -11215,8 +11427,11 @@
             btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Đang phân tích và nạp hàng loạt sản phẩm...';
             showToast("Đang đọc file và nạp sản phẩm vào kho...");
 
+            const branchCode = document.getElementById('kv-import-branch-select') ? document.getElementById('kv-import-branch-select').value : 'CN1';
+
             const formData = new FormData();
             formData.append('file', selectedKiotvietFile);
+            formData.append('branch_code', branchCode);
 
             try {
                 const res = await fetch('/api/admin/kiotviet/import_file', {

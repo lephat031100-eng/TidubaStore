@@ -396,12 +396,14 @@ def sync_kiotviet_to_database(db_conn: sqlite3.Connection, retailer: str, client
     }
 
 
-def import_kiotviet_excel_or_csv(db_conn: sqlite3.Connection, file_content: bytes, filename: str) -> Dict[str, Any]:
+def import_kiotviet_excel_or_csv(db_conn: sqlite3.Connection, file_content: bytes, filename: str, branch_code: str = "CN1") -> Dict[str, Any]:
     """
     Nhập kho hàng loạt từ file Excel (.xlsx) hoặc CSV xuất từ KiotViet:
     - Tự động nhận diện cột Mã hàng, Tên hàng, Nhóm hàng, Giá bán, Tồn kho, Ảnh, Ghi chú.
+    - Cho phép chọn chi nhánh nhập kho (CN1: 120 Huỳnh Thúc Kháng hoặc CN2: 801 Lê Duẩn).
     - Cập nhật kho và danh mục Tiduba Store ngay lập tức.
     """
+    target_branch = "CN2" if str(branch_code).upper().strip() == "CN2" else "CN1"
     rows_data: List[Dict[str, Any]] = []
     fname = filename.lower()
 
@@ -594,9 +596,9 @@ def import_kiotviet_excel_or_csv(db_conn: sqlite3.Connection, file_content: byte
                 UPDATE items 
                 SET name = ?, category = ?, subcategory = ?, brand = ?,
                     price_4h = ?, price_8h = ?, price_24h = ?, image_url = COALESCE(NULLIF(image_url, '/static/logo.png'), ?),
-                    description = ?, availability = ?, kiotviet_code = ?, on_hand = ?
+                    description = ?, availability = ?, kiotviet_code = ?, on_hand = ?, branch_code = ?
                 WHERE id = ?
-            """, (name, category, subcategory, brand, price_4h, price_8h, price_24h, img_url, desc, final_avail, code, on_hand, existing["id"]))
+            """, (name, category, subcategory, brand, price_4h, price_8h, price_24h, img_url, desc, final_avail, code, on_hand, target_branch, existing["id"]))
             updated_count += 1
         else:
             cur.execute("""
@@ -605,10 +607,11 @@ def import_kiotviet_excel_or_csv(db_conn: sqlite3.Connection, file_content: byte
                     shutter_count, measurements, price_4h, price_8h, price_24h, deposit_amount,
                     image_url, description, condition_status, availability, branch_code,
                     kiotviet_id, kiotviet_code, on_hand, created_at
-                ) VALUES (?, ?, ?, ?, ?, '', 0, '', ?, ?, ?, 0, ?, ?, 'Đẹp 99%', ?, 'CN1', 0, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, '', 0, '', ?, ?, ?, 0, ?, ?, 'Đẹp 99%', ?, ?, 0, ?, ?, ?)
             """, (
-                name, category, subcategory, brand, serial_or_size, price_4h, price_8h, price_24h,
-                img_url, desc, availability, code, on_hand, now_str
+                name, category, subcategory, brand, serial_or_size,
+                price_4h, price_8h, price_24h, img_url, desc, availability, target_branch,
+                code, on_hand, now_str
             ))
             created_count += 1
 

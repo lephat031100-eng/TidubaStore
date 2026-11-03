@@ -1436,3 +1436,35 @@ def test_admin_create_and_update_item_multi_day_prices():
     item2 = next((i for i in items_res2.json()["items"] if i["id"] == item_id), None)
     assert item2["price_2d"] == 680000
     assert item2["price_3d"] == 950000
+
+
+def test_branch_cn1_120_huynh_thuc_khang_and_kiotviet_branch_import():
+    """Kiểm tra: Địa chỉ Chi nhánh 1 mới 120 Huỳnh Thúc Kháng và Nhập kho KiotViet có chọn chi nhánh CN1 hoặc CN2."""
+    from main import STORE_BRANCHES
+    cn1 = STORE_BRANCHES["CN1"]
+    assert "120 Huỳnh Thúc Kháng" in cn1["address"]
+    assert "N1uMz2bC7riTxBYv7" in cn1["maps_url"]
+
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    adm_token = login_adm.json()["token"]
+    adm_headers = {"Authorization": f"Bearer {adm_token}"}
+
+    # Nhập kho gán chi nhánh CN2
+    csv_sample = (
+        "Mã hàng,Tên hàng,Nhóm hàng,Giá bán,Tồn kho,Hình ảnh,Mô tả\n"
+        "SP_CN2_001,Váy Cưới Công Chúa Bạch Kim,Váy Tiệc,350000,3,/static/vay_cn2.png,Mẫu thiết kế cao cấp CN2\n"
+    )
+    import_res = client.post(
+        "/api/admin/kiotviet/import_file",
+        data={"branch_code": "CN2"},
+        files={"file": ("KiotViet_CN2.csv", csv_sample.encode("utf-8"), "text/csv")},
+        headers=adm_headers
+    )
+    assert import_res.status_code == 200
+    assert import_res.json()["success"] is True
+
+    # Kiểm tra sản phẩm đã được gán branch_code = CN2
+    items_res = client.get("/api/items?include_hidden=true")
+    item = next((i for i in items_res.json()["items"] if i["serial_or_size"] == "SP_CN2_001" or i["kiotviet_code"] == "SP_CN2_001"), None)
+    assert item is not None
+    assert item["branch_code"] == "CN2"

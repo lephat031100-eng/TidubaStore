@@ -25,7 +25,7 @@ import urllib.error
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union, Tuple
 from pydantic import BaseModel, Field
-from fastapi import FastAPI, HTTPException, Request, Depends, Header, WebSocket, WebSocketDisconnect, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, Depends, Header, WebSocket, WebSocketDisconnect, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, JSONResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -141,11 +141,11 @@ STORE_BRANCHES = {
     "CN1": {
         "code": "CN1",
         "name": "Chi nhánh 1 (Pleiku, Gia Lai)",
-        "address": "183A Huỳnh Thúc Kháng, P. Diên Hồng, TP. Pleiku, Gia Lai",
-        "short_address": "183A Huỳnh Thúc Kháng, Pleiku, Gia Lai",
+        "address": "120 Huỳnh Thúc Kháng, P. Diên Hồng, TP. Pleiku, Gia Lai",
+        "short_address": "120 Huỳnh Thúc Kháng, Pleiku, Gia Lai",
         "phone": "0977.078.981",
         "hotline": "0977.078.981",
-        "maps_url": "https://maps.app.goo.gl/rVJwRPcvrSHhcrDN6",
+        "maps_url": "https://maps.app.goo.gl/N1uMz2bC7riTxBYv7",
         "opening_hours": "08:00 - 20:00 (Mở cửa tất cả các ngày)",
         "is_headquarter": True
     },
@@ -2055,8 +2055,8 @@ def build_escpos_thermal_bill_text(order_data: dict) -> str:
 
     return f"""================================================
            TIDUBASTORE.COM - CAMERA & FASHION   
-  CN1: 183A Huynh Thuc Khang, Pleiku, Gia Lai   
-  CN2: 801 Le Duan, P. An Phu, TP. Pleiku       
+   CN1: 120 Huynh Thuc Khang, Pleiku, Gia Lai   
+   CN2: 801 Le Duan, P. An Phu, TP. Pleiku       
   [XUAT DON]: {branch_info['name']}
   Hotline: 0977.078.981             
 ================================================
@@ -3631,7 +3631,7 @@ def get_rental_contract(rental_id: int, user: Optional[Dict[str, Any]] = Depends
     <div class="section-title">BÊN CHO THUÊ (BÊN A):</div>
     <ul>
         <li><strong>Đơn vị:</strong> HỆ THỐNG CỬA HÀNG CHO THUÊ TIDUBA STORE (TIDUBASTORE.COM)</li>
-        <li><strong>Chi nhánh 1 (Trụ sở chính):</strong> 183A Huỳnh Thúc Kháng, P. Diên Hồng, TP. Pleiku, Gia Lai (Hotline: 0977.078.981)</li>
+        <li><strong>Chi nhánh 1 (Trụ sở chính):</strong> 120 Huỳnh Thúc Kháng, P. Diên Hồng, TP. Pleiku, Gia Lai (Hotline: 0977.078.981)</li>
         <li><strong>Chi nhánh 2:</strong> 801 Lê Duẩn, P. An Phú, TP. Pleiku, Gia Lai (Hotline: 0977.078.981)</li>
         <li><strong>Chi nhánh giao nhận & quản lý hợp đồng:</strong> <strong>{branch_info['name']} - {branch_info['address']}</strong></li>
         <li><strong>Đại diện pháp lý:</strong> <strong>LÊ NHẬT PHÁT</strong></li>
@@ -5291,7 +5291,7 @@ def export_rentals_csv(token: Optional[str] = None, authorization: Optional[str]
     conn.close()
 
     branch_names = {
-        "CN1": "CN1: 183A Huỳnh Thúc Kháng, Pleiku",
+        "CN1": "CN1: 120 Huỳnh Thúc Kháng, Pleiku",
         "CN2": "CN2: 801 Lê Duẩn, Pleiku"
     }
 
@@ -5314,7 +5314,7 @@ def export_rentals_csv(token: Optional[str] = None, authorization: Optional[str]
     ])
     for r in rentals:
         total_revenue = (r["total_price"] or 0) + (r["late_fee"] or 0)
-        b_label = branch_names.get(r["branch_code"] or "CN1", "CN1: 183A Huỳnh Thúc Kháng, Pleiku")
+        b_label = branch_names.get(r["branch_code"] or "CN1", "CN1: 120 Huỳnh Thúc Kháng, Pleiku")
         st_label = status_labels.get(r["status"], r["status"])
         writer.writerow([
             r["id"], r["rental_code"], r["customer_name"], r["customer_phone"], r["item_name"],
@@ -5755,15 +5755,19 @@ def trigger_kiotviet_sync_now(admin: Dict[str, Any] = Depends(require_admin)):
 
 
 @app.post("/api/admin/kiotviet/import_file")
-async def import_kiotviet_file_upload(file: UploadFile = File(...), admin: Dict[str, Any] = Depends(require_admin)):
-    """Nhập kho hàng loạt từ file Excel (.xlsx) hoặc CSV xuất từ KiotViet."""
+async def import_kiotviet_file_upload(
+    file: UploadFile = File(...), 
+    branch_code: Optional[str] = Form("CN1"),
+    admin: Dict[str, Any] = Depends(require_admin)
+):
+    """Nhập kho hàng loạt từ file Excel (.xlsx) hoặc CSV xuất từ KiotViet (có chọn chi nhánh CN1 hoặc CN2)."""
     fname = file.filename or ""
     content = await file.read()
     if len(content) < 50:
         raise HTTPException(status_code=400, detail="File tải lên bị rỗng hoặc không hợp lệ!")
 
     conn = get_db()
-    res = import_kiotviet_excel_or_csv(conn, content, fname)
+    res = import_kiotviet_excel_or_csv(conn, content, fname, branch_code=branch_code or "CN1")
     sync_items_availability(conn)
     conn.close()
     return res
@@ -6690,7 +6694,7 @@ def format_daily_revenue_message(m: Dict[str, Any], is_update: bool = False) -> 
         f"━━━━━━━━━━━━━━━━━━\n"
         f"{note_header}"
         f"🧾 <b>Tổng số bill trong ngày:</b> <b>{m['total_bills']} bill</b>\n"
-        f"   • CN1 (183A Huỳnh Thúc Kháng): <b>{m['bills_cn1']}</b>\n"
+        f"   • CN1 (120 Huỳnh Thúc Kháng): <b>{m['bills_cn1']}</b>\n"
         f"   • CN2 (801 Lê Duẩn): <b>{m['bills_cn2']}</b>\n\n"
         f"💰 <b>TỔNG DOANH THU HÔM NAY:</b> <b>{m['total_revenue']:,}đ</b>\n"
         f"   • Tiền thuê thiết bị / đồ: <b>{m['total_rent']:,}đ</b>\n"

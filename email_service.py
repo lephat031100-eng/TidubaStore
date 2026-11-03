@@ -131,7 +131,7 @@ def send_otp_email(
             </div>
             <div class="footer">
                 <strong>HỆ THỐNG CỬA HÀNG TIDUBA STORE:</strong><br>
-                📍 CN1: 183A Huỳnh Thúc Kháng, Pleiku, Gia Lai<br>
+                📍 CN1: 120 Huỳnh Thúc Kháng, Pleiku, Gia Lai<br>
                 📍 CN2: 801 Lê Duẩn, P. An Phú, TP. Pleiku, Gia Lai<br>
                 📞 Hotline / Zalo: 0977.078.981
             </div>

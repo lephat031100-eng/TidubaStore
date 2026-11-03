@@ -274,7 +274,7 @@ def main():
         )
 
         safe_print(f"May chu: {target_url}")
-        safe_print("CN1: 183A Huynh Thuc Khang, Pleiku, Gia Lai (0977.078.981)")
+        safe_print("CN1: 120 Huynh Thuc Khang, Pleiku, Gia Lai (0977.078.981)")
         safe_print("CN2: 801 Le Duan, P. An Phu, TP. Pleiku, Gia Lai (0977.078.981)")
         safe_print("App Admin tu dong ket noi & dong bo du lieu thoi gian thuc.")
         safe_print("======================================================================")
