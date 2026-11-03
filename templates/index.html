@@ -4351,21 +4351,25 @@
                 return `
                     <div class="bg-white/95 rounded-3xl p-2.5 sm:p-3 border border-[#ede3d6] shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between group ${isUnavail ? 'opacity-60' : ''}">
                         
-                        <!-- Ảnh Khung Vòm Cung Nghệ Thuật (Arch Window Phong Cách Sherent Hình 4) -->
+                        <!-- Ảnh Khung Vòm Cung Nghệ Thuật (Arch Window Chuẩn Phong Cách Sherent Hình 4) -->
                         <div onclick="openProductGalleryModal(${item.id})" class="cursor-pointer relative overflow-hidden aspect-[3/4] rounded-t-[75px] sm:rounded-t-[90px] rounded-b-2xl bg-[#f5ede3] shadow-inner" title="Bấm để xem album ảnh phóng to">
                             <img src="${item.image_url}" alt="${item.name}" loading="lazy" decoding="async" class="w-full h-full object-cover group-hover:scale-105 transition duration-700">
                             
-                            <span class="absolute top-3 left-3 text-[10px] font-sans font-bold px-2.5 py-0.5 rounded-full shadow-sm ${item.category === 'CAMERA_GEAR' ? 'bg-[#f0f9ff]/90 text-[#0369a1] border border-[#bae6fd]' : 'bg-[#fdf2f8]/90 text-[#be185d] border border-[#fbcfe8]'}">
-                                ${item.subcategory || 'Thiết kế'}
-                            </span>
-                            <span class="absolute top-3 right-3 text-[10px] font-sans font-bold px-2.5 py-0.5 rounded-full shadow-sm ${statusClass}">
-                                ${statusLabel}
-                            </span>
-                            
-                            <!-- Icon gợi ý xem album ảnh -->
-                            <span class="absolute bottom-2.5 left-2.5 bg-black/60 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm backdrop-blur-sm">
-                                <i class="fa-regular fa-images"></i> Xem ảnh
-                            </span>
+                            <!-- Nhãn tình trạng & danh mục tinh tế phía dưới ảnh (Không che đỉnh vòm cong) -->
+                            <div class="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none">
+                                <span class="bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm backdrop-blur-sm pointer-events-auto">
+                                    <i class="fa-regular fa-images text-[9px]"></i> Xem ảnh
+                                </span>
+                                ${isRented ? `
+                                    <span class="bg-rose-950/80 text-rose-200 border border-rose-600 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm backdrop-blur-sm">
+                                        ĐANG THUÊ
+                                    </span>
+                                ` : isUnavail ? `
+                                    <span class="bg-gray-900/80 text-gray-300 border border-gray-600 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm backdrop-blur-sm">
+                                        TẠM NGƯNG
+                                    </span>
+                                ` : ''}
+                            </div>
                         </div>
 
                         <!-- Thông Tin Sản Phẩm Phong Cách Studio Sang Trọng (Hình 4) -->
