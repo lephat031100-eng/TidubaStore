@@ -2094,8 +2094,8 @@ TONG TIEN THANH TOAN:              {order_data['total_price']:>12,} VND
         {domain}/return-qr?code={order_data['rental_code']}
               * {order_data['rental_code']} *               
 ================================================
-       TIDUBASTORE.COM - CHUC BUOI CHUP         
-                 THANH CONG RUC RO!             
+            TIDUBA CAM ON THUONG DE             
+================================================
 """
 
 
