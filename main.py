@@ -3014,7 +3014,7 @@ def track_rental_order(rental_code: str, user: Optional[Dict[str, Any]] = Depend
     if len(clean_phone) in (10, 11) and clean_phone.startswith("0"):
         rows = cur.execute("""
         SELECT r.id, r.rental_code, r.status, r.end_time, r.start_time, r.total_price, 
-               r.branch_code, r.items_json, r.deposit_paid,
+               r.branch_code, r.items_json, r.deposit_paid, r.deposit_type, r.deposit_asset_desc,
                COALESCE(i.name, c.name, 'Đơn Thuê Nhiều Món') as item_name,
                COALESCE(i.image_url, c.image_url, '/static/logo.png') as item_image,
                u.full_name as customer_name
@@ -3033,10 +3033,12 @@ def track_rental_order(rental_code: str, user: Optional[Dict[str, Any]] = Depend
         results = []
         for r in rows:
             d = dict(r)
+            d["deposit_paid"] = d.get("deposit_paid") or 0
+            d["deposit_type"] = d.get("deposit_type") or "CCCD"
+            d["deposit_asset_desc"] = d.get("deposit_asset_desc") or ""
             d["qr_url"] = generate_vietqr_url(d["total_price"] + d["deposit_paid"], d["rental_code"])
             b_code = d.get("branch_code", "CN1") or "CN1"
             d["branch_info"] = STORE_BRANCHES.get(b_code, STORE_BRANCHES["CN1"])
-            d.pop("deposit_paid", None)
             d.pop("items_json", None)
             parts = (d["customer_name"] or "Khách Hàng").split()
             if len(parts) >= 2:
@@ -3050,12 +3052,13 @@ def track_rental_order(rental_code: str, user: Optional[Dict[str, Any]] = Depend
     code = kw.upper()
     r = cur.execute("""
     SELECT r.id, r.rental_code, r.status, r.end_time, r.start_time, r.total_price, 
-           r.branch_code, r.items_json, r.deposit_paid,
+           r.branch_code, r.items_json, r.deposit_paid, r.deposit_type, r.deposit_asset_desc,
+           r.refund_bank_info, r.payment_proof_img,
            COALESCE(i.name, c.name, 'Đơn Thuê Nhiều Món') as item_name,
            COALESCE(i.image_url, c.image_url, '/static/logo.png') as item_image,
            COALESCE(i.category, 'COMBO_BUNDLE') as item_category,
            COALESCE(i.serial_or_size, 'Thiết bị') as serial_or_size,
-           u.full_name as customer_name
+           u.full_name as customer_name, u.phone as customer_phone
     FROM rentals r
     LEFT JOIN items i ON r.item_id = i.id
     LEFT JOIN combos c ON r.combo_id = c.id
@@ -3068,11 +3071,12 @@ def track_rental_order(rental_code: str, user: Optional[Dict[str, Any]] = Depend
         raise HTTPException(status_code=404, detail=f"Không tìm thấy đơn hàng có mã '{code}'!")
 
     d = dict(r)
+    d["deposit_paid"] = d.get("deposit_paid") or 0
+    d["deposit_type"] = d.get("deposit_type") or "CCCD"
+    d["deposit_asset_desc"] = d.get("deposit_asset_desc") or ""
     d["qr_url"] = generate_vietqr_url(d["total_price"] + d["deposit_paid"], d["rental_code"])
     b_code = d.get("branch_code", "CN1") or "CN1"
     d["branch_info"] = STORE_BRANCHES.get(b_code, STORE_BRANCHES["CN1"])
-    # Ẩn thông tin nhạy cảm khỏi public track API
-    d.pop("deposit_paid", None)
 
     if d.get("items_json"):
         try:

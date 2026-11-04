@@ -3728,151 +3728,182 @@
         </div>
     </div>
 
-    <!-- ADMIN ADD / EDIT ITEM MODAL WITH MULTI-IMAGE GALLERY -->
-    <div id="add-item-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 items-center justify-center p-4" style="display: none;">
-        <div class="bg-gray-900 border border-amber-500/40 rounded-3xl max-w-2xl w-full max-h-[94vh] flex flex-col shadow-2xl overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-800 bg-gray-950 flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <span class="text-xs font-mono bg-amber-950 text-amber-300 border border-amber-600 px-2.5 py-0.5 rounded font-bold uppercase">ADMIN INVENTORY</span>
-                    <h3 class="text-base font-bold text-white" id="modal-item-editor-title">Thêm / Chỉnh Sửa Thiết Bị Kho</h3>
-                </div>
-                <button onclick="closeAddItemModal()" class="text-gray-400 hover:text-white">
+    <!-- ADMIN ADD / EDIT ITEM MODAL (KIOTVIET STYLE - GIAO DIỆN SÁNG, GỌN GÀNG THEO HÌNH 1) -->
+    <div id="add-item-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 items-center justify-center p-3 sm:p-5" style="display: none;">
+        <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[94vh] flex flex-col shadow-2xl border border-gray-200 overflow-hidden font-sans text-gray-800">
+            <!-- Header Modal -->
+            <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white">
+                <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2" id="modal-item-editor-title">
+                    Thêm hàng hóa
+                </h3>
+                <button onclick="closeAddItemModal()" class="w-8 h-8 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 flex items-center justify-center transition" title="Đóng">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
 
-            <div class="p-6 flex-1 overflow-auto custom-scroll space-y-4 text-xs font-mono">
+            <!-- Body Modal -->
+            <div class="p-6 flex-1 overflow-y-auto custom-scroll space-y-4 text-xs">
                 <input type="hidden" id="edit-item-target-id" value="">
 
-                <!-- Tải ảnh đại diện chính -->
-                <div class="bg-gray-950 p-4 rounded-2xl border border-gray-800 space-y-3">
+                <!-- 1. KHU VỰC QUẢN LÝ ẢNH HỢP NHẤT (ẢNH CHÍNH & ẢNH PHỤ GỘP LÀM 1 - YÊU CẦU 1) -->
+                <div class="bg-[#faf7f2] p-4 rounded-2xl border border-[#eadfd5] space-y-3">
                     <div class="flex items-center justify-between">
-                        <label class="block text-gray-300 font-bold">📷 Ảnh Đại Diện Chính (Cover Image):</label>
-                        <span id="upload-status" class="text-[11px] text-gray-500">Chưa chọn ảnh</span>
+                        <span class="font-bold text-gray-800 text-xs flex items-center gap-1.5">
+                            <i class="fa-solid fa-images text-[#b37054]"></i> Hình ảnh sản phẩm (Ảnh chính & Album ảnh phụ):
+                        </span>
+                        <span id="upload-status-merged" class="text-[11px] text-emerald-600 font-medium"></span>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <input type="file" id="item-image-file" accept="image/*" onchange="handleImageUploadPreview(event)" class="text-xs text-gray-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-amber-500 file:text-gray-950 hover:file:bg-amber-400 cursor-pointer">
-                    </div>
-                    <!-- Ảnh xem trước -->
-                    <div id="image-preview-container" class="hidden flex items-center gap-3 pt-2">
-                        <img id="image-preview" src="" class="w-16 h-16 rounded-xl object-cover border border-amber-500/50 shadow-md">
-                        <div class="text-[11px] text-gray-400 font-mono space-y-0.5">
-                            <div class="text-emerald-400 font-bold">✅ Ảnh chính đã sẵn sàng</div>
-                            <div id="image-preview-url" class="text-gray-500 truncate max-w-xs">--</div>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-[11px] text-gray-400 mb-1">Hoặc dán URL ảnh chính:</label>
-                        <input type="text" id="add-item-img-url" placeholder="https://... hoặc /static/uploads/..." class="w-full bg-gray-900 border border-gray-700 rounded-xl p-2 text-white text-xs">
-                    </div>
-                </div>
 
-                <!-- Tải nhiều hình ảnh cho cùng 1 sản phẩm (Album/Gallery) -->
-                <div class="bg-gray-950 p-4 rounded-2xl border border-cyan-500/30 space-y-3">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <span class="text-xs font-bold text-cyan-300 flex items-center gap-1.5"><i class="fa-solid fa-images"></i> Album Nhiều Hình Ảnh Cho Sản Phẩm Này:</span>
-                            <p class="text-[10px] text-gray-400 font-sans mt-0.5">Thêm 3-4 hoặc nhiều ảnh chụp góc khác, chi tiết máy/trang phục để khách bấm vào xem phóng to.</p>
+                    <!-- Hàng công cụ: Tải ảnh từ máy tính + Dán URL ảnh -->
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                        <label class="cursor-pointer inline-flex items-center justify-center gap-2 bg-[#b37054] hover:bg-[#9c5942] text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-sm transition whitespace-nowrap">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Chọn ảnh từ máy tính
+                            <input type="file" id="item-gallery-files" accept="image/*" multiple onchange="handleUnifiedImageUpload(event)" class="hidden">
+                        </label>
+                        <div class="flex-1 flex gap-1.5">
+                            <input type="text" id="add-gallery-url-input" placeholder="Hoặc dán URL hình ảnh (https://...)..." class="flex-1 bg-white border border-gray-300 rounded-xl px-3 py-2 text-xs text-gray-900 focus:outline-none focus:border-[#b37054]">
+                            <button type="button" onclick="addGalleryUrlDirect()" class="bg-white hover:bg-[#ede3d6] text-[#b37054] border border-[#e5dcd3] font-bold px-3.5 py-2 rounded-xl text-xs whitespace-nowrap transition shadow-sm">Thêm URL</button>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <input type="file" id="item-gallery-files" accept="image/*" multiple onchange="handleGalleryUpload(event)" class="text-xs text-gray-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-cyan-700 file:text-white hover:file:bg-cyan-600 cursor-pointer w-full">
-                    </div>
-                    <div class="flex gap-2">
-                        <input type="text" id="add-gallery-url-input" placeholder="Hoặc dán thêm URL ảnh phụ..." class="flex-1 bg-gray-900 border border-gray-700 rounded-xl p-2 text-white text-xs">
-                        <button type="button" onclick="addGalleryUrlDirect()" class="bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-700 px-3 py-1.5 rounded-xl font-bold whitespace-nowrap text-xs">Thêm URL</button>
-                    </div>
-                    <!-- Danh sách thumbnails ảnh trong album -->
-                    <div id="gallery-preview-thumbs" class="flex flex-wrap gap-2 pt-1 min-h-[50px] p-2 bg-gray-900 rounded-xl border border-gray-800">
-                        <span class="text-[11px] text-gray-500 font-sans my-auto">Chưa có ảnh phụ nào trong album.</span>
+
+                    <!-- Hàng Thumbnails danh sách ảnh đã tải -->
+                    <div id="gallery-preview-thumbs" class="flex flex-wrap gap-2.5 p-2.5 bg-white rounded-xl border border-gray-200 min-h-[75px]">
+                        <!-- Rendered by JS -->
                     </div>
                     <input type="hidden" id="add-item-gallery-json" value="[]">
+                    <input type="hidden" id="add-item-img-url" value="">
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <!-- 2. FORM 2 CỘT CHUẨN KIOTVIET (HÌNH 1) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-sans">
+                    <!-- Hàng 1 - Trái: Loại hàng hóa -->
                     <div>
-                        <label class="block text-gray-300 font-bold mb-1">Tên thiết bị / trang phục:</label>
-                        <input type="text" id="add-item-name" placeholder="Flycam DJI Mini 4 Pro..." class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2.5 text-white">
+                        <label class="block text-gray-700 font-semibold mb-1">Loại hàng hóa</label>
+                        <select id="add-item-cat" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none cursor-pointer">
+                            <option value="CAMERA_GEAR">Máy ảnh & Thiết bị</option>
+                            <option value="COSTUME_FASHION">Trang phục sự kiện & Áo dài</option>
+                            <option value="SERVICE">Dịch vụ cho thuê</option>
+                            <option value="COMBO_BUNDLE">Gói Combo trọn gói</option>
+                        </select>
                     </div>
+
+                    <!-- Hàng 1 - Phải: Mã hàng -->
                     <div>
-                        <label class="block text-gray-300 font-bold mb-1">Phân loại chính:</label>
-                        <select id="add-item-cat" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2.5 text-white">
-                            <option value="CAMERA_GEAR">Máy Ảnh & Thiết Bị (CAMERA_GEAR)</option>
-                            <option value="COSTUME_FASHION">Trang Phục Sự Kiện (COSTUME_FASHION)</option>
+                        <label class="block text-gray-700 font-semibold mb-1">Mã hàng</label>
+                        <input type="text" id="add-item-serial" placeholder="Mã tự động (vd: SP000718)" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none font-mono">
+                    </div>
+
+                    <!-- Hàng 2 - Trái: Tên hàng * -->
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-1">Tên hàng <span class="text-rose-500">*</span></label>
+                        <input type="text" id="add-item-name" placeholder="Nhập tên hàng hóa" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none">
+                    </div>
+
+                    <!-- Hàng 2 - Phải: Nhóm hàng * -->
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-1">Nhóm hàng <span class="text-rose-500">*</span></label>
+                        <input type="text" id="add-item-subcat" list="add-item-subcat-list" placeholder="Chọn hoặc nhập nhóm hàng" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none">
+                        <datalist id="add-item-subcat-list">
+                            <option value="Áo dài">
+                            <option value="Váy tiệc">
+                            <option value="Camera Body">
+                            <option value="Ống kính (Lens)">
+                            <option value="Gimbal / Flycam">
+                            <option value="Cổ phục">
+                            <option value="Phụ kiện">
+                        </datalist>
+                    </div>
+
+                    <!-- Hàng 3 - Trái: Giá vốn -->
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-1">Giá vốn</label>
+                        <input type="number" id="add-item-cost" value="0" placeholder="0" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none font-mono">
+                    </div>
+
+                    <!-- Hàng 3 - Phải: Thời lượng * -->
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-1">Thời lượng <span class="text-rose-500">*</span></label>
+                        <div class="relative">
+                            <input type="text" id="add-item-duration" value="1 ngày (24h)" placeholder="Nhập thời lượng" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 pr-14 text-gray-900 focus:border-emerald-500 focus:outline-none">
+                            <span class="absolute right-3 top-2.5 text-gray-400 font-medium">Giờ/Ngày</span>
+                        </div>
+                    </div>
+
+                    <!-- Hàng 4 - Trái: Giá bán / Giá thuê 24h -->
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-1">Giá bán / Giá thuê 24h (đ) <span class="text-rose-500">*</span></label>
+                        <input type="number" id="add-price-24h" value="350000" placeholder="0" class="w-full bg-white border border-emerald-400 rounded-xl p-2.5 text-emerald-700 font-bold text-sm focus:border-emerald-600 focus:outline-none font-mono">
+                    </div>
+
+                    <!-- Hàng 4 - Phải: Chi nhánh -->
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-1">Chi nhánh</label>
+                        <select id="add-item-branch" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none cursor-pointer">
+                            <option value="CN1">📍 CN1: 120 Huỳnh Thúc Kháng, TP. Pleiku</option>
+                            <option value="CN2">📍 CN2: 801 Lê Duẩn, P. An Phú, TP. Pleiku</option>
                         </select>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                        <label class="block text-gray-400 mb-1">Tiểu loại (Subcategory):</label>
-                        <input type="text" id="add-item-subcat" placeholder="Flycam / Body / Cổ Phục..." class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2 text-white">
+                <!-- 3. THÔNG TIN BỔ SUNG & BẢNG GIÁ THEO CA / DÀI NGÀY -->
+                <div class="p-3.5 bg-gray-50 rounded-2xl border border-gray-200 space-y-3">
+                    <div class="font-bold text-gray-800 text-xs flex items-center justify-between">
+                        <span>Giá theo ca 4h / 8h & Giá dài ngày (Máy ảnh & Thiết bị):</span>
+                        <span class="text-[11px] text-gray-400 font-normal">Tự động chiết khấu nếu để trống</span>
                     </div>
-                    <div>
-                        <label class="block text-gray-400 mb-1">Thương hiệu (Brand):</label>
-                        <input type="text" id="add-item-brand" placeholder="DJI / Sony / Canon / Váy..." class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2 text-white">
-                    </div>
-                    <div>
-                        <label class="block text-gray-400 mb-1">Số Serial hoặc Size:</label>
-                        <input type="text" id="add-item-serial" placeholder="SN: DJI-M4P-001 hoặc Size M" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2 text-white">
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-gray-950 p-3.5 rounded-xl border border-gray-800">
-                    <div>
-                        <label class="block text-gray-400 mb-1">Giá ca 4h (đ):</label>
-                        <input type="number" id="add-price-4h" value="150000" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-white font-bold">
-                    </div>
-                    <div>
-                        <label class="block text-gray-400 mb-1">Giá ca 8h (đ):</label>
-                        <input type="number" id="add-price-8h" value="250000" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-1.5 text-white font-bold">
-                    </div>
-                    <div>
-                        <label class="block text-amber-300 font-bold mb-1">Giá 24h (đ):</label>
-                        <input type="number" id="add-price-24h" value="350000" class="w-full bg-gray-900 border border-amber-600 rounded-lg p-1.5 text-amber-400 font-bold">
-                    </div>
-                </div>
-
-                <!-- BẢNG GIÁ THUÊ DÀI NGÀY (MÁY ẢNH & THIẾT BỊ) -->
-                <div class="bg-gradient-to-r from-purple-950/40 via-gray-950 to-indigo-950/40 p-3.5 rounded-xl border border-purple-500/40 space-y-2">
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-bold text-purple-300 flex items-center gap-1.5 font-mono">
-                            <i class="fa-solid fa-tags text-yellow-400"></i> Bảng Giá Thuê Dài Ngày (Áp dụng cho máy ảnh & gear):
-                        </span>
-                        <span class="text-[10px] text-gray-400">Để trống = tự động chiết khấu</span>
-                    </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs font-mono">
                         <div>
-                            <label class="block text-gray-300 text-[11px] mb-0.5">Giá 2 Ngày (2D):</label>
-                            <input type="number" id="add-price-2d" placeholder="Tự động (-15%)" class="w-full bg-gray-900 border border-purple-500/60 rounded-lg p-1.5 text-purple-200 font-mono text-xs">
+                            <label class="block text-[11px] text-gray-600 mb-0.5">Ca 4h (đ):</label>
+                            <input type="number" id="add-price-4h" value="150000" class="w-full bg-white border border-gray-300 rounded-lg p-1.5 text-gray-900 font-bold">
                         </div>
                         <div>
-                            <label class="block text-gray-300 text-[11px] mb-0.5">Giá 3 Ngày (3D):</label>
-                            <input type="number" id="add-price-3d" placeholder="Tự động (-20%)" class="w-full bg-gray-900 border border-purple-500/60 rounded-lg p-1.5 text-purple-200 font-mono text-xs">
+                            <label class="block text-[11px] text-gray-600 mb-0.5">Ca 8h (đ):</label>
+                            <input type="number" id="add-price-8h" value="250000" class="w-full bg-white border border-gray-300 rounded-lg p-1.5 text-gray-900 font-bold">
                         </div>
                         <div>
-                            <label class="block text-gray-300 text-[11px] mb-0.5">Giá 7 Ngày (1 Tuần):</label>
-                            <input type="number" id="add-price-7d" placeholder="Tự động (-35%)" class="w-full bg-gray-900 border border-purple-500/60 rounded-lg p-1.5 text-purple-200 font-mono text-xs">
+                            <label class="block text-[11px] text-gray-600 mb-0.5">2 Ngày (2D):</label>
+                            <input type="number" id="add-price-2d" placeholder="Tự động" class="w-full bg-white border border-purple-300 rounded-lg p-1.5 text-purple-700 font-bold">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-gray-600 mb-0.5">3 Ngày (3D):</label>
+                            <input type="number" id="add-price-3d" placeholder="Tự động" class="w-full bg-white border border-purple-300 rounded-lg p-1.5 text-purple-700 font-bold">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-gray-600 mb-0.5">7 Ngày (1 Tuần):</label>
+                            <input type="number" id="add-price-7d" placeholder="Tự động" class="w-full bg-white border border-purple-300 rounded-lg p-1.5 text-purple-700 font-bold">
                         </div>
                     </div>
-                </div>
-
-                <div>
-                    <label class="block text-gray-400 mb-1">Tình trạng kiểm định:</label>
-                    <input type="text" id="add-condition" value="Mới 99%, hoạt động hoàn hảo" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2 text-white">
-                </div>
-
-                <div>
-                    <label class="block text-gray-400 mb-1">Mô tả chi tiết tính năng:</label>
-                    <textarea id="add-description" rows="3" placeholder="Nhập thông số quay phim 4K HDR, cảm biến, độ nét hoặc chất liệu trang phục..." class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2 text-white font-sans"></textarea>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div>
+                            <label class="block text-[11px] text-gray-600 mb-0.5 font-sans">Thương hiệu (Brand):</label>
+                            <input type="text" id="add-item-brand" placeholder="Sony / Canon / Fujifilm / Sò Vintage..." class="w-full bg-white border border-gray-300 rounded-xl p-2 text-xs text-gray-900">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-gray-600 mb-0.5 font-sans">Tình trạng kiểm định:</label>
+                            <input type="text" id="add-condition" value="Mới 99%, hoạt động hoàn hảo" class="w-full bg-white border border-gray-300 rounded-xl p-2 text-xs text-gray-900">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-gray-600 mb-0.5 font-sans">Mô tả chi tiết tính năng:</label>
+                        <textarea id="add-description" rows="2" placeholder="Nhập thông số kỹ thuật, tình trạng lens, cảm biến hoặc chất liệu trang phục..." class="w-full bg-white border border-gray-300 rounded-xl p-2 text-xs text-gray-900 font-sans"></textarea>
+                    </div>
                 </div>
             </div>
 
-            <div class="px-6 py-3 border-t border-gray-800 bg-gray-950 flex items-center justify-end gap-3">
-                <button onclick="closeAddItemModal()" class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-5 rounded-xl text-xs">Hủy</button>
-                <button onclick="submitNewItem()" class="bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-gray-950 font-black py-2 px-6 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20">
-                    <i class="fa-solid fa-cloud-arrow-up"></i> Lưu Vào Kho
-                </button>
+            <!-- Footer matching Image 1: Checkbox on left, "Bỏ qua" + "Lưu" (Green) on right -->
+            <div class="px-6 py-3.5 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+                <label class="flex items-center gap-2 cursor-pointer text-xs text-gray-700 font-medium">
+                    <input type="checkbox" id="add-item-auto-invoice" checked class="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4">
+                    <span>Tự động thêm hàng hóa vào hóa đơn sau khi tạo</span>
+                </label>
+                <div class="flex items-center gap-2.5">
+                    <button type="button" onclick="closeAddItemModal()" class="bg-white hover:bg-gray-100 text-gray-700 font-semibold py-2 px-5 rounded-xl text-xs border border-gray-300 transition">
+                        Bỏ qua
+                    </button>
+                    <button type="button" onclick="submitNewItem()" id="btn-save-new-item" class="bg-[#10b981] hover:bg-[#059669] text-white font-bold py-2 px-6 rounded-xl text-xs flex items-center gap-1.5 shadow-md transition">
+                        Lưu
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -5588,7 +5619,9 @@
             `;
 
             try {
-                const res = await fetch(`/api/rentals/track/${encodeURIComponent(code)}`);
+                const token = localStorage.getItem('tiduba_token');
+                const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+                const res = await fetch(`/api/rentals/track/${encodeURIComponent(code)}`, { headers });
                 const data = await res.json();
 
                 if (!res.ok || !data.success || !data.rental) {
@@ -5631,6 +5664,21 @@
 
                 const b = r.branch_info || { name: 'Chi nhánh 1 (Pleiku, Gia Lai)', phone: '0977.078.981' };
 
+                const depType = (r.deposit_type || '').toUpperCase();
+                const depPaid = Number(r.deposit_paid || 0);
+                const depDesc = r.deposit_asset_desc || '';
+
+                let depDisplay = '🪪 Giữ giấy tờ gốc (CCCD/GPLX)';
+                if (depType === 'ASSET') {
+                    depDisplay = `📱 Cọc tài sản: ${depDesc || 'Tài sản'} ${depPaid > 0 ? `(${depPaid.toLocaleString()}đ)` : ''}`;
+                } else if (depType === 'CASH') {
+                    depDisplay = `💵 Cọc tiền mặt: ${depPaid.toLocaleString()}đ`;
+                } else if (depType === 'NONE' || depType === 'VIP_NONE') {
+                    depDisplay = '👑 Miễn cọc VIP (0đ)';
+                } else if (depPaid > 0) {
+                    depDisplay = `${r.deposit_type}: ${depPaid.toLocaleString()}đ ${depDesc ? `(${depDesc})` : ''}`;
+                }
+
                 resBox.innerHTML = `
                     <div class="bg-gray-950 p-4 rounded-2xl border border-gray-800 space-y-3 text-xs font-mono text-left">
                         <div class="flex items-center justify-between border-b border-gray-800 pb-2">
@@ -5659,6 +5707,10 @@
                             <span class="text-gray-400">Tổng tiền thanh toán:</span>
                             <strong class="text-emerald-400 font-bold text-sm">${Number(r.total_price).toLocaleString()}đ</strong>
                         </div>
+                        <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                            <span class="text-cyan-400 font-bold">Hình thức cọc đã lưu:</span>
+                            <strong class="text-amber-300 text-right font-mono text-[11px]" id="qr-modal-current-dep-${r.rental_code}">${depDisplay}</strong>
+                        </div>
                         <div class="flex items-center justify-between text-gray-400 pb-1">
                             <span>Chi nhánh:</span>
                             <span class="text-gray-300">${b.name} (${b.phone})</span>
@@ -5675,19 +5727,19 @@
                                     <div>
                                         <label class="block text-[10px] text-gray-400 mb-0.5">Hình thức:</label>
                                         <select id="qr-edit-dep-type-${r.rental_code}" class="w-full bg-gray-950 border border-gray-700 rounded-lg p-1.5 text-xs text-white">
-                                            <option value="CCCD" ${r.deposit_type === 'CCCD' ? 'selected' : ''}>🪪 Giữ giấy tờ (CCCD/GPLX)</option>
-                                            <option value="CASH" ${r.deposit_type === 'CASH' ? 'selected' : ''}>💵 Cọc tiền mặt / CK</option>
-                                            <option value="ASSET" ${r.deposit_type === 'ASSET' ? 'selected' : ''}>📱 Cọc tài sản (ĐT, Xe, Laptop...)</option>
-                                            <option value="NONE" ${r.deposit_type === 'NONE' ? 'selected' : ''}>👑 Miễn cọc VIP</option>
+                                            <option value="CCCD" ${(depType === 'CCCD' || !depType) ? 'selected' : ''}>🪪 Giữ giấy tờ (CCCD/GPLX)</option>
+                                            <option value="CASH" ${depType === 'CASH' ? 'selected' : ''}>💵 Cọc tiền mặt / CK</option>
+                                            <option value="ASSET" ${depType === 'ASSET' ? 'selected' : ''}>📱 Cọc tài sản (ĐT, Xe, Laptop...)</option>
+                                            <option value="NONE" ${(depType === 'NONE' || depType === 'VIP_NONE') ? 'selected' : ''}>👑 Miễn cọc VIP</option>
                                         </select>
                                     </div>
                                     <div>
                                         <label class="block text-[10px] text-gray-400 mb-0.5">Tiền cọc thu (VNĐ):</label>
-                                        <input type="number" id="qr-edit-dep-amt-${r.rental_code}" value="${r.deposit_paid || 0}" placeholder="0" class="w-full bg-gray-950 border border-amber-500/60 rounded-lg p-1.5 text-xs text-amber-300 font-bold font-mono">
+                                        <input type="number" id="qr-edit-dep-amt-${r.rental_code}" value="${depPaid}" placeholder="0" class="w-full bg-gray-950 border border-amber-500/60 rounded-lg p-1.5 text-xs text-amber-300 font-bold font-mono">
                                     </div>
                                     <div>
                                         <label class="block text-[10px] text-gray-400 mb-0.5">Mô tả cọc / Tài sản:</label>
-                                        <input type="text" id="qr-edit-dep-desc-${r.rental_code}" value="${r.deposit_asset_desc || ''}" placeholder="vd: iPhone 14, Xe Wave..." class="w-full bg-gray-950 border border-gray-700 rounded-lg p-1.5 text-xs text-white">
+                                        <input type="text" id="qr-edit-dep-desc-${r.rental_code}" value="${depDesc.replace(/"/g, '&quot;')}" placeholder="vd: iPhone 14, Xe Wave..." class="w-full bg-gray-950 border border-gray-700 rounded-lg p-1.5 text-xs text-white">
                                     </div>
                                 </div>
                                 <button type="button" onclick="adminSaveDepositFromQrModal(${r.id}, '${r.rental_code}')" class="w-full bg-amber-950 hover:bg-amber-900 text-amber-200 border border-amber-600/80 font-bold py-1.5 rounded-lg text-xs flex items-center justify-center gap-1.5 transition">
@@ -9289,7 +9341,7 @@
 
 
         // ==============================================================
-        // ADMIN ADD/EDIT ITEM & REAL IMAGE UPLOAD & GALLERY CONTROLLER
+        // ADMIN ADD/EDIT ITEM & UNIFIED IMAGE MANAGER (GỘP HÌNH CHÍNH & PHỤ - YÊU CẦU 1)
         // ==============================================================
         let currentEditingGallery = [];
 
@@ -9298,24 +9350,24 @@
                 showToast("Chỉ Quản trị viên mới có quyền thêm sản phẩm!");
                 return;
             }
-            document.getElementById('modal-item-editor-title').innerText = "Thêm Thiết Bị / Trang Phục Mới Vào Kho";
+            document.getElementById('modal-item-editor-title').innerText = "Thêm hàng hóa";
             document.getElementById('edit-item-target-id').value = '';
             document.getElementById('add-item-name').value = '';
-            document.getElementById('add-item-img-url').value = '';
-            document.getElementById('item-image-file').value = '';
-            document.getElementById('image-preview-container').classList.add('hidden');
-            document.getElementById('upload-status').innerText = 'Chưa chọn ảnh';
             document.getElementById('add-item-subcat').value = '';
             document.getElementById('add-item-brand').value = '';
             document.getElementById('add-item-serial').value = '';
+            document.getElementById('add-item-cost').value = '0';
+            document.getElementById('add-item-duration').value = '1 ngày (24h)';
             document.getElementById('add-price-4h').value = '150000';
             document.getElementById('add-price-8h').value = '250000';
             document.getElementById('add-price-24h').value = '350000';
             document.getElementById('add-price-2d').value = '';
             document.getElementById('add-price-3d').value = '';
             document.getElementById('add-price-7d').value = '';
+            document.getElementById('add-item-branch').value = 'CN1';
             document.getElementById('add-condition').value = 'Mới 99%, hoạt động hoàn hảo';
             document.getElementById('add-description').value = '';
+            if (document.getElementById('add-gallery-url-input')) document.getElementById('add-gallery-url-input').value = '';
             currentEditingGallery = [];
             renderEditingGalleryThumbs();
             document.getElementById('add-item-modal').style.display = 'flex';
@@ -9326,36 +9378,44 @@
             const item = allItems.find(i => i.id === itemId);
             if (!item) return;
 
-            document.getElementById('modal-item-editor-title').innerText = `Chỉnh Sửa Thiết Bị #${item.id} - ${item.name}`;
+            document.getElementById('modal-item-editor-title').innerText = `Chỉnh Sửa Hàng Hóa #${item.id} - ${item.name}`;
             document.getElementById('edit-item-target-id').value = item.id;
             document.getElementById('add-item-name').value = item.name;
-            document.getElementById('add-item-cat').value = item.category;
-            document.getElementById('add-item-subcat').value = item.subcategory;
-            document.getElementById('add-item-brand').value = item.brand;
-            document.getElementById('add-item-serial').value = item.serial_or_size;
-            document.getElementById('add-price-4h').value = item.price_4h;
-            document.getElementById('add-price-8h').value = item.price_8h;
-            document.getElementById('add-price-24h').value = item.price_24h;
+            document.getElementById('add-item-cat').value = item.category || 'CAMERA_GEAR';
+            document.getElementById('add-item-subcat').value = item.subcategory || '';
+            document.getElementById('add-item-brand').value = item.brand || '';
+            document.getElementById('add-item-serial').value = item.serial_or_size || '';
+            document.getElementById('add-item-cost').value = item.deposit_amount || 0;
+            document.getElementById('add-item-duration').value = '1 ngày (24h)';
+            document.getElementById('add-price-4h').value = item.price_4h || 150000;
+            document.getElementById('add-price-8h').value = item.price_8h || 250000;
+            document.getElementById('add-price-24h').value = item.price_24h || 350000;
             document.getElementById('add-price-2d').value = item.price_2d || '';
             document.getElementById('add-price-3d').value = item.price_3d || '';
             document.getElementById('add-price-7d').value = item.price_7d || '';
-            document.getElementById('add-condition').value = item.condition_status;
+            document.getElementById('add-item-branch').value = item.branch_code || 'CN1';
+            document.getElementById('add-condition').value = item.condition_status || 'Mới 99%, hoạt động hoàn hảo';
             document.getElementById('add-description').value = item.description || '';
-            document.getElementById('add-item-img-url').value = item.image_url;
+            if (document.getElementById('add-gallery-url-input')) document.getElementById('add-gallery-url-input').value = '';
 
-            if (item.image_url) {
-                document.getElementById('image-preview').src = item.image_url;
-                document.getElementById('image-preview-url').innerText = item.image_url;
-                document.getElementById('image-preview-container').classList.remove('hidden');
-                document.getElementById('upload-status').innerText = '✓ Đang dùng ảnh hiện tại';
+            // Hợp nhất ảnh đại diện chính và album ảnh phụ vào chung 1 danh sách
+            currentEditingGallery = [];
+            if (item.image_url && item.image_url !== '/static/logo.png') {
+                currentEditingGallery.push(item.image_url);
             }
-
             try {
-                currentEditingGallery = item.gallery_json ? JSON.parse(item.gallery_json) : [];
-                if (!Array.isArray(currentEditingGallery)) currentEditingGallery = [];
+                const subImgs = item.gallery_json ? JSON.parse(item.gallery_json) : [];
+                if (Array.isArray(subImgs)) {
+                    subImgs.forEach(img => {
+                        if (img && !currentEditingGallery.includes(img)) {
+                            currentEditingGallery.push(img);
+                        }
+                    });
+                }
             } catch (e) {
-                currentEditingGallery = [];
+                console.error("Lỗi parse gallery:", e);
             }
+
             renderEditingGalleryThumbs();
             document.getElementById('add-item-modal').style.display = 'flex';
         }
@@ -9363,20 +9423,51 @@
         function renderEditingGalleryThumbs() {
             const container = document.getElementById('gallery-preview-thumbs');
             const hiddenJson = document.getElementById('add-item-gallery-json');
+            const hiddenCover = document.getElementById('add-item-img-url');
             if (hiddenJson) hiddenJson.value = JSON.stringify(currentEditingGallery);
+            if (hiddenCover) hiddenCover.value = currentEditingGallery.length > 0 ? currentEditingGallery[0] : '';
             if (!container) return;
 
             if (currentEditingGallery.length === 0) {
-                container.innerHTML = `<span class="text-[11px] text-gray-500 font-sans my-auto">Chưa có ảnh phụ nào trong album. Thêm 3-4 ảnh để khách xem chi tiết!</span>`;
+                container.innerHTML = `
+                    <div class="w-full py-4 text-center text-gray-400 font-sans text-xs">
+                        <i class="fa-regular fa-images text-2xl text-gray-300 block mb-1"></i>
+                        <span>Chưa có hình ảnh nào. Bạn có thể chọn file từ máy tính hoặc dán URL bên trên.</span><br>
+                        <span class="text-emerald-700 font-bold font-mono text-[11px]">★ Ảnh đầu tiên sẽ tự động làm Ảnh Đại Diện Chính!</span>
+                    </div>
+                `;
                 return;
             }
 
-            container.innerHTML = currentEditingGallery.map((img, idx) => `
-                <div class="relative group w-14 h-14 rounded-lg overflow-hidden border border-gray-700 bg-black flex-shrink-0">
+            container.innerHTML = currentEditingGallery.map((img, idx) => {
+                const isCover = (idx === 0);
+                return `
+                <div class="relative group w-20 h-20 rounded-xl overflow-hidden border-2 ${isCover ? 'border-emerald-500 shadow-md ring-2 ring-emerald-200' : 'border-gray-200'} bg-gray-50 flex-shrink-0 transition">
                     <img src="${img}" class="w-full h-full object-cover">
-                    <button type="button" onclick="removeGalleryImage(${idx})" class="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px] opacity-80 group-hover:opacity-100 transition" title="Xóa ảnh này">×</button>
+                    <span class="absolute bottom-0 inset-x-0 text-[9px] font-bold py-0.5 text-center text-white ${isCover ? 'bg-emerald-600' : 'bg-black/60'}">
+                        ${isCover ? '⭐ Ảnh chính' : `Ảnh phụ ${idx}`}
+                    </span>
+                    <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-1.5">
+                        ${!isCover ? `
+                            <button type="button" onclick="setAsCoverImage(${idx})" class="w-6 h-6 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] flex items-center justify-center shadow" title="Đặt làm ảnh chính">
+                                <i class="fa-solid fa-star"></i>
+                            </button>
+                        ` : ''}
+                        <button type="button" onclick="removeGalleryImage(${idx})" class="w-6 h-6 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[11px] flex items-center justify-center shadow" title="Xóa ảnh này">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
+        }
+
+        function setAsCoverImage(idx) {
+            if (idx <= 0 || idx >= currentEditingGallery.length) return;
+            const chosen = currentEditingGallery.splice(idx, 1)[0];
+            currentEditingGallery.unshift(chosen);
+            renderEditingGalleryThumbs();
+            showToast("⭐ Đã chuyển thành ảnh đại diện chính!");
         }
 
         function removeGalleryImage(idx) {
@@ -9385,21 +9476,29 @@
         }
 
         function addGalleryUrlDirect() {
-            const val = document.getElementById('add-gallery-url-input').value.trim();
-            if (!val) return;
+            const inp = document.getElementById('add-gallery-url-input');
+            const val = inp ? inp.value.trim() : '';
+            if (!val) {
+                alert("Vui lòng nhập hoặc dán đường dẫn URL hình ảnh!");
+                return;
+            }
             currentEditingGallery.push(val);
-            document.getElementById('add-gallery-url-input').value = '';
+            if (inp) inp.value = '';
             renderEditingGalleryThumbs();
-            showToast("Đã thêm URL ảnh vào album!");
+            showToast("✅ Đã thêm ảnh từ URL vào sản phẩm!");
         }
 
-        async function handleGalleryUpload(event) {
+        async function handleUnifiedImageUpload(event) {
             const files = event.target.files;
             if (!files || files.length === 0) return;
 
-            showToast(`Đang tải ${files.length} ảnh lên server...`);
-            const token = localStorage.getItem('tiduba_token');
+            const statusEl = document.getElementById('upload-status-merged');
+            if (statusEl) {
+                statusEl.innerText = `Đang tải ${files.length} ảnh lên server...`;
+                statusEl.classList.remove('hidden');
+            }
 
+            const token = localStorage.getItem('tiduba_token');
             for (let i = 0; i < files.length; i++) {
                 const formData = new FormData();
                 formData.append("file", files[i]);
@@ -9414,56 +9513,21 @@
                         currentEditingGallery.push(data.image_url);
                     }
                 } catch (e) {
-                    console.error("Lỗi upload gallery image:", e);
+                    console.error("Lỗi upload image:", e);
                 }
             }
+
+            if (statusEl) {
+                statusEl.innerText = `✅ Đã tải xong ${files.length} ảnh!`;
+                setTimeout(() => statusEl.classList.add('hidden'), 3000);
+            }
             renderEditingGalleryThumbs();
-            showToast("✅ Đã hoàn tất tải album ảnh!");
+            showToast("✅ Đã tải hình ảnh lên thành công!");
+            event.target.value = '';
         }
 
         function closeAddItemModal() {
             document.getElementById('add-item-modal').style.display = 'none';
-        }
-
-        async function handleImageUploadPreview(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const statusEl = document.getElementById('upload-status');
-            statusEl.innerText = "Đang tải ảnh lên server...";
-            statusEl.className = "text-[11px] text-amber-400 animate-pulse font-mono";
-
-            const formData = new FormData();
-            formData.append("file", file);
-
-            try {
-                const token = localStorage.getItem('tiduba_token');
-                const res = await fetch('/api/admin/upload_image', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` },
-                    body: formData
-                });
-                const data = await res.json();
-                if (!res.ok) {
-                    alert(data.detail || "Lỗi tải ảnh");
-                    statusEl.innerText = "Lỗi tải ảnh";
-                    statusEl.className = "text-[11px] text-rose-400 font-mono";
-                    return;
-                }
-
-                // Gán URL ảnh vào input và preview
-                document.getElementById('add-item-img-url').value = data.image_url;
-                document.getElementById('image-preview').src = data.image_url;
-                document.getElementById('image-preview-url').innerText = data.image_url;
-                document.getElementById('image-preview-container').classList.remove('hidden');
-
-                statusEl.innerText = "Tải ảnh thành công ✅";
-                statusEl.className = "text-[11px] text-emerald-400 font-bold font-mono";
-                showToast("Đã lưu ảnh thật của sản phẩm lên server!");
-            } catch (err) {
-                alert("Lỗi upload ảnh: " + err);
-                statusEl.innerText = "Lỗi kết nối";
-            }
         }
 
         async function submitNewItem() {
@@ -9473,19 +9537,33 @@
             const subcat = document.getElementById('add-item-subcat').value.trim() || 'Thiết bị';
             const brand = document.getElementById('add-item-brand').value.trim() || 'Tiduba';
             const serial = document.getElementById('add-item-serial').value.trim() || 'SN: TDB-001';
+            const cost = Number(document.getElementById('add-item-cost').value) || 0;
             const p4h = Number(document.getElementById('add-price-4h').value) || 0;
             const p8h = Number(document.getElementById('add-price-8h').value) || 0;
             const p24h = Number(document.getElementById('add-price-24h').value) || 0;
             const p2d = Number(document.getElementById('add-price-2d').value) || 0;
             const p3d = Number(document.getElementById('add-price-3d').value) || 0;
             const p7d = Number(document.getElementById('add-price-7d').value) || 0;
-            const imgUrl = document.getElementById('add-item-img-url').value.trim() || 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&q=80';
+            const branch = document.getElementById('add-item-branch') ? document.getElementById('add-item-branch').value : 'CN1';
+
+            // Tự động kiểm tra ô URL nếu người dùng gõ vào mà chưa bấm nút Thêm URL
+            const urlInput = document.getElementById('add-gallery-url-input');
+            if (urlInput && urlInput.value.trim() && !currentEditingGallery.includes(urlInput.value.trim())) {
+                currentEditingGallery.push(urlInput.value.trim());
+                urlInput.value = '';
+            }
+
+            let imgUrl = currentEditingGallery.length > 0 ? currentEditingGallery[0] : '';
+            if (!imgUrl) {
+                imgUrl = '/static/logo.png';
+            }
+            const galleryJsonStr = JSON.stringify(currentEditingGallery);
             const cond = document.getElementById('add-condition').value.trim();
             const desc = document.getElementById('add-description').value.trim() || name;
-            const galleryJsonStr = JSON.stringify(currentEditingGallery);
 
             if (!name) {
                 alert("Vui lòng nhập tên thiết bị / trang phục!");
+                document.getElementById('add-item-name').focus();
                 return;
             }
 
@@ -9501,31 +9579,37 @@
                 price_2d: p2d,
                 price_3d: p3d,
                 price_7d: p7d,
-                deposit_amount: 0,
+                deposit_amount: cost,
                 image_url: imgUrl,
                 gallery_json: galleryJsonStr,
                 condition_status: cond,
-                description: desc
+                description: desc,
+                branch_code: branch
             };
 
             const token = localStorage.getItem('tiduba_token');
+            const saveBtn = document.getElementById('btn-save-new-item');
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.innerText = "Đang lưu...";
+            }
+
             try {
                 let res;
                 if (targetId) {
-                    // Update existing item
                     res = await fetch(`/api/admin/items/${targetId}`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                         body: JSON.stringify(payload)
                     });
                 } else {
-                    // Create new item
                     res = await fetch('/api/admin/items', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                         body: JSON.stringify(payload)
                     });
                 }
+
                 const text = await res.text();
                 let data;
                 try {
@@ -9540,10 +9624,15 @@
                 }
                 closeAddItemModal();
                 showToast(data.message || "Đã lưu sản phẩm thành công!");
-                fetchCatalog();
                 fetchAdminDashboard();
+                fetchCatalog();
             } catch (err) {
-                alert("Lỗi khi lưu sản phẩm: " + err);
+                alert("Lỗi kết nối khi lưu sản phẩm: " + err);
+            } finally {
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerText = "Lưu";
+                }
             }
         }
 

@@ -1468,3 +1468,50 @@ def test_branch_cn1_120_huynh_thuc_khang_and_kiotviet_branch_import():
     item = next((i for i in items_res.json()["items"] if i["serial_or_size"] == "SP_CN2_001" or i["kiotviet_code"] == "SP_CN2_001"), None)
     assert item is not None
     assert item["branch_code"] == "CN2"
+
+
+def test_track_rental_returns_saved_deposit_info():
+    """Kiểm tra Yêu cầu 2: Quét/tra cứu đơn hàng TDB-xxxx phải trả về đầy đủ deposit_type, deposit_paid, deposit_asset_desc."""
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    adm_token = login_adm.json()["token"]
+    adm_headers = {"Authorization": f"Bearer {adm_token}"}
+
+    # 1. Tạo 1 đơn mới
+    st = (datetime.datetime.now() + datetime.timedelta(days=12)).replace(hour=10, minute=0, second=0)
+    et = (st + datetime.timedelta(hours=8)).replace(minute=0, second=0)
+    book_res = client.post("/api/rentals/book", json={
+        "item_id": 1,
+        "start_time": st.strftime("%Y-%m-%d %H:%M"),
+        "end_time": et.strftime("%Y-%m-%d %H:%M"),
+        "deposit_type": "ASSET",
+        "custom_deposit_amount": 1500000,
+        "deposit_asset_desc": "iPhone 15 Pro 128GB Titan"
+    }, headers=adm_headers)
+    assert book_res.status_code == 200
+    r_id = book_res.json()["rental_id"]
+    code = book_res.json()["rental_code"]
+
+    # 2. Tra cứu bằng /api/rentals/track/{code} -> PHẢI CÓ THÔNG TIN CỌC
+    track_res1 = client.get(f"/api/rentals/track/{code}", headers=adm_headers)
+    assert track_res1.status_code == 200
+    r1 = track_res1.json()["rental"]
+    assert r1["deposit_type"] == "ASSET"
+    assert r1["deposit_paid"] == 1500000
+    assert "iPhone 15 Pro" in r1["deposit_asset_desc"]
+
+    # 3. Admin sửa thông tin cọc qua /update_deposit
+    up_res = client.post(f"/api/admin/rentals/{r_id}/update_deposit", json={
+        "deposit_type": "ASSET",
+        "deposit_paid": 2000000,
+        "deposit_asset_desc": "Xe máy Vision + Cavet xe gốc"
+    }, headers=adm_headers)
+    assert up_res.status_code == 200
+
+    # 4. Tra cứu lại (giả lập quét QR của admin) -> PHẢI LẬP TỨC HIỆN THÔNG TIN CỌC MỚI ĐÃ LƯU
+    track_res2 = client.get(f"/api/rentals/track/{code}", headers=adm_headers)
+    assert track_res2.status_code == 200
+    r2 = track_res2.json()["rental"]
+    assert r2["deposit_type"] == "ASSET"
+    assert r2["deposit_paid"] == 2000000
+    assert "Xe máy Vision" in r2["deposit_asset_desc"]
+
