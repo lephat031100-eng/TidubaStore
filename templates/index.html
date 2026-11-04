@@ -386,9 +386,9 @@
             </div>
         </div>
 
-        <!-- Bottom Drawer Announcement Bar (Hình 2) -->
+        <!-- Bottom Drawer Announcement Bar (Hình 3) -->
         <div class="bg-[#b37054] text-white p-2.5 text-center text-xs font-medium">
-            ✦ Ưu đãi cọc 0đ khi để lại CCCD gốc ✦
+            Tiduba Store xin cảm ơn thượng đế ạ
         </div>
     </div>
     <!-- HERO BANNER (CHUẨN GIAO DIỆN STUDIO SANG TRỌNG PHONG CÁCH SHERENT & EDITORIAL LOOKBOOK) -->
@@ -1842,17 +1842,26 @@
                                 </div>
                             </div>
 
-                            <!-- Big Green KiotViet Checkout Button -->
-                            <div class="flex items-center gap-2 pt-1">
-                                <button onclick="posClearActiveInvoice()" class="px-3.5 py-3 rounded-2xl bg-white hover:bg-rose-50 text-gray-500 hover:text-rose-600 border border-gray-200 font-bold text-xs transition" title="Xóa toàn bộ món trong hóa đơn này">
+                            <!-- Action Bar: Xóa, Chọn Chuyển khoản / Tiền mặt (Yêu cầu 2), Nút Thanh Toán -->
+                            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                                <button type="button" onclick="posClearActiveInvoice()" class="px-3.5 py-3 rounded-2xl bg-white hover:bg-rose-50 text-gray-500 hover:text-rose-600 border border-gray-200 font-bold text-xs transition flex items-center justify-center gap-1" title="Xóa toàn bộ món trong hóa đơn này">
                                     <i class="fa-regular fa-trash-can"></i> Xóa
                                 </button>
-                                <button onclick="posCheckoutDirect(false)" id="pos-btn-qr-checkout" class="flex-1 bg-amber-500 hover:bg-amber-400 text-gray-950 font-black py-3 px-4 rounded-2xl text-xs flex items-center justify-center gap-1.5 shadow-md transition">
-                                    <i class="fa-solid fa-qrcode text-sm"></i> Tạo Mã VietQR MBBank
-                                </button>
-                                <button onclick="posCheckoutDirect(true)" id="pos-btn-checkout" class="flex-1 bg-[#10b981] hover:bg-[#059669] text-white font-black py-3 px-5 rounded-2xl text-sm flex items-center justify-between shadow-lg shadow-emerald-500/20 transition">
-                                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-receipt"></i> Thanh toán</span>
-                                    <span id="pos-checkout-btn-text" class="font-mono text-base tracking-tight font-black">0đ</span>
+                                
+                                <!-- CHỌN PHƯƠNG THỨC: CHUYỂN KHOẢN HOẶC TIỀN MẶT (YÊU CẦU 2) -->
+                                <div class="flex items-center bg-gray-100 p-1 rounded-2xl border border-gray-300 text-xs font-mono font-bold flex-1">
+                                    <button type="button" onclick="setPosPaymentMethod('TRANSFER')" id="pos-pay-method-transfer" class="flex-1 py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 bg-[#0284c7] text-white shadow-sm font-bold text-xs" title="Khách quét mã QR MBBank có sẵn tại quầy">
+                                        <i class="fa-solid fa-qrcode text-xs"></i> Chuyển khoản
+                                    </button>
+                                    <button type="button" onclick="setPosPaymentMethod('CASH')" id="pos-pay-method-cash" class="flex-1 py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 text-gray-600 hover:text-gray-900 font-bold text-xs" title="Khách đưa tiền mặt tại quầy">
+                                        <i class="fa-solid fa-money-bill-wave text-xs"></i> Tiền mặt
+                                    </button>
+                                </div>
+
+                                <!-- NÚT THANH TOÁN HOÀN TẤT ĐƠN HÀNG VÀ IN BILL -->
+                                <button type="button" onclick="posCheckoutDirect()" id="pos-btn-checkout" class="flex-1 bg-[#10b981] hover:bg-[#059669] text-white font-black py-3 px-5 rounded-2xl text-sm flex items-center justify-between shadow-lg shadow-emerald-500/20 transition">
+                                    <span class="flex items-center gap-1.5 whitespace-nowrap"><i class="fa-solid fa-receipt"></i> Thanh toán</span>
+                                    <span id="pos-checkout-btn-text" class="font-mono text-base tracking-tight font-black ml-2">0đ</span>
                                 </button>
                             </div>
                         </div>
@@ -2248,6 +2257,10 @@
                     <div class="flex justify-between text-gray-400">
                         <span>Tiền thuê thiết bị:</span>
                         <strong class="text-white" id="calc-rental-price">0đ</strong>
+                    </div>
+                    <div id="calc-deposit-row" class="hidden flex justify-between text-gray-400">
+                        <span>Phí cọc (hoàn lại khi trả):</span>
+                        <strong class="text-emerald-400 font-bold" id="calc-deposit-price">0đ</strong>
                     </div>
 
                     <!-- ADMIN CHỈNH GIÁ THUÊ TRỰC TIẾP (ĐỒNG BỘ VIETQR & HÓA ĐƠN) -->
@@ -2947,9 +2960,9 @@
                         </table>
                     </div>
 
-                    <!-- Lời cảm ơn chuẩn Hình 1 -->
+                    <!-- Lời cảm ơn chuẩn Hình 4 -->
                     <div class="pt-1.5 pb-0.5 text-center text-[10px] font-black text-black tracking-wider uppercase font-sans">
-                        CẢM ƠN QUÝ KHÁCH! • THANK YOU!
+                        Tiduba cảm ơn thượng đế
                     </div>
                 </div>
             </div>
@@ -3814,10 +3827,13 @@
                         </datalist>
                     </div>
 
-                    <!-- Hàng 3 - Trái: Giá vốn -->
+                    <!-- Hàng 3 - Trái: Phí cọc (đ) (Admin chỉnh giá cọc cho sản phẩm) -->
                     <div>
-                        <label class="block text-gray-700 font-semibold mb-1">Giá vốn</label>
-                        <input type="number" id="add-item-cost" value="0" placeholder="0" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none font-mono">
+                        <label class="block text-gray-700 font-semibold mb-1 flex items-center justify-between">
+                            <span>Phí cọc (đ)</span>
+                            <span class="text-[10px] text-gray-400 font-normal">Hiển thị trên web</span>
+                        </label>
+                        <input type="number" id="add-item-cost" value="0" placeholder="0" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none font-mono" title="Nhập số tiền cọc cho sản phẩm này">
                     </div>
 
                     <!-- Hàng 3 - Phải: Thời lượng * -->
@@ -4428,7 +4444,7 @@
                                 </div>
                                 <div class="flex items-center justify-between text-[#78716c] text-[11px]">
                                     <span>Phí cọc:</span>
-                                    <span class="font-medium text-[#2e7d32]">0đ <span class="text-[10px] text-[#78716c]">(Giữ CCCD)</span></span>
+                                    <span class="font-medium text-[#2e7d32] font-mono">${Number(item.deposit_amount || 0).toLocaleString()}đ</span>
                                 </div>
                                 <div class="flex items-center justify-between text-[#a8a29e] text-[10.5px]">
                                     <span>Giá tag:</span>
@@ -6434,8 +6450,20 @@
                 }
             }
 
-            // Tổng tiền thanh toán = tiền thuê (hoặc giá do Admin chỉnh)
-            const totalPayable = rentalPrice;
+            // Phí cọc niêm yết của thiết bị (do Admin chỉnh)
+            const itemDep = (target && target.deposit_amount) ? Number(target.deposit_amount) : 0;
+            const depRow = document.getElementById('calc-deposit-row');
+            if (depRow) {
+                if (itemDep > 0) {
+                    depRow.classList.remove('hidden');
+                    document.getElementById('calc-deposit-price').innerText = `+${itemDep.toLocaleString()}đ`;
+                } else {
+                    depRow.classList.add('hidden');
+                }
+            }
+
+            // Tổng tiền thanh toán = tiền thuê (hoặc giá do Admin chỉnh) + cọc (nếu có)
+            const totalPayable = rentalPrice + itemDep;
 
             document.getElementById('calc-days').innerText = `${rentalType} (${Math.round(hours)} giờ)`;
             document.getElementById('calc-rental-price').innerText = `${rentalPrice.toLocaleString()}đ`;
@@ -6469,15 +6497,16 @@
             // Lấy chi nhánh được chọn
             const branchCode = document.getElementById('book-branch-code') ? document.getElementById('book-branch-code').value : 'CN1';
             const refundBank = document.getElementById('book-refund-bank-info') ? document.getElementById('book-refund-bank-info').value.trim() : '';
+            const itemDep = (target && target.deposit_amount) ? Number(target.deposit_amount) : 0;
 
             const payload = {
                 start_time: startVal,
                 end_time: endVal,
                 branch_code: branchCode,
                 customer_notes: notes,
-                deposit_type: 'CCCD',
-                deposit_asset_desc: 'Giữ CCCD gốc tại quầy',
-                custom_deposit_amount: 0,
+                deposit_type: itemDep > 0 ? 'CASH' : 'NONE',
+                deposit_asset_desc: itemDep > 0 ? `Phí cọc: ${itemDep.toLocaleString()}đ` : 'Theo thỏa thuận tại quầy',
+                custom_deposit_amount: itemDep,
                 refund_bank_info: refundBank,
                 custom_rental_price: adminCustomPrice
             };
@@ -7656,6 +7685,23 @@
             openAddItemModal();
         }
 
+        let posPaymentMethod = 'TRANSFER';
+
+        function setPosPaymentMethod(method) {
+            posPaymentMethod = method;
+            const btnTransfer = document.getElementById('pos-pay-method-transfer');
+            const btnCash = document.getElementById('pos-pay-method-cash');
+            if (btnTransfer && btnCash) {
+                if (method === 'TRANSFER') {
+                    btnTransfer.className = "flex-1 py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 bg-[#0284c7] text-white shadow-sm font-bold text-xs";
+                    btnCash.className = "flex-1 py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 text-gray-600 hover:text-gray-900 font-bold text-xs";
+                } else {
+                    btnCash.className = "flex-1 py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 bg-[#10b981] text-white shadow-sm font-bold text-xs";
+                    btnTransfer.className = "flex-1 py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 text-gray-600 hover:text-gray-900 font-bold text-xs";
+                }
+            }
+        }
+
         async function posCheckoutDirect(isPaidNow = true) {
             const activeInv = posInvoices[activePosTabIdx];
             if (!activeInv || activeInv.items.length === 0) {
@@ -7692,6 +7738,8 @@
             const depAmt = activeInv.depositAmount || 0;
             const depDesc = activeInv.depositDesc || (depType === 'CCCD' ? 'Giữ CCCD gốc' : 'Để lại giấy tờ hoặc cọc thêm tiền');
 
+            const methodLabel = posPaymentMethod === 'TRANSFER' ? 'Chuyển khoản' : 'Tiền mặt';
+
             const payload = {
                 items: itemsPayload,
                 start_time: startTime,
@@ -7704,11 +7752,11 @@
                 pos_surcharge: activeInv.surchargeVal || 0,
                 walk_in_customer_name: activeInv.customerName,
                 walk_in_customer_phone: activeInv.customerPhone,
-                is_direct_paid: isPaidNow,
-                customer_notes: `KiotViet POS - ${activeInv.name} (${branchCode})`
+                is_direct_paid: true,
+                customer_notes: `KiotViet POS [${methodLabel}] - ${activeInv.name} (${branchCode})`
             };
 
-            const btn = document.getElementById(isPaidNow ? 'pos-btn-checkout' : 'pos-btn-qr-checkout');
+            const btn = document.getElementById('pos-btn-checkout');
             if (btn) {
                 btn.disabled = true;
             }
@@ -7731,27 +7779,22 @@
 
                 // Phát âm thanh Ting-Ting POS thành công
                 playPosSuccessSound();
-                showToast(`✅ ${data.message}`);
+                showToast(`✅ Đã thanh toán thành công (${methodLabel}): #${data.rental_code}`);
 
-                if (isPaidNow) {
-                    openK80BillModal(
-                        data.rental_code,
-                        `Gói ${data.items_count} món KiotViet`,
-                        data.total_price,
-                        data.deposit_amount,
-                        activeInv.customerName,
-                        activeInv.customerPhone,
-                        data.start_time,
-                        data.end_time,
-                        data.deposit_type,
-                        encodeURIComponent(data.deposit_asset_desc || ''),
-                        'ACTIVE',
-                        activeInv.items
-                    );
-                } else {
-                    const payable = Number(data.total_payable !== undefined ? data.total_payable : (data.total_payment !== undefined ? data.total_payment : data.total_price || 0));
-                    showQrModal(data.qr_image_url || data.qr_url, `Hóa đơn KiotViet ${data.rental_code}`, `${payable.toLocaleString()} VNĐ`, data.rental_code, data.rental_id);
-                }
+                openK80BillModal(
+                    data.rental_code,
+                    `Gói ${data.items_count} món KiotViet`,
+                    data.total_price,
+                    data.deposit_amount,
+                    activeInv.customerName,
+                    activeInv.customerPhone,
+                    data.start_time,
+                    data.end_time,
+                    data.deposit_type,
+                    encodeURIComponent(data.deposit_asset_desc || ''),
+                    'ACTIVE',
+                    activeInv.items
+                );
 
                 activeInv.items = [];
                 renderActivePosInvoice();

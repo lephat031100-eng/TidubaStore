@@ -2749,10 +2749,10 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
         conn.close()
         raise HTTPException(status_code=400, detail="Vui lòng chọn thiết bị hoặc combo!")
 
-    # PHẦN CỌC: Tiền cọc = 0đ (Mặc định) hoặc Cọc tài sản tự chọn
-    deposit_amount = 0
-    dep_type = req.deposit_type or "CCCD"
-    asset_desc = req.deposit_asset_desc or "Để lại giấy tờ hoặc cọc thêm tiền (Hoàn lại khi trả đồ)"
+    # PHẦN CỌC: Tiền cọc lấy theo cấu hình của thiết bị hoặc cọc do Admin/Khách tự nhập
+    deposit_amount = default_deposit or 0
+    dep_type = req.deposit_type or ("CASH" if deposit_amount > 0 else "NONE")
+    asset_desc = req.deposit_asset_desc or (f"Phí cọc: {deposit_amount:,}đ" if deposit_amount > 0 else "Theo thỏa thuận tại quầy")
 
     # Khóa khung giờ 08:00 - 20:00 và chặn ngày giờ quá khứ (Yêu cầu 2 & 6)
     st_val = parse_dt_safe(req.start_time)
@@ -2767,10 +2767,10 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
             conn.close()
             raise HTTPException(status_code=400, detail="Cửa hàng hoạt động từ 08:00 đến 20:00 hàng ngày. Vui lòng chọn giờ nhận và trả đồ trong khung giờ 08:00 - 20:00!")
 
-    if req.custom_deposit_amount is not None and req.custom_deposit_amount > 0:
+    if req.custom_deposit_amount is not None:
         deposit_amount = req.custom_deposit_amount
-        dep_type = "ASSET"
-        asset_desc = req.deposit_asset_desc or f"Khách tự nhập tiền cọc: {deposit_amount:,}đ"
+        dep_type = req.deposit_type or ("CASH" if deposit_amount > 0 else "NONE")
+        asset_desc = req.deposit_asset_desc or (f"Phí cọc: {deposit_amount:,}đ" if deposit_amount > 0 else "Theo thỏa thuận tại quầy")
 
     try:
         p2d = (item["price_2d"] or 0) if (req.item_id and item and "price_2d" in item.keys()) else 0

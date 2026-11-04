@@ -1515,3 +1515,47 @@ def test_track_rental_returns_saved_deposit_info():
     assert r2["deposit_paid"] == 2000000
     assert "Xe máy Vision" in r2["deposit_asset_desc"]
 
+
+def test_pos_payment_method_and_thank_you_texts():
+    """Kiểm tra Yêu cầu 2 & 3: POS thanh toán với phương thức Tiền mặt / Chuyển khoản và các câu cảm ơn thượng đế."""
+    # 1. Kiểm tra văn bản cảm ơn trong index.html
+    with open("templates/index.html", "r", encoding="utf-8") as f:
+        html = f.read()
+    assert "Tiduba Store xin cảm ơn thượng đế ạ" in html
+    assert "Tiduba cảm ơn thượng đế" in html
+    assert "(Giữ CCCD)" not in html  # Không còn chữ (Giữ CCCD) trên thẻ
+
+    # 2. Test POS book_multi với ghi chú Tiền mặt hoặc Chuyển khoản
+    login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    adm_token = login_adm.json()["token"]
+    adm_headers = {"Authorization": f"Bearer {adm_token}"}
+
+    st = (datetime.datetime.now() + datetime.timedelta(days=14)).replace(hour=10, minute=0, second=0)
+    et = (st + datetime.timedelta(hours=8)).replace(minute=0, second=0)
+
+    pos_res = client.post("/api/rentals/book_multi", json={
+        "items": [{
+            "item_id": 1,
+            "rental_type": "8h",
+            "days": 0.5,
+            "start_time": st.strftime("%Y-%m-%d %H:%M"),
+            "end_time": et.strftime("%Y-%m-%d %H:%M"),
+            "custom_price": 250000
+        }],
+        "start_time": st.strftime("%Y-%m-%d %H:%M"),
+        "end_time": et.strftime("%Y-%m-%d %H:%M"),
+        "is_direct_paid": True,
+        "customer_notes": "KiotViet POS [Tiền mặt] - Hóa đơn 1 (CN1)"
+    }, headers=adm_headers)
+
+    assert pos_res.status_code == 200
+    pdata = pos_res.json()
+    assert pdata["success"] is True
+    assert pdata["status"] == "ACTIVE"
+
+    # Kiểm tra customer_notes đã được lưu vào database
+    conn = get_db()
+    saved = conn.execute("SELECT customer_notes FROM rentals WHERE id = ?", (pdata["rental_id"],)).fetchone()
+    conn.close()
+    assert "KiotViet POS [Tiền mặt]" in saved["customer_notes"]
+
