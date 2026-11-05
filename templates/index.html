@@ -126,7 +126,7 @@
             padding-bottom: env(safe-area-inset-bottom, 16px);
         }
 
-        /* CHUẨN IN HÓA ĐƠN NHIỆT K80 (MỰC ĐẬM ĐỀU MÀU TĂNG ĐỘ NÉT CHO MÁY IN NHIỆT) */
+        /* CHUẨN IN HÓA ĐƠN NHIỆT K80 (SẮC NÉT, MỊN MÀNG, LOẠI BỎ 100% HIỆN TƯỢNG ĐỐM HẠT DITHERING) */
         @media print {
             @page {
                 size: 80mm auto;
@@ -179,52 +179,43 @@
                 width: 72mm !important;
                 max-width: 72mm !important;
                 margin: 0 auto !important;
-                padding: 2mm 1.5mm !important;
+                padding: 1.5mm 1mm 5mm 1mm !important;
                 border: none !important;
                 box-shadow: none !important;
                 color: #000000 !important;
                 background: #ffffff !important;
-                font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+                font-family: Arial, "Segoe UI", "Helvetica Neue", Helvetica, sans-serif !important;
                 font-size: 11px !important;
-                font-weight: 900 !important;
-                line-height: 1.4 !important;
-                letter-spacing: 0.2px !important;
+                font-weight: 700 !important;
+                line-height: 1.35 !important;
                 box-sizing: border-box !important;
-                -webkit-text-stroke: 0.35px #000000 !important;
-                text-rendering: geometricPrecision !important;
-                -webkit-font-smoothing: none !important;
-                -moz-osx-font-smoothing: grayscale !important;
-                filter: contrast(400%) brightness(75%) grayscale(100%) !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
             #k80-printable-area * {
                 color: #000000 !important;
-                font-weight: 800 !important;
-                font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
-                -webkit-text-stroke: 0.3px #000000 !important;
+                font-family: Arial, "Segoe UI", "Helvetica Neue", Helvetica, sans-serif !important;
             }
             #k80-printable-area strong, 
             #k80-printable-area th, 
             #k80-printable-area .font-black {
                 font-weight: 900 !important;
-                -webkit-text-stroke: 0.4px #000000 !important;
             }
             #k80-bill-qr-img {
-                width: 56px !important;
-                height: 56px !important;
-                max-width: 56px !important;
-                max-height: 56px !important;
+                width: 60px !important;
+                height: 60px !important;
+                max-width: 60px !important;
+                max-height: 60px !important;
                 display: block !important;
                 margin: 0 auto !important;
-                image-rendering: pixelated !important;
-                border: 2px solid #000000 !important;
-                padding: 1px !important;
-                filter: contrast(500%) brightness(60%) grayscale(100%) !important;
+                background: #ffffff !important;
+                border: none !important;
+                padding: 0 !important;
             }
-            .border-dashed, .border-b, .border-t {
+            .border-dashed {
+                border-style: dashed !important;
                 border-color: #000000 !important;
-                border-width: 1.5px !important;
+                border-width: 1px !important;
             }
             .k80-no-print {
                 display: none !important;
@@ -2891,43 +2882,48 @@
             <div class="p-3 sm:p-4 flex-1 overflow-auto custom-scroll bg-gray-950 flex justify-center">
                 <div id="k80-printable-area" class="bg-white text-black font-sans text-xs p-3.5 sm:p-4 pb-6 rounded-xl shadow-2xl leading-normal max-w-[280px] w-full border border-gray-400 space-y-2 select-all">
                     
-                    <!-- Phần đầu: Thương hiệu & Chi nhánh -->
-                    <div class="text-center space-y-0.5 pb-2 border-b border-dashed border-black">
-                        <div class="text-2xl font-black tracking-widest text-black" style="font-family: Arial, sans-serif; letter-spacing: 2px;">TIDUBA</div>
-                        <div class="text-[10px] font-bold leading-tight text-black pt-0.5 font-sans">
-                            <div>CN1: 120 Huỳnh Thúc Kháng - Pleiku - Gia Lai</div>
-                            <div>CN2: 801 Lê Duẩn - Pleiku - Gia Lai</div>
-                            <div class="font-black text-[11px] mt-0.5">Hotline: 0977 078 981</div>
+                    <!-- Phần đầu: Thương hiệu & Chi nhánh (Chữ TIDUBA to, đậm, sang trọng) -->
+                    <div class="text-center pb-2.5 border-b border-dashed border-black">
+                        <div class="text-[26px] font-black uppercase text-black leading-none tracking-[3px]" style="font-family: Arial, 'Segoe UI', sans-serif;">
+                            TIDUBA
+                        </div>
+                        <div class="text-[9.5px] font-bold tracking-[1.5px] uppercase text-black mt-1">
+                            THUÊ MÁY ẢNH & ĐỒ THIẾT KẾ
+                        </div>
+                        <div class="text-[10px] font-medium leading-snug text-black mt-1.5 space-y-0.5">
+                            <div>CN1: 120 Huỳnh Thúc Kháng, TP. Pleiku</div>
+                            <div>CN2: 801 Lê Duẩn, P. An Phú, TP. Pleiku</div>
+                            <div class="font-bold text-[11px] mt-0.5">Hotline: 0977 078 981</div>
                         </div>
                     </div>
 
                     <!-- Tiêu đề Hóa Đơn & Mã -->
-                    <div class="text-center py-1 space-y-0.5 border-b border-dashed border-black font-sans">
+                    <div class="text-center py-1.5 space-y-0.5 border-b border-dashed border-black font-sans">
                         <div class="text-sm font-black uppercase text-black tracking-wide">HOÁ ĐƠN BÁN HÀNG</div>
-                        <div class="text-xs font-black text-black font-mono tracking-wider" id="k80-disp-code">HD001135</div>
-                        <div class="text-[10.5px] font-bold text-black font-mono" id="k80-disp-time">26/09/2026 19:56</div>
+                        <div class="text-xs font-bold text-black font-mono tracking-wider" id="k80-disp-code">HD001135</div>
+                        <div class="text-[10px] font-medium text-black font-mono" id="k80-disp-time">26/09/2026 19:56</div>
                     </div>
 
                     <!-- Thông tin Khách Hàng & Nhân Viên -->
-                    <div class="py-1 space-y-1 text-xs font-bold border-b border-dashed border-black text-black font-sans">
-                        <div class="flex justify-between">
-                            <span class="text-black">Khách hàng:</span>
-                            <strong class="text-black uppercase text-right" id="k80-disp-customer">OANH</strong>
+                    <div class="py-1.5 space-y-1 text-xs border-b border-dashed border-black text-black font-sans">
+                        <div class="flex justify-between items-center">
+                            <span class="text-black font-medium">Khách hàng:</span>
+                            <strong class="text-black uppercase text-right font-bold" id="k80-disp-customer">OANH</strong>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-black">Điện thoại:</span>
-                            <strong class="text-black font-mono text-right" id="k80-disp-phone">0346512018</strong>
+                        <div class="flex justify-between items-center">
+                            <span class="text-black font-medium">Điện thoại:</span>
+                            <strong class="text-black font-mono text-right font-bold" id="k80-disp-phone">0346512018</strong>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-black">Nhân viên:</span>
-                            <span class="text-black font-bold text-right" id="k80-disp-staff">Quản Lý Cửa Hàng Tiduba</span>
+                        <div class="flex justify-between items-center">
+                            <span class="text-black font-medium">Nhân viên:</span>
+                            <span class="text-black font-semibold text-right" id="k80-disp-staff">Quản Lý Cửa Hàng Tiduba</span>
                         </div>
                     </div>
 
                     <!-- Danh sách sản phẩm (Bảng chuẩn Tên hàng - SL - Đơn giá - T.Tiền) -->
-                    <div class="py-1 border-b border-dashed border-black text-black">
-                        <table style="width: 100%; border-collapse: collapse; font-size: 10.5px; font-weight: 900; border-bottom: 1px solid #000; padding-bottom: 2px; margin-bottom: 3px;">
-                            <tr>
+                    <div class="py-1.5 border-b border-dashed border-black text-black">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 10.5px; font-weight: 800; border-bottom: 1.5px solid #000; padding-bottom: 2px; margin-bottom: 3px;">
+                            <tr style="text-transform: uppercase;">
                                 <th style="width: 44%; text-align: left; padding: 2px 0;">Tên hàng</th>
                                 <th style="width: 12%; text-align: center; padding: 2px 0;">SL</th>
                                 <th style="width: 22%; text-align: right; padding: 2px 0;">Đơn giá</th>
@@ -2940,33 +2936,33 @@
                     </div>
 
                     <!-- Tổng kết thanh toán -->
-                    <div class="py-1 border-b border-dashed border-black space-y-1 text-xs font-bold font-mono text-black">
-                        <div class="flex justify-between">
-                            <span class="font-sans font-bold">Tổng tiền hàng:</span>
-                            <strong class="text-black" id="k80-disp-subtotal">100,000</strong>
+                    <div class="py-1.5 border-b border-dashed border-black space-y-1 text-xs font-mono text-black">
+                        <div class="flex justify-between items-center">
+                            <span class="font-sans font-medium">Tổng tiền hàng:</span>
+                            <strong class="text-black font-bold text-sm" id="k80-disp-subtotal">100,000</strong>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="font-sans font-bold">Chiết khấu /</span>
-                            <span class="text-black" id="k80-disp-discount">0</span>
+                        <div class="flex justify-between items-center">
+                            <span class="font-sans font-medium">Chiết khấu /</span>
+                            <span class="text-black font-medium" id="k80-disp-discount">0</span>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="font-sans font-bold">Tiền cọc:</span>
-                            <span class="text-black" id="k80-disp-deposit">0</span>
+                        <div class="flex justify-between items-center">
+                            <span class="font-sans font-medium">Tiền cọc:</span>
+                            <span class="text-black font-bold" id="k80-disp-deposit">0</span>
                         </div>
-                        <div class="flex justify-between text-sm font-black text-black pt-1 border-t border-black">
-                            <span class="font-sans uppercase">TỔNG CỘNG:</span>
-                            <strong class="text-base text-black" id="k80-disp-total">100,000</strong>
+                        <div class="flex justify-between items-center text-sm font-black text-black pt-1.5 border-t-2 border-black">
+                            <span class="font-sans uppercase text-base">TỔNG CỘNG:</span>
+                            <strong class="text-lg text-black font-black" id="k80-disp-total">100,000</strong>
                         </div>
                     </div>
 
-                    <!-- Bố cục Quy định trả đồ & Mã QR (Bảng 2 cột chuẩn không bị vỡ hoặc phình to) -->
-                    <div class="py-1.5 border-b border-dashed border-black">
+                    <!-- Bố cục Quy định trả đồ & Mã QR (Sạch sẽ, không viền đen bẩn, không bị đốm) -->
+                    <div class="py-2 border-b border-dashed border-black">
                         <table style="width: 100%; border-collapse: collapse;">
                             <tr>
-                                <td style="width: 60px; min-width: 60px; max-width: 60px; vertical-align: middle; text-align: center; padding: 2px 4px 2px 0;">
-                                    <img id="k80-bill-qr-img" crossorigin="anonymous" src="" alt="QR" width="52" height="52" style="width: 52px !important; height: 52px !important; max-width: 52px !important; max-height: 52px !important; display: block; margin: 0 auto; image-rendering: pixelated; border: 1px solid #000; padding: 1px;">
+                                <td style="width: 64px; min-width: 64px; max-width: 64px; vertical-align: middle; text-align: center; padding: 2px 4px 2px 0;">
+                                    <img id="k80-bill-qr-img" crossorigin="anonymous" src="" alt="QR" width="60" height="60" style="width: 60px !important; height: 60px !important; max-width: 60px !important; max-height: 60px !important; display: block; margin: 0 auto; background: #ffffff;">
                                 </td>
-                                <td style="vertical-align: middle; text-align: left; padding-left: 4px; font-size: 9.5px; line-height: 1.35; font-weight: 700; color: #000; font-family: Arial, sans-serif;">
+                                <td style="vertical-align: middle; text-align: left; padding-left: 6px; font-size: 9.5px; line-height: 1.35; font-weight: 600; color: #000; font-family: Arial, sans-serif;">
                                     <div style="font-weight: 900; font-size: 10px; margin-bottom: 2px; text-transform: uppercase;">QUY ĐỊNH TRẢ ĐỒ</div>
                                     <div>• Hôm nay lấy mai trả (trước 20h).</div>
                                     <div>• Thêm 1 ngày: &lt;1tr +10k | &gt;1tr +30k (báo trước).</div>
@@ -2977,9 +2973,11 @@
                         </table>
                     </div>
 
-                    <!-- Lời cảm ơn chuẩn Hình 4 -->
-                    <div class="pt-1.5 pb-0.5 text-center text-[10px] font-black text-black tracking-wider uppercase font-sans">
-                        Tiduba cảm ơn thượng đế
+                    <!-- Lời cảm ơn chuẩn -->
+                    <div class="pt-2 pb-1 text-center font-sans">
+                        <div class="text-xs font-black text-black tracking-wider uppercase">
+                            Tiduba cảm ơn thượng đế
+                        </div>
                     </div>
                 </div>
             </div>
@@ -5073,15 +5071,15 @@
                         const itQty = Number(it.quantity || 1);
                         const itTotal = itPrice * itQty;
                         return `
-                            <table style="width: 100%; border-collapse: collapse; font-size: 11px; border-bottom: 1.5px dashed #000000; margin-bottom: 2px; padding-bottom: 2px;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 11px; border-bottom: 1px dashed #000000; margin-bottom: 2px; padding-bottom: 2px;">
                                 <tr>
-                                    <td colspan="4" style="font-weight: 900; font-size: 11.5px; text-transform: uppercase; padding: 2px 0 1px 0; color: #000000; text-align: left; -webkit-text-stroke: 0.35px #000000;">${it.name || `Sản phẩm ${idx+1}`}</td>
+                                    <td colspan="4" style="font-weight: 800; font-size: 11.5px; text-transform: uppercase; padding: 2px 0 1px 0; color: #000000; text-align: left;">${it.name || `Sản phẩm ${idx+1}`}</td>
                                 </tr>
-                                <tr style="font-size: 10.5px; color: #000000; font-family: monospace, Arial; font-weight: 800;">
+                                <tr style="font-size: 10.5px; color: #000000; font-family: monospace, Arial; font-weight: 700;">
                                     <td style="width: 44%; text-align: left; padding-bottom: 2px;">${itQty} x ${itPrice.toLocaleString()}</td>
-                                    <td style="width: 12%; text-align: center; font-weight: 900; padding-bottom: 2px;">${itQty}</td>
-                                    <td style="width: 22%; text-align: right; font-weight: 800; padding-bottom: 2px;">${itPrice.toLocaleString()}</td>
-                                    <td style="width: 22%; text-align: right; font-weight: 900; padding-bottom: 2px; -webkit-text-stroke: 0.35px #000000;">${itTotal.toLocaleString()}</td>
+                                    <td style="width: 12%; text-align: center; font-weight: 800; padding-bottom: 2px;">${itQty}</td>
+                                    <td style="width: 22%; text-align: right; font-weight: 700; padding-bottom: 2px;">${itPrice.toLocaleString()}</td>
+                                    <td style="width: 22%; text-align: right; font-weight: 900; padding-bottom: 2px;">${itTotal.toLocaleString()}</td>
                                 </tr>
                             </table>
                         `;
@@ -5089,15 +5087,15 @@
                 } else {
                     const itemName = item || 'Thiết bị / Trang phục thuê';
                     itemsContainer.innerHTML = `
-                        <table style="width: 100%; border-collapse: collapse; font-size: 11px; border-bottom: 1.5px dashed #000000; margin-bottom: 2px; padding-bottom: 2px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 11px; border-bottom: 1px dashed #000000; margin-bottom: 2px; padding-bottom: 2px;">
                             <tr>
-                                <td colspan="4" style="font-weight: 900; font-size: 11.5px; text-transform: uppercase; padding: 2px 0 1px 0; color: #000000; text-align: left; -webkit-text-stroke: 0.35px #000000;">${itemName}</td>
+                                <td colspan="4" style="font-weight: 800; font-size: 11.5px; text-transform: uppercase; padding: 2px 0 1px 0; color: #000000; text-align: left;">${itemName}</td>
                             </tr>
-                            <tr style="font-size: 10.5px; color: #000000; font-family: monospace, Arial; font-weight: 800;">
+                            <tr style="font-size: 10.5px; color: #000000; font-family: monospace, Arial; font-weight: 700;">
                                 <td style="width: 44%; text-align: left; padding-bottom: 2px;">1 x ${subtotal.toLocaleString()}</td>
-                                <td style="width: 12%; text-align: center; font-weight: 900; padding-bottom: 2px;">1</td>
-                                <td style="width: 22%; text-align: right; font-weight: 800; padding-bottom: 2px;">${subtotal.toLocaleString()}</td>
-                                <td style="width: 22%; text-align: right; font-weight: 900; padding-bottom: 2px; -webkit-text-stroke: 0.35px #000000;">${subtotal.toLocaleString()}</td>
+                                <td style="width: 12%; text-align: center; font-weight: 800; padding-bottom: 2px;">1</td>
+                                <td style="width: 22%; text-align: right; font-weight: 700; padding-bottom: 2px;">${subtotal.toLocaleString()}</td>
+                                <td style="width: 22%; text-align: right; font-weight: 900; padding-bottom: 2px;">${subtotal.toLocaleString()}</td>
                             </tr>
                         </table>
                     `;
@@ -5199,42 +5197,35 @@
                             width: 72mm;
                             max-width: 72mm;
                             margin: 0 auto;
-                            padding: 2mm 1.5mm;
+                            padding: 1.5mm 1mm 5mm 1mm;
                             background: #ffffff;
                             color: #000000;
-                            font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+                            font-family: Arial, "Segoe UI", "Helvetica Neue", Helvetica, sans-serif;
                             font-size: 11px;
-                            font-weight: 800;
-                            line-height: 1.4;
+                            font-weight: 700;
+                            line-height: 1.35;
                             box-sizing: border-box;
-                            -webkit-text-stroke: 0.35px #000000;
-                            text-rendering: geometricPrecision;
-                            -webkit-font-smoothing: none;
-                            -moz-osx-font-smoothing: grayscale;
-                            filter: contrast(400%) brightness(75%) grayscale(100%);
                             -webkit-print-color-adjust: exact;
                             print-color-adjust: exact;
                         }
                         * {
                             color: #000000 !important;
                             box-sizing: border-box;
-                            font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+                            font-family: Arial, "Segoe UI", "Helvetica Neue", Helvetica, sans-serif !important;
                         }
                         strong, th, .font-black {
                             font-weight: 900 !important;
-                            -webkit-text-stroke: 0.4px #000000 !important;
                         }
                         img#k80-bill-qr-img {
-                            width: 56px !important;
-                            height: 56px !important;
-                            max-width: 56px !important;
-                            max-height: 56px !important;
+                            width: 60px !important;
+                            height: 60px !important;
+                            max-width: 60px !important;
+                            max-height: 60px !important;
                             display: block !important;
                             margin: 0 auto !important;
-                            image-rendering: pixelated !important;
-                            border: 2px solid #000000 !important;
-                            padding: 1px !important;
-                            filter: contrast(500%) brightness(60%) grayscale(100%) !important;
+                            background: #ffffff !important;
+                            border: none !important;
+                            padding: 0 !important;
                         }
                         table {
                             width: 100% !important;
@@ -5244,13 +5235,12 @@
                         .text-left { text-align: left; }
                         .text-right { text-align: right; }
                         .font-black { font-weight: 900; }
-                        .font-bold { font-weight: 800; }
+                        .font-bold { font-weight: 700; }
                         .uppercase { text-transform: uppercase; }
                         .border-b-2 { border-bottom: 2px dashed #000000 !important; }
                         .border-t-2 { border-top: 2px dashed #000000 !important; }
-                        .border-b { border-bottom: 1.5px dashed #000000 !important; }
+                        .border-b { border-bottom: 1px dashed #000000 !important; }
                         .border-t { border-top: 1.5px solid #000000 !important; }
-                        .border-2 { border: 2px solid #000000 !important; }
                         .rounded { border-radius: 4px; }
                         .py-1 { padding-top: 3px; padding-bottom: 3px; }
                         .py-1\\.5 { padding-top: 4px; padding-bottom: 4px; }
