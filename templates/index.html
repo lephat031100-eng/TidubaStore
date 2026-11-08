@@ -80,6 +80,107 @@
         button, a, select, input, textarea { touch-action: manipulation; }
         button { cursor: pointer !important; }
 
+        /* =========================================================
+           FLUTTER UI AUTH INTRO ANIMATIONS (DAILYFLUTTERUI STYLE)
+           ========================================================= */
+        @keyframes flutterCardEntrance {
+            0% {
+                opacity: 0;
+                transform: translateY(80px) scale(0.92);
+            }
+            60% {
+                transform: translateY(-8px) scale(1.015);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes flutterHeroDrop {
+            0% {
+                opacity: 0;
+                transform: translateY(-30px) scale(0.88);
+            }
+            65% {
+                transform: translateY(4px) scale(1.02);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes flutterLogoPulse {
+            0% {
+                transform: scale(0.5) rotate(-10deg);
+                opacity: 0;
+            }
+            70% {
+                transform: scale(1.15) rotate(3deg);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+            }
+        }
+
+        @keyframes flutterStaggerItem {
+            0% {
+                opacity: 0;
+                transform: translateY(24px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .flutter-auth-open #auth-modal-card {
+            animation: flutterCardEntrance 0.62s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .flutter-auth-open .flutter-hero-icon {
+            animation: flutterLogoPulse 0.68s cubic-bezier(0.34, 1.56, 0.64, 1) 0.08s both;
+        }
+
+        .flutter-auth-open .flutter-hero-text {
+            animation: flutterHeroDrop 0.58s cubic-bezier(0.16, 1, 0.3, 1) 0.14s both;
+        }
+
+        .flutter-auth-open .stagger-1 {
+            animation: flutterStaggerItem 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.20s both;
+        }
+
+        .flutter-auth-open .stagger-2 {
+            animation: flutterStaggerItem 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.26s both;
+        }
+
+        .flutter-auth-open .stagger-3 {
+            animation: flutterStaggerItem 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.32s both;
+        }
+
+        .flutter-auth-open .stagger-4 {
+            animation: flutterStaggerItem 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.38s both;
+        }
+
+        .flutter-auth-open .stagger-5 {
+            animation: flutterStaggerItem 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.44s both;
+        }
+
+        .flutter-auth-open .stagger-6 {
+            animation: flutterStaggerItem 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.50s both;
+        }
+
+        .flutter-auth-open .stagger-7 {
+            animation: flutterStaggerItem 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.56s both;
+        }
+
+        .flutter-auth-open .stagger-8 {
+            animation: flutterStaggerItem 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.62s both;
+        }
+
         /* Ẩn hoàn toàn nút liên hệ nổi khi đang ở trong Admin hoặc POS KiotViet */
         #sec-admin:not(.hidden) ~ #global-floating-contact,
         #sec-kiotviet-pos:not(.hidden) ~ #global-floating-contact,
@@ -2653,89 +2754,243 @@
         </div>
     </div>
 
-    <!-- AUTH MODAL -->
-    <div id="auth-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 items-center justify-center p-4" style="display: none;">
-        <div class="bg-gray-900 border border-amber-500/40 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <div class="flex items-center justify-between border-b border-gray-800 pb-3">
-                <div class="flex items-center gap-3 text-xs font-bold font-mono">
-                    <button onclick="toggleAuthTab('login')" id="auth-tab-login" class="text-amber-400 border-b-2 border-amber-400 pb-1">ĐĂNG NHẬP</button>
-                    <button onclick="toggleAuthTab('register')" id="auth-tab-register" class="text-gray-400 hover:text-white pb-1">ĐĂNG KÝ MỚI</button>
+    <!-- AUTH MODAL (FLUTTER UI DESIGN - LUXURY CREAM & WHITE THEME) -->
+    <div id="auth-modal" class="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 transition-all duration-300 opacity-0 pointer-events-none" style="display: none;" onclick="handleAuthBackdropClick(event)">
+        <div id="auth-modal-card" class="relative w-full max-w-[430px] rounded-[32px] overflow-hidden shadow-2xl transition-all duration-300 transform translate-y-6 scale-95 flex flex-col max-h-[92vh] border border-[#2e2a27]/60" style="background: #18181b;" onclick="event.stopPropagation()">
+            
+            <!-- Close Button (Flutter/iOS style circle button) -->
+            <button onclick="closeAuthModal()" type="button" class="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-white/80 hover:text-white flex items-center justify-center backdrop-blur-md transition" aria-label="Đóng">
+                <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+
+            <!-- Top Header (Flutter Hero Header) -->
+            <div class="pt-6 pb-4 px-6 text-center select-none relative overflow-hidden bg-gradient-to-b from-[#1f1d1b] to-[#18181b]">
+                <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-48 h-20 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+                <!-- Brand Logo Icon with Flutter Intro Pulse -->
+                <div class="flutter-hero-icon inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-[#2a2622] to-[#18181b] border border-amber-500/35 text-amber-300 shadow-xl shadow-black/50 mb-2">
+                    <i class="fa-solid fa-camera-retro text-xl text-amber-300"></i>
                 </div>
-                <button onclick="closeAuthModal()" class="text-gray-400 hover:text-white">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
+
+                <div class="flutter-hero-text text-[10px] font-bold tracking-widest uppercase text-amber-400 font-mono">TIDUBA STORE</div>
+                <h2 id="auth-header-title" class="flutter-hero-text text-2xl font-serif font-black text-white tracking-tight mt-0.5 transition-all duration-200" style="font-family: 'Playfair Display', Cormorant Garamond, Georgia, serif;">
+                    Welcome back.
+                </h2>
+                <p id="auth-header-subtitle" class="flutter-hero-text text-xs text-stone-300 font-sans mt-0.5 max-w-[280px] mx-auto transition-all duration-200">
+                    Pick up where you left off — your kits are waiting.
+                </p>
             </div>
-            <!-- Login Form -->
-            <div id="auth-form-login" class="space-y-3 text-xs">
-                <div>
-                    <label class="block text-gray-300 font-mono mb-1">Tên đăng nhập hoặc Email:</label>
-                    <input type="text" id="login-user" placeholder="Tên đăng nhập hoặc Email" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2.5 text-white font-mono">
+
+            <!-- Bottom Sheet Card (Tone Trắng, Kem Siêu Xịn) -->
+            <div class="flex-1 bg-[#FAF7F2] px-5 sm:px-6 pt-4 pb-5 rounded-t-[28px] shadow-[0_-10px_30px_rgba(0,0,0,0.18)] overflow-y-auto custom-scroll space-y-3.5 text-stone-800">
+                
+                <!-- Flutter Cupertino Segmented Control (Pill Switch) -->
+                <div class="stagger-1 relative bg-[#E8E2D8] p-1 rounded-2xl flex items-center select-none shadow-inner">
+                    <!-- Sliding active pill indicator -->
+                    <div id="auth-segmented-pill" class="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-[#1C1917] rounded-xl shadow-md transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-none"></div>
+                    
+                    <button type="button" onclick="toggleAuthTab('login')" id="auth-tab-login" class="relative z-10 w-1/2 py-2 text-xs font-bold transition-colors duration-200 text-white flex items-center justify-center gap-1.5 rounded-xl cursor-pointer">
+                        <i class="fa-solid fa-arrow-right-to-bracket text-[11px]"></i>
+                        <span>Đăng Nhập</span>
+                    </button>
+                    <button type="button" onclick="toggleAuthTab('register')" id="auth-tab-register" class="relative z-10 w-1/2 py-2 text-xs font-bold transition-colors duration-200 text-[#57534E] hover:text-[#1C1917] flex items-center justify-center gap-1.5 rounded-xl cursor-pointer">
+                        <i class="fa-solid fa-user-plus text-[11px]"></i>
+                        <span>Đăng Ký</span>
+                    </button>
                 </div>
-                <div>
-                    <label class="block text-gray-300 font-mono mb-1">Mật khẩu:</label>
-                    <input type="password" id="login-pass" placeholder="Mật khẩu" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2.5 text-white font-mono">
-                </div>
-                <button onclick="submitLogin()" class="w-full bg-gradient-to-r from-amber-500 to-yellow-400 text-gray-950 font-black py-2.5 rounded-xl text-xs transition">
-                    Đăng Nhập Ngay
-                </button>
-            </div>
-            <!-- Register Form -->
-            <div id="auth-form-register" class="hidden space-y-3 text-xs">
-                <div>
-                    <label class="block text-gray-300 font-mono mb-1">Tên đăng nhập:</label>
-                    <input type="text" id="reg-user" placeholder="nguyenvan_a" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2 text-white font-mono">
-                </div>
-                <div>
-                    <label class="block text-gray-300 font-mono mb-1">Họ và tên đầy đủ (*):</label>
-                    <input type="text" id="reg-name" placeholder="Nguyễn Văn A" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2 text-white font-sans">
-                </div>
-                <div>
-                    <label class="block text-gray-300 font-mono mb-1 flex items-center justify-between">
-                        <span>Email (Khuyên dùng Gmail để nhận OTP) (*):</span>
-                        <span class="text-[10px] text-amber-400 font-sans">Gửi thư thật vào Gmail</span>
-                    </label>
-                    <div class="flex gap-2">
-                        <input type="email" id="reg-email" placeholder="ví dụ: yourname@gmail.com" class="flex-1 bg-gray-950 border border-gray-700 rounded-xl p-2 text-white font-mono focus:border-amber-500">
-                        <button type="button" onclick="sendRegisterOtp('email')" id="btn-send-reg-otp-email" class="bg-gradient-to-r from-rose-900 to-red-950 hover:from-rose-800 hover:to-red-900 text-rose-200 border border-rose-600 px-3 py-1.5 rounded-xl font-bold font-mono text-[11px] whitespace-nowrap transition flex items-center gap-1 shadow">
-                            <i class="fa-solid fa-envelope"></i> Gửi Vào Gmail
+
+                <!-- LOGIN FORM -->
+                <div id="auth-form-login" class="space-y-3 transition-all duration-200">
+                    <div class="stagger-2">
+                        <label class="block text-xs font-bold text-[#292524] mb-1 flex items-center gap-1.5">
+                            <i class="fa-regular fa-envelope text-[#78716C]"></i>
+                            <span>Tên đăng nhập hoặc Email:</span>
+                        </label>
+                        <div class="relative flex items-center rounded-2xl bg-[#F2EDE4] border border-[#DFD7CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/10 transition-all duration-200 shadow-sm">
+                            <span class="pl-3.5 pr-1.5 text-[#78716C]">
+                                <i class="fa-solid fa-at text-xs"></i>
+                            </span>
+                            <input type="text" id="login-user" placeholder="Tên đăng nhập hoặc Email" onkeydown="if(event.key==='Enter') submitLogin()" class="w-full bg-transparent py-2.5 pr-3 text-sm text-[#1C1917] font-semibold placeholder:text-[#78716C] placeholder:font-normal focus:outline-none">
+                        </div>
+                    </div>
+
+                    <div class="stagger-3">
+                        <label class="block text-xs font-bold text-[#292524] mb-1 flex items-center gap-1.5">
+                            <i class="fa-solid fa-lock text-[#78716C]"></i>
+                            <span>Mật khẩu:</span>
+                        </label>
+                        <div class="relative flex items-center rounded-2xl bg-[#F2EDE4] border border-[#DFD7CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/10 transition-all duration-200 shadow-sm">
+                            <span class="pl-3.5 pr-1.5 text-[#78716C]">
+                                <i class="fa-solid fa-key text-xs"></i>
+                            </span>
+                            <input type="password" id="login-pass" placeholder="Mật khẩu" onkeydown="if(event.key==='Enter') submitLogin()" class="w-full bg-transparent py-2.5 pr-10 text-sm text-[#1C1917] font-semibold placeholder:text-[#78716C] placeholder:font-normal focus:outline-none">
+                            <button type="button" onclick="togglePasswordVisibility('login-pass', this)" class="absolute right-3 text-[#78716C] hover:text-[#1C1917] p-1 transition" title="Ẩn/Hiện mật khẩu">
+                                <i class="fa-regular fa-eye text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Keep me signed in & Forgot password -->
+                    <div class="stagger-4 flex items-center justify-between text-xs pt-0.5">
+                        <label class="flex items-center gap-2 cursor-pointer select-none text-[#44403C] font-semibold hover:text-[#1C1917]">
+                            <input type="checkbox" id="login-remember" checked class="w-4 h-4 rounded text-[#2563EB] focus:ring-[#2563EB] border-[#CFC5B6] accent-[#2563EB]">
+                            <span>Ghi nhớ đăng nhập</span>
+                        </label>
+                        <a href="javascript:void(0)" onclick="handleForgotPassword()" class="text-[#2563EB] hover:text-[#1D4ED8] font-bold hover:underline transition">
+                            Quên mật khẩu?
+                        </a>
+                    </div>
+
+                    <!-- Submit Button (Flutter High-Contrast Royal Blue) -->
+                    <div class="stagger-5">
+                        <button type="button" onclick="submitLogin()" id="btn-submit-login" class="w-full bg-[#2563EB] hover:bg-[#1D4ED8] active:scale-[0.98] text-white font-bold py-3 rounded-2xl text-sm transition-all duration-200 shadow-md shadow-blue-600/25 flex items-center justify-center gap-2">
+                            <span>Đăng Nhập Ngay</span>
+                            <i class="fa-solid fa-arrow-right text-xs"></i>
+                        </button>
+                    </div>
+
+                    <!-- Divider "OR CONTINUE WITH" -->
+                    <div class="stagger-6 relative flex items-center justify-center my-2.5">
+                        <div class="flex-grow border-t border-[#DFD7CC]"></div>
+                        <span class="flex-shrink mx-3 text-[10px] uppercase font-bold tracking-widest text-[#78716C] bg-[#FAF7F2] px-1">
+                            HOẶC TIẾP TỤC VỚI
+                        </span>
+                        <div class="flex-grow border-t border-[#DFD7CC]"></div>
+                    </div>
+
+                    <!-- Social Buttons (Google & Apple) -->
+                    <div class="stagger-7 grid grid-cols-2 gap-2.5">
+                        <button type="button" onclick="handleSocialAuth('Google')" class="flex items-center justify-center gap-2 py-2 px-3 rounded-2xl bg-white border border-[#DFD7CC] hover:bg-[#F2EDE4] hover:border-[#CFC5B6] text-xs font-bold text-[#1C1917] shadow-sm transition active:scale-[0.98]">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24">
+                                <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+                                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/>
+                                <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.97 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+                                <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                            </svg>
+                            <span>Google</span>
+                        </button>
+                        <button type="button" onclick="handleSocialAuth('Apple')" class="flex items-center justify-center gap-2 py-2 px-3 rounded-2xl bg-white border border-[#DFD7CC] hover:bg-[#F2EDE4] hover:border-[#CFC5B6] text-xs font-bold text-[#1C1917] shadow-sm transition active:scale-[0.98]">
+                            <i class="fa-brands fa-apple text-base text-[#1C1917]"></i>
+                            <span>Apple</span>
+                        </button>
+                    </div>
+
+                    <!-- Bottom switch -->
+                    <div class="stagger-8 text-center pt-1 text-xs text-[#57534E]">
+                        <span>Chưa có tài khoản Tiduba?</span>
+                        <button type="button" onclick="toggleAuthTab('register')" class="text-[#2563EB] hover:text-[#1D4ED8] font-bold hover:underline ml-1">
+                            Đăng ký ngay
                         </button>
                     </div>
                 </div>
-                <div>
-                    <label class="block text-gray-300 font-mono mb-1 flex items-center justify-between">
-                        <span>Số điện thoại liên hệ (*):</span>
-                        <span class="text-[10px] text-cyan-400 font-sans">10 số nhà mạng VN</span>
-                    </label>
-                    <div class="flex gap-2">
-                        <input type="tel" id="reg-phone" placeholder="0977078981 (10 số)" class="flex-1 bg-gray-950 border border-gray-700 rounded-xl p-2 text-white font-mono focus:border-amber-500">
-                        <button type="button" onclick="sendRegisterOtp('phone')" id="btn-send-reg-otp-phone" class="bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-600 px-3 py-1.5 rounded-xl font-bold font-mono text-[11px] whitespace-nowrap transition flex items-center gap-1">
-                            <i class="fa-solid fa-mobile-screen"></i> OTP SĐT
+
+                <!-- REGISTER FORM -->
+                <div id="auth-form-register" class="hidden space-y-3 transition-all duration-200">
+                    <div class="stagger-1">
+                        <label class="block text-xs font-bold text-[#292524] mb-1 flex items-center gap-1.5">
+                            <i class="fa-solid fa-at text-[#78716C]"></i>
+                            <span>Tên đăng nhập (*):</span>
+                        </label>
+                        <div class="relative flex items-center rounded-2xl bg-[#F2EDE4] border border-[#DFD7CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/10 transition-all duration-200 shadow-sm">
+                            <input type="text" id="reg-user" placeholder="nguyenvan_a" class="w-full bg-transparent py-2.5 px-3.5 text-sm text-[#1C1917] font-semibold placeholder:text-[#78716C] placeholder:font-normal focus:outline-none">
+                        </div>
+                    </div>
+
+                    <div class="stagger-2">
+                        <label class="block text-xs font-bold text-[#292524] mb-1 flex items-center gap-1.5">
+                            <i class="fa-regular fa-user text-[#78716C]"></i>
+                            <span>Họ và tên đầy đủ (*):</span>
+                        </label>
+                        <div class="relative flex items-center rounded-2xl bg-[#F2EDE4] border border-[#DFD7CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/10 transition-all duration-200 shadow-sm">
+                            <input type="text" id="reg-name" placeholder="Nguyễn Văn A" class="w-full bg-transparent py-2.5 px-3.5 text-sm text-[#1C1917] font-semibold placeholder:text-[#78716C] placeholder:font-normal focus:outline-none">
+                        </div>
+                    </div>
+
+                    <div class="stagger-3">
+                        <label class="block text-xs font-bold text-[#292524] mb-1 flex items-center justify-between">
+                            <span class="flex items-center gap-1.5">
+                                <i class="fa-regular fa-envelope text-[#78716C]"></i>
+                                <span>Email nhận OTP (*):</span>
+                            </span>
+                            <span class="text-[10px] text-[#B45309] font-medium font-sans">Gửi OTP Gmail</span>
+                        </label>
+                        <div class="flex gap-2">
+                            <div class="flex-1 relative flex items-center rounded-2xl bg-[#F2EDE4] border border-[#DFD7CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/10 transition-all duration-200 shadow-sm">
+                                <input type="email" id="reg-email" placeholder="yourname@gmail.com" class="w-full bg-transparent py-2.5 px-3.5 text-sm text-[#1C1917] font-semibold placeholder:text-[#78716C] placeholder:font-normal focus:outline-none">
+                            </div>
+                            <button type="button" onclick="sendRegisterOtp('email')" id="btn-send-reg-otp-email" class="bg-[#1C1917] hover:bg-[#292524] text-white px-3.5 py-2 rounded-2xl font-bold text-xs whitespace-nowrap transition active:scale-95 shadow flex items-center gap-1.5">
+                                <i class="fa-solid fa-paper-plane text-[10px] text-amber-400"></i>
+                                <span>Gửi OTP</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="stagger-4">
+                        <label class="block text-xs font-bold text-[#292524] mb-1 flex items-center justify-between">
+                            <span class="flex items-center gap-1.5">
+                                <i class="fa-solid fa-mobile-screen text-[#78716C]"></i>
+                                <span>Số điện thoại (*):</span>
+                            </span>
+                            <span class="text-[10px] text-[#0369A1] font-medium font-sans">10 số VN</span>
+                        </label>
+                        <div class="flex gap-2">
+                            <div class="flex-1 relative flex items-center rounded-2xl bg-[#F2EDE4] border border-[#DFD7CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/10 transition-all duration-200 shadow-sm">
+                                <input type="tel" id="reg-phone" placeholder="0977078981" class="w-full bg-transparent py-2.5 px-3.5 text-sm text-[#1C1917] font-semibold placeholder:text-[#78716C] placeholder:font-normal focus:outline-none">
+                            </div>
+                            <button type="button" onclick="sendRegisterOtp('phone')" id="btn-send-reg-otp-phone" class="bg-[#334155] hover:bg-[#1E293B] text-white px-3.5 py-2 rounded-2xl font-bold text-xs whitespace-nowrap transition active:scale-95 shadow flex items-center gap-1.5">
+                                <i class="fa-solid fa-comment-dots text-[10px] text-cyan-300"></i>
+                                <span>OTP SĐT</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Box nhập mã OTP khi đã bấm gửi -->
+                    <div id="reg-otp-box" class="hidden p-3.5 bg-[#EDE6DC] rounded-2xl border border-[#D8CDBF] space-y-2">
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-[#1C1917] font-bold flex items-center gap-1.5">
+                                <i class="fa-solid fa-shield-halved text-[#16A34A]"></i> Nhập mã OTP 6 số:
+                            </span>
+                            <span class="text-[#DC2626] font-mono font-bold" id="reg-otp-countdown">05:00</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" id="reg-otp-code" maxlength="6" placeholder="123456" class="flex-1 bg-white border border-[#2563EB] rounded-xl p-2 text-center text-[#1C1917] font-mono font-black text-lg tracking-widest focus:outline-none shadow-sm">
+                            <button type="button" onclick="verifyRegisterOtp()" id="btn-verify-reg-otp" class="bg-[#16A34A] hover:bg-[#15803D] text-white font-bold px-4 py-2 rounded-xl text-xs transition active:scale-95 shadow">
+                                Xác Thực
+                            </button>
+                        </div>
+                        <div class="text-[11px] text-[#44403C] font-sans leading-relaxed" id="reg-otp-hint">
+                            Vui lòng kiểm tra hộp thư đến hoặc mục Thư rác/Spam của Gmail để lấy mã OTP.
+                        </div>
+                    </div>
+
+                    <div class="stagger-5">
+                        <label class="block text-xs font-bold text-[#292524] mb-1 flex items-center gap-1.5">
+                            <i class="fa-solid fa-lock text-[#78716C]"></i>
+                            <span>Mật khẩu (*):</span>
+                        </label>
+                        <div class="relative flex items-center rounded-2xl bg-[#F2EDE4] border border-[#DFD7CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/10 transition-all duration-200 shadow-sm">
+                            <input type="password" id="reg-pass" placeholder="•••••••• (tối thiểu 6 ký tự)" class="w-full bg-transparent py-2.5 px-3.5 pr-10 text-sm text-[#1C1917] font-semibold placeholder:text-[#78716C] placeholder:font-normal focus:outline-none">
+                            <button type="button" onclick="togglePasswordVisibility('reg-pass', this)" class="absolute right-3 text-[#78716C] hover:text-[#1C1917] p-1 transition" title="Ẩn/Hiện mật khẩu">
+                                <i class="fa-regular fa-eye text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="stagger-6">
+                        <button type="button" onclick="submitRegister()" id="btn-submit-reg" class="w-full bg-[#2563EB] hover:bg-[#1D4ED8] active:scale-[0.98] text-white font-bold py-3 rounded-2xl text-sm transition-all duration-200 shadow-md shadow-blue-600/25 flex items-center justify-center gap-2">
+                            <span>Đăng Ký Tài Khoản</span>
+                            <i class="fa-solid fa-check text-xs"></i>
+                        </button>
+                    </div>
+
+                    <!-- Bottom switch -->
+                    <div class="stagger-7 text-center pt-1 text-xs text-[#57534E]">
+                        <span>Đã có tài khoản Tiduba?</span>
+                        <button type="button" onclick="toggleAuthTab('login')" class="text-[#2563EB] hover:text-[#1D4ED8] font-bold hover:underline ml-1">
+                            Đăng nhập ngay
                         </button>
                     </div>
                 </div>
-                <!-- Box nhập mã OTP khi đã bấm gửi -->
-                <div id="reg-otp-box" class="hidden p-3 bg-gray-950 rounded-2xl border border-amber-500/60 space-y-2 font-mono">
-                    <div class="flex items-center justify-between text-[11px]">
-                        <span class="text-amber-300 font-bold flex items-center gap-1"><i class="fa-solid fa-shield-halved text-emerald-400"></i> Nhập mã OTP 6 số:</span>
-                        <span class="text-rose-400 font-bold" id="reg-otp-countdown">05:00</span>
-                    </div>
-                    <div class="flex gap-2">
-                        <input type="text" id="reg-otp-code" maxlength="6" placeholder="123456" class="flex-1 bg-gray-900 border border-amber-500 rounded-xl p-2 text-center text-amber-300 font-mono font-bold text-base tracking-widest focus:outline-none">
-                        <button type="button" onclick="verifyRegisterOtp()" id="btn-verify-reg-otp" class="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-bold px-4 py-1.5 rounded-xl text-xs transition">
-                            Xác Thực
-                        </button>
-                    </div>
-                    <div class="text-[10px] text-gray-300 font-sans leading-relaxed" id="reg-otp-hint">
-                        Vui lòng mở ứng dụng Gmail (kiểm tra hộp thư đến hoặc mục Thư rác/Spam) để lấy mã OTP 6 số.
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-gray-300 font-mono mb-1">Mật khẩu:</label>
-                    <input type="password" id="reg-pass" placeholder="•••••••• (tối thiểu 6 ký tự)" class="w-full bg-gray-950 border border-gray-700 rounded-xl p-2 text-white font-mono">
-                </div>
-                <button type="button" onclick="submitRegister()" id="btn-submit-reg" class="w-full bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-gray-950 font-black py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-md">
-                    Đăng Ký Tài Khoản
-                </button>
             </div>
         </div>
     </div>
@@ -9722,33 +9977,137 @@
         }
 
         // ==============================================================
-        // AUTHENTICATION CONTROLLER
+        // AUTHENTICATION CONTROLLER (FLUTTER UI MOTION & LOGIC)
         // ==============================================================
-        function openAuthModal() {
-            document.getElementById('auth-modal').style.display = 'flex';
+        let authModalCloseTimer = null;
+
+        function openAuthModal(defaultTab = 'login') {
+            const modal = document.getElementById('auth-modal');
+            const card = document.getElementById('auth-modal-card');
+            if (!modal) return;
+            if (authModalCloseTimer) {
+                clearTimeout(authModalCloseTimer);
+                authModalCloseTimer = null;
+            }
+            modal.style.display = 'flex';
+            modal.classList.remove('pointer-events-none');
+            
+            // Re-trigger Flutter intro cascade animations
+            modal.classList.remove('flutter-auth-open');
+            void modal.offsetWidth; // Force DOM reflow
+            modal.classList.add('flutter-auth-open');
+
+            toggleAuthTab(defaultTab);
+            requestAnimationFrame(() => {
+                modal.classList.remove('opacity-0');
+                modal.classList.add('opacity-100');
+                setTimeout(() => {
+                    const focusEl = defaultTab === 'login' ? document.getElementById('login-user') : document.getElementById('reg-user');
+                    if (focusEl) focusEl.focus();
+                }, 300);
+            });
         }
 
         function closeAuthModal() {
-            document.getElementById('auth-modal').style.display = 'none';
+            const modal = document.getElementById('auth-modal');
+            const card = document.getElementById('auth-modal-card');
+            if (card) {
+                card.classList.add('translate-y-6', 'scale-95');
+                card.classList.remove('translate-y-0', 'scale-100');
+            }
+            if (modal) {
+                modal.classList.remove('flutter-auth-open');
+                modal.classList.add('opacity-0', 'pointer-events-none');
+                modal.classList.remove('opacity-100');
+                authModalCloseTimer = setTimeout(() => {
+                    modal.style.display = 'none';
+                    authModalCloseTimer = null;
+                }, 260);
+            }
+        }
+
+        function handleAuthBackdropClick(e) {
+            if (e && e.target && e.target.id === 'auth-modal') {
+                closeAuthModal();
+            }
         }
 
         function toggleAuthTab(tab) {
+            const pill = document.getElementById('auth-segmented-pill');
+            const tabLogin = document.getElementById('auth-tab-login');
+            const tabRegister = document.getElementById('auth-tab-register');
+            const formLogin = document.getElementById('auth-form-login');
+            const formRegister = document.getElementById('auth-form-register');
+            const headerTitle = document.getElementById('auth-header-title');
+            const headerSub = document.getElementById('auth-header-subtitle');
+
             if (tab === 'login') {
-                document.getElementById('auth-form-login').classList.remove('hidden');
-                document.getElementById('auth-form-register').classList.add('hidden');
-                document.getElementById('auth-tab-login').className = "text-amber-400 border-b-2 border-amber-400 pb-1";
-                document.getElementById('auth-tab-register').className = "text-gray-400 hover:text-white pb-1";
+                if (formLogin) formLogin.classList.remove('hidden');
+                if (formRegister) formRegister.classList.add('hidden');
+                if (pill) pill.style.transform = 'translateX(0)';
+                if (tabLogin) {
+                    tabLogin.className = "relative z-10 w-1/2 py-2 text-xs font-bold transition-colors duration-200 text-white flex items-center justify-center gap-1.5 rounded-xl cursor-pointer";
+                }
+                if (tabRegister) {
+                    tabRegister.className = "relative z-10 w-1/2 py-2 text-xs font-bold transition-colors duration-200 text-[#57534E] hover:text-[#1C1917] flex items-center justify-center gap-1.5 rounded-xl cursor-pointer";
+                }
+                if (headerTitle) headerTitle.innerText = "Welcome back.";
+                if (headerSub) headerSub.innerText = "Pick up where you left off — your kits are waiting.";
             } else {
-                document.getElementById('auth-form-login').classList.add('hidden');
-                document.getElementById('auth-form-register').classList.remove('hidden');
-                document.getElementById('auth-tab-register').className = "text-amber-400 border-b-2 border-amber-400 pb-1";
-                document.getElementById('auth-tab-login').className = "text-gray-400 hover:text-white pb-1";
+                if (formLogin) formLogin.classList.add('hidden');
+                if (formRegister) formRegister.classList.remove('hidden');
+                if (pill) pill.style.transform = 'translateX(100%)';
+                if (tabRegister) {
+                    tabRegister.className = "relative z-10 w-1/2 py-2 text-xs font-bold transition-colors duration-200 text-white flex items-center justify-center gap-1.5 rounded-xl cursor-pointer";
+                }
+                if (tabLogin) {
+                    tabLogin.className = "relative z-10 w-1/2 py-2 text-xs font-bold transition-colors duration-200 text-[#57534E] hover:text-[#1C1917] flex items-center justify-center gap-1.5 rounded-xl cursor-pointer";
+                }
+                if (headerTitle) headerTitle.innerText = "Create account.";
+                if (headerSub) headerSub.innerText = "Join Tiduba Store — Start renting premium gear.";
             }
+        }
+
+        function togglePasswordVisibility(inputId, btnEl) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            const isPass = input.type === 'password';
+            input.type = isPass ? 'text' : 'password';
+            const icon = btnEl ? btnEl.querySelector('i') : null;
+            if (icon) {
+                if (isPass) {
+                    icon.className = 'fa-regular fa-eye-slash text-xs text-[#2563EB]';
+                    if (btnEl) btnEl.title = 'Ẩn mật khẩu';
+                } else {
+                    icon.className = 'fa-regular fa-eye text-xs text-[#78716C]';
+                    if (btnEl) btnEl.title = 'Hiện mật khẩu';
+                }
+            }
+        }
+
+        function handleForgotPassword() {
+            const u = (document.getElementById('login-user') ? document.getElementById('login-user').value.trim() : '');
+            const msg = u ? `Đã nhận yêu cầu khôi phục cho tài khoản: ${u}.\nVui lòng liên hệ Hotline/Zalo Tiduba 0977.078.981 hoặc kiểm tra hộp thư Gmail để nhận mã đặt lại mật khẩu.` : `Vui lòng nhập tên đăng nhập hoặc email, sau đó liên hệ Hotline/Zalo Tiduba: 0977.078.981 để được hỗ trợ cấp lại mật khẩu ngay!`;
+            alert(msg);
+        }
+
+        function handleSocialAuth(provider) {
+            showToast(`🚀 Đang liên kết xác thực nhanh qua ${provider}... Vui lòng đợi trong giây lát.`);
         }
 
         async function submitLogin() {
             const u = document.getElementById('login-user').value.trim();
             const p = document.getElementById('login-pass').value.trim();
+            const btn = document.getElementById('btn-submit-login');
+            if (!u || !p) {
+                alert("Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu!");
+                return;
+            }
+            const origHtml = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> <span>Đang đăng nhập...</span>';
+            }
             try {
                 const res = await fetch('/api/auth/login', {
                     method: 'POST',
@@ -9766,11 +10125,16 @@
                 updateAuthUI();
                 renderCatalog();
                 closeAuthModal();
-                showToast(data.message);
+                showToast(data.message || "Đăng nhập thành công!");
                 if (currentUser.role === 'admin') showSection('admin');
                 else showSection('catalog');
             } catch (err) {
                 alert("Lỗi đăng nhập: " + err);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = origHtml || '<span>Đăng Nhập Ngay</span> <i class="fa-solid fa-arrow-right text-xs"></i>';
+                }
             }
         }
 
