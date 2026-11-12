@@ -2234,6 +2234,12 @@
         #booking-modal button[class*="bg-cyan-950/"] *, #booking-modal button[class*="bg-cyan-900/"] *,
         #booking-modal button[class*="bg-cyan-500"] * { color: #fffdf9 !important; }
         #booking-modal [class*="text-rose-"] { color: #963f35 !important; }
+        /* Final contrast pass: utility colors inside this modal are too varied and some are unreadable on cream. */
+        #booking-modal, #booking-modal * { color: #40372f !important; }
+        #booking-modal button[class*="bg-cyan-950/"], #booking-modal button[class*="bg-cyan-900/"],
+        #booking-modal button[class*="bg-cyan-500"] { background: #765638 !important; border-color: #765638 !important; }
+        #booking-modal button[class*="bg-cyan-950/"] *, #booking-modal button[class*="bg-cyan-900/"] *,
+        #booking-modal button[class*="bg-cyan-500"] * { color: #fffdf9 !important; }
         #booking-modal button:hover { filter: brightness(.97); }
     </style>
 
