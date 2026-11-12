@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -16,7 +18,9 @@ class TidubaAuthPage extends StatefulWidget {
     this.onForgotPassword,
   });
 
-  final ValueChanged<Map<String, String>>? onLogin;
+  /// Return `false` when the credentials are rejected so the page can shake
+  /// the password field and trigger haptic feedback.
+  final Future<bool> Function(Map<String, String>)? onLogin;
   final ValueChanged<Map<String, String>>? onRegister;
   final VoidCallback? onForgotPassword;
 
@@ -25,7 +29,7 @@ class TidubaAuthPage extends StatefulWidget {
 }
 
 class _TidubaAuthPageState extends State<TidubaAuthPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const _ink = Color(0xFF111827);
   static const _muted = Color(0xFF667085);
   static const _blue = Color(0xFF3478F6);
@@ -36,6 +40,8 @@ class _TidubaAuthPageState extends State<TidubaAuthPage>
   AuthMode _mode = AuthMode.signIn;
   bool _hidePassword = true;
   bool _rememberMe = true;
+  bool _isSubmitting = false;
+  String? _loginError;
   final _formKey = GlobalKey<FormState>();
   final _loginUser = TextEditingController();
   final _loginPassword = TextEditingController();
@@ -44,19 +50,25 @@ class _TidubaAuthPageState extends State<TidubaAuthPage>
   final _registerPhone = TextEditingController();
   final _registerPassword = TextEditingController();
   late final AnimationController _intro;
+  late final AnimationController _errorShake;
 
   @override
   void initState() {
     super.initState();
     _intro = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 520),
+      duration: const Duration(milliseconds: 1500),
     )..forward();
+    _errorShake = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 480),
+    );
   }
 
   @override
   void dispose() {
     _intro.dispose();
+    _errorShake.dispose();
     _loginUser.dispose();
     _loginPassword.dispose();
     _registerName.dispose();
@@ -70,7 +82,10 @@ class _TidubaAuthPageState extends State<TidubaAuthPage>
     if (_mode == mode) return;
     HapticFeedback.selectionClick();
     _formKey.currentState?.reset();
-    setState(() => _mode = mode);
+    setState(() {
+      _mode = mode;
+      _loginError = null;
+    });
   }
 
   @override
@@ -115,28 +130,13 @@ class _TidubaAuthPageState extends State<TidubaAuthPage>
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 460),
-                      child: FadeTransition(
-                        opacity: CurvedAnimation(
-                          parent: _intro,
-                          curve: Curves.easeOut,
-                        ),
-                        child: SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(0, .035),
-                            end: Offset.zero,
-                          ).animate(CurvedAnimation(
-                            parent: _intro,
-                            curve: Curves.easeOutCubic,
-                          )),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildHero(compact),
-                              SizedBox(height: compact ? 20 : 30),
-                              _buildFormCard(compact),
-                            ],
-                          ),
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildHero(compact),
+                          SizedBox(height: compact ? 20 : 30),
+                          _reveal(_buildFormCard(compact), .38, 1),
+                        ],
                       ),
                     ),
                   ),
@@ -155,7 +155,7 @@ class _TidubaAuthPageState extends State<TidubaAuthPage>
       padding: EdgeInsets.symmetric(horizontal: 8, vertical: compact ? 4 : 8),
       child: Column(
         children: [
-          Container(
+          _reveal(Container(
             width: compact ? 44 : 50,
             height: compact ? 44 : 50,
             decoration: BoxDecoration(
@@ -164,9 +164,9 @@ class _TidubaAuthPageState extends State<TidubaAuthPage>
               border: Border.all(color: const Color(0xFF303A4A)),
             ),
             child: const Icon(Icons.camera_alt_rounded, color: Colors.white),
-          ),
+          ), 0, .34),
           const SizedBox(height: 10),
-          const Text(
+          _reveal(const Text(
             'TIDUBA STORE',
             style: TextStyle(
               color: Color(0xFFB9C2D0),
@@ -174,9 +174,9 @@ class _TidubaAuthPageState extends State<TidubaAuthPage>
               fontWeight: FontWeight.w700,
               letterSpacing: 2.4,
             ),
-          ),
+          ), .08, .42),
           SizedBox(height: compact ? 8 : 12),
-          AnimatedSwitcher(
+          _reveal(AnimatedSwitcher(
             duration: const Duration(milliseconds: 220),
             child: Text(
               isSignIn ? 'Chào mừng trở lại.' : 'Tạo tài khoản.',
@@ -190,9 +190,9 @@ class _TidubaAuthPageState extends State<TidubaAuthPage>
                 letterSpacing: -.6,
               ),
             ),
-          ),
+          ), .16, .58),
           const SizedBox(height: 6),
-          AnimatedSwitcher(
+          _reveal(AnimatedSwitcher(
             duration: const Duration(milliseconds: 220),
             child: Text(
               isSignIn
@@ -206,7 +206,7 @@ class _TidubaAuthPageState extends State<TidubaAuthPage>
                 height: 1.4,
               ),
             ),
-          ),
+          ), .27, .68),
         ],
       ),
     );
@@ -315,9 +315,11 @@ class _TidubaAuthPageState extends State<TidubaAuthPage>
           validator: (value) => (value == null || value.trim().isEmpty)
               ? 'Vui lòng nhập email hoặc tên đăng nhập.'
               : null,
+          onChanged: (_) => _clearLoginError(),
         ),
         SizedBox(height: compact ? 14 : 17),
-        _buildField(
+        _shake(
+          _buildField(
           controller: _loginPassword,
           label: 'Mật khẩu',
           hint: 'Nhập mật khẩu',
@@ -329,7 +331,31 @@ class _TidubaAuthPageState extends State<TidubaAuthPage>
           validator: (value) => (value == null || value.isEmpty)
               ? 'Vui lòng nhập mật khẩu.'
               : null,
+          onChanged: (_) => _clearLoginError(),
+          ),
         ),
+        if (_loginError != null) ...[
+          const SizedBox(height: 7),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.error_outline_rounded,
+                  color: Color(0xFFB42318), size: 15),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _loginError!,
+                  style: const TextStyle(
+                    color: Color(0xFFB42318),
+                    fontSize: 11,
+                    height: 1.3,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 12),
         _buildRememberRow(),
         SizedBox(height: compact ? 18 : 22),
@@ -337,6 +363,7 @@ class _TidubaAuthPageState extends State<TidubaAuthPage>
           label: 'Đăng nhập',
           icon: Icons.arrow_forward_rounded,
           onPressed: _submitLogin,
+          isLoading: _isSubmitting,
         ),
         const SizedBox(height: 18),
         _accountSwitch(
@@ -389,17 +416,19 @@ class _TidubaAuthPageState extends State<TidubaAuthPage>
               : null,
         ),
         const SizedBox(height: 12),
-        _buildField(
-          controller: _registerPassword,
-          label: 'Mật khẩu',
-          hint: 'Tối thiểu 6 ký tự',
-          icon: Icons.lock_outline_rounded,
-          obscureText: _hidePassword,
-          autofillHints: const [AutofillHints.newPassword],
-          suffix: _visibilityButton(),
-          validator: (value) => (value == null || value.length < 6)
-              ? 'Mật khẩu cần có ít nhất 6 ký tự.'
-              : null,
+        _shake(
+          _buildField(
+            controller: _registerPassword,
+            label: 'Mật khẩu',
+            hint: 'Tối thiểu 6 ký tự',
+            icon: Icons.lock_outline_rounded,
+            obscureText: _hidePassword,
+            autofillHints: const [AutofillHints.newPassword],
+            suffix: _visibilityButton(),
+            validator: (value) => (value == null || value.length < 6)
+                ? 'Mật khẩu cần có ít nhất 6 ký tự.'
+                : null,
+          ),
         ),
         SizedBox(height: compact ? 18 : 22),
         _primaryButton(
@@ -486,6 +515,7 @@ class _TidubaAuthPageState extends State<TidubaAuthPage>
     List<String>? autofillHints,
     bool obscureText = false,
     Widget? suffix,
+    ValueChanged<String>? onChanged,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -509,6 +539,7 @@ class _TidubaAuthPageState extends State<TidubaAuthPage>
           textCapitalization: textCapitalization,
           autofillHints: autofillHints,
           obscureText: obscureText,
+          onChanged: onChanged,
           enableSuggestions: !obscureText,
           autocorrect: !obscureText,
           style: const TextStyle(
@@ -577,11 +608,12 @@ class _TidubaAuthPageState extends State<TidubaAuthPage>
     required String label,
     required IconData icon,
     required VoidCallback onPressed,
+    bool isLoading = false,
   }) {
     return SizedBox(
       height: 50,
       child: ElevatedButton(
-        onPressed: onPressed,
+        onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: _blue,
           foregroundColor: Colors.white,
@@ -592,14 +624,23 @@ class _TidubaAuthPageState extends State<TidubaAuthPage>
           ),
           textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(label),
-            const SizedBox(width: 8),
-            Icon(icon, size: 18),
-          ],
-        ),
+        child: isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(label),
+                  const SizedBox(width: 8),
+                  Icon(icon, size: 18),
+                ],
+              ),
       ),
     );
   }
@@ -631,22 +672,87 @@ class _TidubaAuthPageState extends State<TidubaAuthPage>
     );
   }
 
-  void _submitLogin() {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-    widget.onLogin?.call({
-      'username': _loginUser.text.trim(),
-      'password': _loginPassword.text,
-      'remember': _rememberMe.toString(),
+  Future<void> _submitLogin() async {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      _showLoginError('Vui lòng kiểm tra email và mật khẩu.');
+      return;
+    }
+    final onLogin = widget.onLogin;
+    if (onLogin == null) return;
+
+    setState(() {
+      _isSubmitting = true;
+      _loginError = null;
     });
+    try {
+      final accepted = await onLogin({
+        'username': _loginUser.text.trim(),
+        'password': _loginPassword.text,
+        'remember': _rememberMe.toString(),
+      });
+      if (!mounted) return;
+      if (!accepted) {
+        _showLoginError('Email hoặc mật khẩu chưa chính xác. Vui lòng thử lại.');
+      }
+    } catch (_) {
+      if (mounted) _showLoginError('Chưa thể đăng nhập. Vui lòng thử lại.');
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   void _submitRegister() {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      HapticFeedback.vibrate();
+      _errorShake.forward(from: 0);
+      return;
+    }
     widget.onRegister?.call({
       'full_name': _registerName.text.trim(),
       'email': _registerEmail.text.trim(),
       'phone': _registerPhone.text.trim(),
       'password': _registerPassword.text,
     });
+  }
+
+  Widget _reveal(Widget child, double start, double end) {
+    final animation = CurvedAnimation(
+      parent: _intro,
+      curve: Interval(start, end, curve: Curves.easeOutCubic),
+    );
+    return FadeTransition(
+      opacity: animation,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, .12),
+          end: Offset.zero,
+        ).animate(animation),
+        child: child,
+      ),
+    );
+  }
+
+  Widget _shake(Widget child) {
+    return AnimatedBuilder(
+      animation: _errorShake,
+      child: child,
+      builder: (context, child) {
+        final progress = _errorShake.value;
+        final dx = math.sin(progress * math.pi * 8) * (1 - progress) * 10;
+        return Transform.translate(offset: Offset(dx, 0), child: child);
+      },
+    );
+  }
+
+  void _showLoginError(String message) {
+    if (!mounted) return;
+    setState(() => _loginError = message);
+    HapticFeedback.vibrate();
+    _errorShake.forward(from: 0);
+  }
+
+  void _clearLoginError() {
+    if (_loginError == null) return;
+    setState(() => _loginError = null);
   }
 }
