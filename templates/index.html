@@ -181,6 +181,69 @@
             animation: flutterStaggerItem 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.62s both;
         }
 
+        /* One-shot branded intro shown as soon as the public website opens. */
+        #site-intro {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            color: #fff;
+            background: radial-gradient(ellipse at 50% 38%, #202b3b 0%, #101722 48%, #090d14 100%);
+            opacity: 1;
+            visibility: visible;
+            transition: opacity .48s ease, visibility .48s ease;
+        }
+        #site-intro.site-intro-dismissed { opacity: 0; visibility: hidden; pointer-events: none; }
+        .site-intro-content { width: min(100%, 430px); text-align: center; }
+        .site-intro-mark {
+            width: 68px; height: 68px; margin: 0 auto 22px; display: grid; place-items: center;
+            border: 1px solid rgba(255,255,255,.18); border-radius: 22px;
+            background: linear-gradient(145deg, #263246, #151c28);
+            box-shadow: 0 18px 50px rgba(0,0,0,.35);
+            animation: siteIntroMark .85s cubic-bezier(.2,.8,.2,1) both;
+        }
+        .site-intro-mark i { color: #f5f1e9; font-size: 27px; }
+        .site-intro-brand {
+            margin: 0; color: #c9a876; font-size: 11px; font-weight: 800; letter-spacing: .28em;
+            animation: siteIntroText .68s .18s ease both;
+        }
+        .site-intro-title {
+            margin: 16px 0 10px; color: #fff; font-family: 'Playfair Display', Georgia, serif;
+            font-size: clamp(30px, 8vw, 43px); line-height: 1.12; font-weight: 700; letter-spacing: -.035em;
+            animation: siteIntroText .8s .34s cubic-bezier(.2,.8,.2,1) both;
+        }
+        .site-intro-title span { color: #e3c99e; font-style: italic; }
+        .site-intro-caption {
+            margin: 0; color: #c3cad4; font-size: 13px; line-height: 1.7;
+            animation: siteIntroText .72s .54s ease both;
+        }
+        .site-intro-progress { width: 108px; height: 3px; margin: 34px auto 0; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.16); }
+        .site-intro-progress::after { content: ''; display: block; width: 42%; height: 100%; border-radius: inherit; background: #c9a876; animation: siteIntroProgress 1.65s ease-in-out both; }
+        .site-intro-skip {
+            position: absolute; right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom));
+            min-height: 44px; padding: 0 15px; border: 1px solid rgba(255,255,255,.22); border-radius: 999px;
+            color: #fff; background: rgba(255,255,255,.08); font: inherit; font-size: 12px; font-weight: 600; backdrop-filter: blur(8px);
+        }
+        @keyframes siteIntroMark { from { opacity: 0; transform: translateY(14px) scale(.82); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes siteIntroText { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes siteIntroProgress { from { transform: translateX(-120%); } to { transform: translateX(260%); } }
+        @keyframes authInvalidShake {
+            0%, 100% { transform: translateX(0); }
+            16% { transform: translateX(-8px); }
+            32% { transform: translateX(7px); }
+            48% { transform: translateX(-6px); }
+            64% { transform: translateX(5px); }
+            80% { transform: translateX(-3px); }
+        }
+        .auth-invalid-shake { animation: authInvalidShake .46s ease-in-out; border-color: #d92d20 !important; box-shadow: 0 0 0 3px rgba(217,45,32,.12) !important; }
+        @media (prefers-reduced-motion: reduce) {
+            #site-intro *, #site-intro::before, #site-intro::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+            #site-intro { transition-duration: .01ms; }
+            .auth-invalid-shake { animation-duration: .01ms !important; }
+        }
+
         /* Ẩn hoàn toàn nút liên hệ nổi khi đang ở trong Admin hoặc POS KiotViet */
         #sec-admin:not(.hidden) ~ #global-floating-contact,
         #sec-kiotviet-pos:not(.hidden) ~ #global-floating-contact,
@@ -325,6 +388,17 @@
     </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased bg-[#faf7f2] text-[#1c1917]">
+
+    <div id="site-intro" role="status" aria-live="polite" aria-label="Tiduba Store">
+        <div class="site-intro-content">
+            <div class="site-intro-mark"><i class="fa-solid fa-camera-retro" aria-hidden="true"></i></div>
+            <p class="site-intro-brand">TIDUBA STORE</p>
+            <h1 class="site-intro-title">Thiết bị tốt.<br><span>Khoảnh khắc đẹp.</span></h1>
+            <p class="site-intro-caption">Máy ảnh, thiết bị sáng tạo và trang phục<br>để bạn sẵn sàng cho khung hình tiếp theo.</p>
+            <div class="site-intro-progress" aria-hidden="true"></div>
+        </div>
+        <button type="button" class="site-intro-skip" onclick="dismissSiteIntro()">Bỏ qua</button>
+    </div>
 
     <!-- TOP ANNOUNCEMENT BAR (PHONG CÁCH SHERENT VỚI THANH CHẠY TIN TỨC NÂU CAM ẤM) -->
     <div class="bg-[#b37054] text-white px-3 sm:px-6 py-2 text-xs font-sans tracking-wide shadow-inner">
@@ -2859,7 +2933,7 @@
                             <span class="pl-4 pr-1.5 text-[#78716C]">
                                 <i class="fa-solid fa-at text-xs"></i>
                             </span>
-                            <input type="text" id="login-user" placeholder="Tên đăng nhập hoặc Email" onkeydown="if(event.key==='Enter') submitLogin()" class="w-full bg-transparent py-3 pr-3 text-sm text-[#1C1917] font-semibold placeholder:text-[#8C827A] placeholder:font-normal focus:outline-none">
+                            <input type="text" id="login-user" placeholder="Tên đăng nhập hoặc Email" oninput="clearAuthLoginError()" onkeydown="if(event.key==='Enter') submitLogin()" class="w-full bg-transparent py-3 pr-3 text-sm text-[#1C1917] font-semibold placeholder:text-[#8C827A] placeholder:font-normal focus:outline-none">
                         </div>
                     </div>
 
@@ -2868,15 +2942,16 @@
                             <i class="fa-solid fa-lock text-[#78716C]"></i>
                             <span>Mật khẩu:</span>
                         </label>
-                        <div class="relative flex items-center rounded-2xl bg-[#F8F4EE] border border-[#E2D8CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/15 transition-all duration-200 shadow-sm">
+                        <div id="login-password-field" class="relative flex items-center rounded-2xl bg-[#F8F4EE] border border-[#E2D8CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/15 transition-all duration-200 shadow-sm">
                             <span class="pl-4 pr-1.5 text-[#78716C]">
                                 <i class="fa-solid fa-key text-xs"></i>
                             </span>
-                            <input type="password" id="login-pass" placeholder="Mật khẩu" onkeydown="if(event.key==='Enter') submitLogin()" class="w-full bg-transparent py-3 pr-10 text-sm text-[#1C1917] font-semibold placeholder:text-[#8C827A] placeholder:font-normal focus:outline-none">
+                            <input type="password" id="login-pass" placeholder="Mật khẩu" oninput="clearAuthLoginError()" onkeydown="if(event.key==='Enter') submitLogin()" class="w-full bg-transparent py-3 pr-10 text-sm text-[#1C1917] font-semibold placeholder:text-[#8C827A] placeholder:font-normal focus:outline-none">
                             <button type="button" onclick="togglePasswordVisibility('login-pass', this)" class="absolute right-3.5 text-[#78716C] hover:text-[#1C1917] p-1 transition" title="Ẩn/Hiện mật khẩu">
                                 <i class="fa-regular fa-eye text-xs"></i>
                             </button>
                         </div>
+                        <p id="login-error-message" class="hidden text-xs text-[#B42318] font-semibold mt-1.5 pl-1" role="alert" aria-live="assertive"></p>
                     </div>
 
                     <!-- Keep me signed in & Forgot password -->
@@ -10020,6 +10095,56 @@
         // ==============================================================
         let authModalCloseTimer = null;
 
+        let siteIntroTimer = null;
+
+        function dismissSiteIntro() {
+            const intro = document.getElementById('site-intro');
+            if (!intro) return;
+            if (siteIntroTimer) {
+                clearTimeout(siteIntroTimer);
+                siteIntroTimer = null;
+            }
+            intro.classList.add('site-intro-dismissed');
+            document.body.classList.remove('site-intro-active');
+            setTimeout(() => intro.remove(), 520);
+        }
+
+        function startSiteIntro() {
+            if (!document.getElementById('site-intro')) return;
+            document.body.classList.add('site-intro-active');
+            const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            siteIntroTimer = setTimeout(dismissSiteIntro, reducedMotion ? 350 : 2300);
+        }
+
+        function clearAuthLoginError() {
+            const errorEl = document.getElementById('login-error-message');
+            const passwordField = document.getElementById('login-password-field');
+            if (errorEl) {
+                errorEl.textContent = '';
+                errorEl.classList.add('hidden');
+            }
+            if (passwordField) passwordField.classList.remove('auth-invalid-shake');
+        }
+
+        function triggerAuthLoginError(message, focusPassword = true) {
+            const errorEl = document.getElementById('login-error-message');
+            const passwordField = document.getElementById('login-password-field');
+            const focusEl = document.getElementById(focusPassword ? 'login-pass' : 'login-user');
+            if (errorEl) {
+                errorEl.textContent = message;
+                errorEl.classList.remove('hidden');
+            }
+            if (passwordField) {
+                passwordField.classList.remove('auth-invalid-shake');
+                void passwordField.offsetWidth;
+                passwordField.classList.add('auth-invalid-shake');
+            }
+            if (focusEl) focusEl.focus();
+            if ('vibrate' in navigator && typeof navigator.vibrate === 'function') {
+                try { navigator.vibrate([45, 40, 65]); } catch (_) { /* visual shake remains available */ }
+            }
+        }
+
         function openAuthModal(defaultTab = 'login') {
             const modal = document.getElementById('auth-modal');
             const card = document.getElementById('auth-modal-card');
@@ -10135,13 +10260,20 @@
         }
 
         async function submitLogin() {
-            const u = document.getElementById('login-user').value.trim();
-            const p = document.getElementById('login-pass').value.trim();
+            const usernameInput = document.getElementById('login-user');
+            const passwordInput = document.getElementById('login-pass');
+            const u = usernameInput.value.trim();
+            const p = passwordInput.value.trim();
             const btn = document.getElementById('btn-submit-login');
             if (!u || !p) {
-                alert("Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu!");
+                triggerAuthLoginError(
+                    !u && !p ? 'Vui lòng nhập email/tên đăng nhập và mật khẩu.' : (!u ? 'Vui lòng nhập email hoặc tên đăng nhập.' : 'Vui lòng nhập mật khẩu.'),
+                    !!u
+                );
                 return;
             }
+
+            clearAuthLoginError();
             const origHtml = btn ? btn.innerHTML : '';
             if (btn) {
                 btn.disabled = true;
@@ -10155,7 +10287,8 @@
                 });
                 const data = await res.json();
                 if (!res.ok) {
-                    alert(data.detail || "Sai thông tin đăng nhập");
+                    const detail = typeof data.detail === 'string' ? data.detail : 'Email hoặc mật khẩu không đúng.';
+                    triggerAuthLoginError(detail, true);
                     return;
                 }
 
@@ -10164,11 +10297,11 @@
                 updateAuthUI();
                 renderCatalog();
                 closeAuthModal();
-                showToast(data.message || "Đăng nhập thành công!");
+                showToast(data.message || 'Đăng nhập thành công!');
                 if (currentUser.role === 'admin') showSection('admin');
                 else showSection('catalog');
             } catch (err) {
-                alert("Lỗi đăng nhập: " + err);
+                triggerAuthLoginError('Không kết nối được. Vui lòng thử lại sau.', true);
             } finally {
                 if (btn) {
                     btn.disabled = false;
@@ -10176,7 +10309,6 @@
                 }
             }
         }
-
         let isRegTargetVerified = false;
         let regOtpTargetType = 'email';
         let regOtpTargetValue = '';
@@ -12791,6 +12923,7 @@
         fetchAdminCustomers();
         fetchSystemHealth();
         fetchSmtpConfig();
+        startSiteIntro();
     </script>
 </body>
 </html>
