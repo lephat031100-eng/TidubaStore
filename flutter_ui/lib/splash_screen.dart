@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Animated Tiduba intro. Supply [nextScreen] to replace this route after the
 /// animation, or [onAnimationComplete] when navigation is managed by the app.
@@ -28,6 +29,7 @@ class _TidubaSplashScreenState extends State<TidubaSplashScreen>
   late final Animation<double> _titleOpacity;
   late final Animation<Offset> _titleSlide;
   late final Animation<double> _taglineOpacity;
+  bool _didComplete = false;
 
   @override
   void initState() {
@@ -57,8 +59,12 @@ class _TidubaSplashScreenState extends State<TidubaSplashScreen>
   Future<void> _playIntro() async {
     await _controller.forward();
     await Future<void>.delayed(_completionHold);
-    if (!mounted) return;
+    _complete();
+  }
 
+  void _complete() {
+    if (!mounted || _didComplete) return;
+    _didComplete = true;
     final nextScreen = widget.nextScreen;
     if (nextScreen != null) {
       Navigator.of(context).pushReplacement<void, void>(
@@ -83,88 +89,122 @@ class _TidubaSplashScreenState extends State<TidubaSplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0E1117),
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment(0, -.12),
-            radius: 1.05,
-            colors: [Color(0xFF17212D), Color(0xFF0E1117)],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF3EFE6),
+        body: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: RadialGradient(
+              center: Alignment(0, -.12),
+              radius: 1.05,
+              colors: [Color(0xFFFFFFFF), Color(0xFFF6F2EA), Color(0xFFF3EFE6)],
+              stops: [0, .58, 1],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final compact = constraints.maxHeight < 560;
-              return SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          AnimatedBuilder(
-                            animation: _controller,
-                            builder: (context, _) => CustomPaint(
-                              size: Size(
-                                math.min(constraints.maxWidth - 48, 236).toDouble(),
-                                compact ? 174 : 196,
-                              ),
-                              painter: _TidubaTLogoPainter(
-                                progress: _controller.value,
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: compact ? 8 : 18),
-                          FadeTransition(
-                            opacity: _titleOpacity,
-                            child: SlideTransition(
-                              position: _titleSlide,
-                              child: RichText(
-                                textAlign: TextAlign.center,
-                                text: const TextSpan(
-                                  style: TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: -.6,
+          child: SafeArea(
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = constraints.maxHeight < 560;
+                      return SingleChildScrollView(
+                        child: ConstrainedBox(
+                          constraints:
+                              BoxConstraints(minHeight: constraints.maxHeight),
+                          child: Center(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 24),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  AnimatedBuilder(
+                                    animation: _controller,
+                                    builder: (context, _) => CustomPaint(
+                                      size: Size(
+                                        math
+                                            .min(constraints.maxWidth - 48, 236)
+                                            .toDouble(),
+                                        compact ? 174 : 196,
+                                      ),
+                                      painter: _TidubaTLogoPainter(
+                                        progress: _controller.value,
+                                      ),
+                                    ),
                                   ),
-                                  children: [
-                                    TextSpan(
-                                      text: 'tiduba',
-                                      style: TextStyle(color: Colors.white),
+                                  SizedBox(height: compact ? 8 : 18),
+                                  FadeTransition(
+                                    opacity: _titleOpacity,
+                                    child: SlideTransition(
+                                      position: _titleSlide,
+                                      child: RichText(
+                                        textAlign: TextAlign.center,
+                                        text: const TextSpan(
+                                          style: TextStyle(
+                                            fontSize: 28,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: -.6,
+                                          ),
+                                          children: [
+                                            TextSpan(
+                                              text: 'tiduba',
+                                              style: TextStyle(
+                                                  color: Color(0xFF18181B)),
+                                            ),
+                                            TextSpan(
+                                              text: 'Store',
+                                              style: TextStyle(
+                                                  color: Color(0xFF0284C7)),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ),
-                                    TextSpan(
-                                      text: 'Store',
-                                      style: TextStyle(color: Color(0xFF38BDF8)),
+                                  ),
+                                  const SizedBox(height: 9),
+                                  FadeTransition(
+                                    opacity: _taglineOpacity,
+                                    child: const Text(
+                                      'Camera, Equipment & Outfit Rental',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: Color(0xFF6B7280),
+                                        fontSize: 13,
+                                        letterSpacing: .25,
+                                      ),
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          const SizedBox(height: 9),
-                          FadeTransition(
-                            opacity: _taglineOpacity,
-                            child: const Text(
-                              'Camera, Equipment & Outfit Rental',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white60,
-                                fontSize: 13,
-                                letterSpacing: .25,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                        ),
+                      );
+                    },
                   ),
                 ),
-              );
-            },
+                Positioned(
+                  right: 12,
+                  bottom: 12,
+                  child: TextButton(
+                    onPressed: _complete,
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF18181B),
+                      backgroundColor: const Color(0xFFEAE5DC),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 18, vertical: 11),
+                      minimumSize: const Size(0, 44),
+                      shape: const StadiumBorder(),
+                      textStyle: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    child: const Text('Bỏ qua'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -268,14 +308,14 @@ class _TidubaTLogoPainter extends CustomPainter {
 
       final stemPaint = Paint()
         ..style = PaintingStyle.fill
-        ..color = Colors.white.withOpacity(fade);
+        ..color = const Color(0xFF1E293B).withOpacity(fade);
       canvas.drawPath(_stemPath, stemPaint);
     }
 
     if (wireOpacity > 0) {
       final strokeProgress = (progress / _strokeEnd).clamp(0.0, 1.0).toDouble();
       final wirePaint = Paint()
-        ..color = Colors.white.withOpacity(.85 * wireOpacity)
+        ..color = const Color(0xFF8C857B).withOpacity(.55 * wireOpacity)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5
         ..strokeCap = StrokeCap.round
@@ -283,7 +323,7 @@ class _TidubaTLogoPainter extends CustomPainter {
       _drawGuides(canvas, strokeProgress, wirePaint);
 
       final dotPaint = Paint()
-        ..color = Colors.white.withOpacity(.9 * wireOpacity)
+        ..color = const Color(0xFF8C857B).withOpacity(.55 * wireOpacity)
         ..style = PaintingStyle.fill;
       for (var i = 0; i < _anchors.length; i++) {
         final revealAt = i / (_anchors.length - 1);
@@ -302,7 +342,8 @@ class _TidubaTLogoPainter extends CustomPainter {
     for (final path in _guides) {
       final metrics = path.computeMetrics().toList();
       metricsByPath.add(metrics);
-      totalLength += metrics.fold<double>(0, (sum, metric) => sum + metric.length);
+      totalLength +=
+          metrics.fold<double>(0, (sum, metric) => sum + metric.length);
     }
 
     var remaining = totalLength * progress;
