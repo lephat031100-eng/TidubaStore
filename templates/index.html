@@ -190,14 +190,18 @@
             place-items: center;
             padding: 24px;
             color: #33291f;
-            background: radial-gradient(ellipse at 50% 42%, #fffdf9 0%, #f7f1e7 58%, #eee3d3 100%);
+            overflow: hidden;
+            background: radial-gradient(ellipse at 50% 38%, #fffefa 0%, #f5efe5 58%, #e9ddce 100%);
             opacity: 1;
             visibility: visible;
             transition: opacity .48s ease, visibility .48s ease;
         }
+        #site-intro::before, #site-intro::after { content: ''; position: absolute; pointer-events: none; border: 1px solid rgba(165,119,94,.16); border-radius: 50%; }
+        #site-intro::before { width: min(88vw, 820px); aspect-ratio: 1; top: -48%; left: -34%; }
+        #site-intro::after { width: min(76vw, 680px); aspect-ratio: 1; right: -28%; bottom: -48%; }
         #site-intro.site-intro-dismissed { opacity: 0; visibility: hidden; pointer-events: none; }
-        .site-intro-content { width: min(100%, 430px); text-align: center; }
-        .site-intro-mark { width: min(190px, 50vw); height: auto; aspect-ratio: 240 / 190; margin: 0 auto 16px; color: #9d705a; filter: drop-shadow(0 9px 13px rgba(134,93,70,.16)); }
+        .site-intro-content { position: relative; z-index: 1; width: min(100%, 470px); padding: clamp(26px, 5vw, 46px) 24px 30px; text-align: center; border: 1px solid rgba(255,255,255,.86); border-radius: 30px; background: rgba(255,253,249,.62); box-shadow: 0 24px 80px rgba(94,68,48,.09), inset 0 1px 0 white; backdrop-filter: blur(12px); }
+        .site-intro-mark { width: min(164px, 42vw); height: auto; aspect-ratio: 240 / 190; margin: 0 auto 12px; color: #9d705a; filter: drop-shadow(0 9px 13px rgba(134,93,70,.16)); }
         .site-intro-mark svg { display: block; width: 100%; height: 100%; overflow: visible; }
         .site-intro-mark .logo-depth { fill: #aa7765; stroke: #a87863; stroke-width: 1.5; stroke-linejoin: bevel; opacity: 0; animation: siteIntroFacet .45s .85s ease forwards; }
         .site-intro-mark .logo-outline { fill: url(#tiduba-rose); stroke: #a87863; stroke-width: 2; stroke-linejoin: bevel; stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: siteIntroDraw 1.1s cubic-bezier(.6,0,.3,1) .1s forwards, siteIntroFill .55s 1s ease forwards; }
@@ -207,9 +211,12 @@
         .site-intro-main-word { display: flex; justify-content: center; gap: .025em; font-size: clamp(28px, 7.8vw, 42px); font-weight: 700; letter-spacing: .12em; padding-left: .12em; }
         .site-intro-main-word span { display: inline-block; opacity: 0; transform: translateY(13px); filter: blur(5px); animation: siteIntroLetter .42s cubic-bezier(.2,.75,.25,1) calc(1.15s + var(--letter-index) * 75ms) forwards; }
         .site-intro-store { display: block; margin-top: 1px; color: #7d7d7b; font-size: 12px; font-weight: 400; letter-spacing: .58em; padding-left: .58em; opacity: 0; animation: siteIntroText .55s 1.9s ease forwards; }
-        .site-intro-caption { margin: 14px 0 0; color: #898783; font-size: 10px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; opacity: 0; animation: siteIntroText .65s 2.1s ease forwards; }
+        .site-intro-caption { margin: 12px 0 0; color: #756353; font-size: 10px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; opacity: 0; animation: siteIntroText .65s 2.1s ease forwards; }
+        .site-intro-kicker { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 15px; padding: 8px 13px; border: 1px solid rgba(174,126,95,.22); border-radius: 999px; color: #8c634b; background: rgba(255,255,255,.68); font-size: 10px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; opacity: 0; animation: siteIntroText .55s 2.08s ease forwards; }
+        .site-intro-kicker::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #a9785e; box-shadow: 0 0 0 4px rgba(169,120,94,.12); }
+        .site-intro-subtitle { max-width: 310px; margin: 17px auto 0; color: #796f65; font-size: 13px; line-height: 1.7; opacity: 0; animation: siteIntroText .65s 2.18s ease forwards; }
         .site-intro-rule { width: 38px; height: 1px; margin: 24px auto 0; background: #c7a77f; transform: scaleX(0); animation: siteIntroRule .5s 2.25s ease forwards; }
-        .site-intro-progress { width: 68px; height: 2px; margin: 25px auto 0; overflow: hidden; border-radius: 99px; background: rgba(141,104,67,.17); }
+        .site-intro-progress { width: 68px; height: 2px; margin: 20px auto 0; overflow: hidden; border-radius: 99px; background: rgba(141,104,67,.17); }
         .site-intro-progress::after { content: ''; display: block; width: 42%; height: 100%; border-radius: inherit; background: #a78055; animation: siteIntroProgress 2.5s ease-in-out both; }
         .site-intro-skip {
             position: absolute; right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom));
@@ -237,6 +244,7 @@
             #site-intro { transition-duration: .01ms; }
             .auth-invalid-shake { animation-duration: .01ms !important; }
         }
+        @media (max-width: 480px) { .site-intro-content { padding: 26px 18px 24px; border-radius: 24px; } .site-intro-subtitle { font-size: 12px; } }
 
         /* KiotViet POS: clear panels, generous touch targets and an always-reachable checkout bar. */
         #sec-kiotviet-pos.pos-shell {
@@ -458,6 +466,7 @@
 
     <div id="site-intro" role="status" aria-live="polite" aria-label="Tiduba Store">
         <div class="site-intro-content">
+            <p class="site-intro-kicker">Thuê đồ đẹp · Lưu khoảnh khắc</p>
             <div class="site-intro-mark" aria-hidden="true"><svg viewBox="0 0 240 190" role="presentation">
                 <defs>
                     <linearGradient id="tiduba-rose" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fffdfb"/><stop offset=".34" stop-color="#e8c9bd"/><stop offset=".62" stop-color="#b98570"/><stop offset=".82" stop-color="#fff8f3"/><stop offset="1" stop-color="#c69682"/></linearGradient>
@@ -476,7 +485,8 @@
                 <path class="logo-face" fill="none" stroke="#fffaf6" stroke-width="2" d="M40 31H200M106 83V148"/>
             </svg></div>
             <h1 class="site-intro-brand" aria-label="Tiduba Store"><span class="site-intro-main-word"><span style="--letter-index:0">T</span><span style="--letter-index:1">I</span><span style="--letter-index:2">D</span><span style="--letter-index:3">U</span><span style="--letter-index:4">B</span><span style="--letter-index:5">A</span></span><span class="site-intro-store">STORE</span></h1>
-            <p class="site-intro-caption">QUALITY | SERVICE | INNOVATION</p>
+            <p class="site-intro-caption">Phong cách của bạn, khoảnh khắc của bạn</p>
+            <p class="site-intro-subtitle">Trang phục thiết kế và máy ảnh chất lượng, sẵn sàng đồng hành cùng những dịp thật đặc biệt.</p>
             <div class="site-intro-rule" aria-hidden="true"></div>
             <div class="site-intro-progress" aria-hidden="true"></div>
         </div>
@@ -4551,6 +4561,11 @@
         }
 
         async function switchToKiotvietPos() {
+            // Restore a saved browser session before deciding to show the login modal.
+            // The POS button can be clicked while the initial /api/auth/me request is still in flight.
+            if (!currentUser && localStorage.getItem('tiduba_token')) {
+                await checkAuthSession();
+            }
             const validAdminSession = await ensureAdminPosSession();
             if (validAdminSession !== true) {
                 if (!currentUser) {
