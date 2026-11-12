@@ -538,6 +538,12 @@ def init_db():
     except Exception:
         pass
 
+    try:
+        cur.execute("ALTER TABLE rentals ADD COLUMN deposit_required_amount INTEGER NOT NULL DEFAULT 0;")
+        conn.commit()
+    except Exception:
+        pass
+
     # Tự động cập nhật cột items_json nếu chưa có
     try:
         cur.execute("ALTER TABLE rentals ADD COLUMN items_json TEXT;")
@@ -2756,10 +2762,14 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
         conn.close()
         raise HTTPException(status_code=400, detail="Vui lòng chọn thiết bị hoặc combo!")
 
-    # PHẦN CỌC: Tiền cọc lấy theo cấu hình của thiết bị hoặc cọc do Admin/Khách tự nhập
-    deposit_amount = default_deposit or 0
-    dep_type = req.deposit_type or ("CASH" if deposit_amount > 0 else "NONE")
-    asset_desc = req.deposit_asset_desc or (f"Phí cọc: {deposit_amount:,}đ" if deposit_amount > 0 else "Theo thỏa thuận tại quầy")
+    # Tiền cọc chỉ là mức dự kiến; khách nộp tại cửa hàng lúc nhận đồ.
+    deposit_required_amount = default_deposit or 0
+    deposit_amount = 0
+    dep_type = "NONE"
+    asset_desc = (
+        f"Cọc dự kiến {deposit_required_amount:,}đ; thu tại cửa hàng khi bàn giao thiết bị và hoàn lại khi trả."
+        if deposit_required_amount > 0 else "Cọc (nếu có) thu tại cửa hàng khi nhận đồ."
+    )
 
     # Khóa khung giờ 08:00 - 20:00 và chặn ngày giờ quá khứ (Yêu cầu 2 & 6)
     st_val = parse_dt_safe(req.start_time)
@@ -2773,11 +2783,6 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
         if (st_val.hour < 8 or st_val.hour > 20 or et_val.hour < 8 or et_val.hour > 20) and not is_admin_user:
             conn.close()
             raise HTTPException(status_code=400, detail="Cửa hàng hoạt động từ 08:00 đến 20:00 hàng ngày. Vui lòng chọn giờ nhận và trả đồ trong khung giờ 08:00 - 20:00!")
-
-    if req.custom_deposit_amount is not None:
-        deposit_amount = req.custom_deposit_amount
-        dep_type = req.deposit_type or ("CASH" if deposit_amount > 0 else "NONE")
-        asset_desc = req.deposit_asset_desc or (f"Phí cọc: {deposit_amount:,}đ" if deposit_amount > 0 else "Theo thỏa thuận tại quầy")
 
     try:
         p2d = (item["price_2d"] or 0) if (req.item_id and item and "price_2d" in item.keys()) else 0
@@ -2833,12 +2838,12 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
     INSERT INTO rentals (
         rental_code, user_id, item_id, combo_id, rental_type, start_time, end_time,
         rental_duration_hours, hold_expires_at, total_price, deposit_paid, deposit_type,
-        deposit_asset_desc, branch_code, refund_bank_info, status, customer_notes, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'HOLD', ?, ?)
+        deposit_required_amount, deposit_asset_desc, branch_code, refund_bank_info, status, customer_notes, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'HOLD', ?, ?)
     """, (
         rental_code, user["id"], req.item_id, req.combo_id, rental_type,
         req.start_time, effective_end_time, hours, hold_expires_at,
-        total_price, deposit_amount, dep_type,
+        total_price, deposit_amount, dep_type, deposit_required_amount,
         asset_desc, selected_branch, req.refund_bank_info, req.customer_notes, now_str
     ))
 
@@ -2874,7 +2879,7 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
         f"📦 <b>Thiết bị:</b> {item_name}\n"
         f"⏳ <b>Thời gian:</b> {req.start_time} ➔ {effective_end_time} ({hours:.1f}h)\n"
         f"💵 <b>Tiền thuê:</b> <b>{total_price:,}đ</b>\n"
-        f"⚠️ <b>LƯU Ý:</b> Để lại giấy tờ hoặc cọc thêm tiền, Tiền cọc sẽ hoàn khi trả đồ.\n"
+        f"⚠️ <b>LƯU Ý:</b> Tiền cọc dự kiến {deposit_required_amount:,}đ (nếu có) thu tại cửa hàng khi giao đồ và hoàn khi khách trả đồ.\n"
         f"📌 <b>Đối với máy ảnh:</b> Cọc 1 giấy tờ + tài sản (Điện thoại, Xe máy, Laptop, vòng vàng,...)\n"
         f"💳 <b>Tổng thanh toán:</b> <b>{total_payment:,}đ</b> (VietQR MBBank)\n"
         f"📝 <b>Ghi chú:</b> {req.customer_notes or 'Không có'}\n"
@@ -2896,7 +2901,9 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
         "hold_countdown_seconds": 900,
         "hold_expires_at": hold_expires_at,
         "total_price": total_price,
-        "deposit_amount": deposit_amount,
+        "deposit_amount": 0,
+        "deposit_required_amount": deposit_required_amount,
+        "deposit_paid": 0,
         "total_payment": total_payment,
         "total_payable": total_payment,
         "qr_url": qr_url,
@@ -3021,7 +3028,7 @@ def track_rental_order(rental_code: str, user: Optional[Dict[str, Any]] = Depend
     if len(clean_phone) in (10, 11) and clean_phone.startswith("0"):
         rows = cur.execute("""
         SELECT r.id, r.rental_code, r.status, r.end_time, r.start_time, r.total_price, 
-               r.branch_code, r.items_json, r.deposit_paid, r.deposit_type, r.deposit_asset_desc,
+               r.branch_code, r.items_json, r.deposit_paid, r.deposit_required_amount, r.deposit_type, r.deposit_asset_desc,
                COALESCE(i.name, c.name, 'Đơn Thuê Nhiều Món') as item_name,
                COALESCE(i.image_url, c.image_url, '/static/logo.png') as item_image,
                u.full_name as customer_name
@@ -3059,7 +3066,7 @@ def track_rental_order(rental_code: str, user: Optional[Dict[str, Any]] = Depend
     code = kw.upper()
     r = cur.execute("""
     SELECT r.id, r.rental_code, r.status, r.end_time, r.start_time, r.total_price, 
-           r.branch_code, r.items_json, r.deposit_paid, r.deposit_type, r.deposit_asset_desc,
+           r.branch_code, r.items_json, r.deposit_paid, r.deposit_required_amount, r.deposit_type, r.deposit_asset_desc,
            r.refund_bank_info, r.payment_proof_img,
            COALESCE(i.name, c.name, 'Đơn Thuê Nhiều Món') as item_name,
            COALESCE(i.image_url, c.image_url, '/static/logo.png') as item_image,
@@ -3114,6 +3121,7 @@ class MultiItemBookingRequest(BaseModel):
     deposit_type: Optional[str] = "CCCD"
     deposit_asset_desc: Optional[str] = None
     custom_deposit_amount: Optional[int] = None
+    custom_deposit_required_amount: Optional[int] = None
     custom_total_rental_price: Optional[int] = None # Admin chỉnh sửa trực tiếp tổng tiền thuê
     pos_discount: Optional[int] = 0 # Giảm giá chiết khấu tại POS
     pos_surcharge: Optional[int] = 0 # Phụ thu tại POS
@@ -3370,13 +3378,14 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
 
     # PHẦN CỌC: Mặc định 0đ cho khách, Admin KiotViet POS có thể tự chọn hình thức cọc & nhập tiền cọc
     final_deposit = 0
-    dep_type = req.deposit_type or "NONE"
-    asset_desc = req.deposit_asset_desc or "Để lại giấy tờ hoặc cọc thêm tiền (Hoàn lại khi trả đồ)"
-    
-    if req.custom_deposit_amount is not None and req.custom_deposit_amount > 0:
-        final_deposit = req.custom_deposit_amount
-        dep_type = req.deposit_type or "ASSET"
-        asset_desc = req.deposit_asset_desc or f"Cọc tiền/tài sản: {final_deposit:,}đ"
+    dep_type = "NONE"
+    deposit_required_amount = total_default_deposit
+    if is_admin_mode and req.custom_deposit_required_amount is not None:
+        deposit_required_amount = max(0, req.custom_deposit_required_amount)
+    asset_desc = (
+        f"Cọc dự kiến {deposit_required_amount:,}đ; thu tại cửa hàng khi bàn giao thiết bị và hoàn lại khi trả."
+        if deposit_required_amount > 0 else "Cọc (nếu có) thu tại cửa hàng khi nhận đồ."
+    )
     discount = 0
 
     now = vn_now()
@@ -3401,13 +3410,13 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
     INSERT INTO rentals (
         rental_code, user_id, item_id, combo_id, rental_type, start_time, end_time,
         rental_duration_hours, hold_expires_at, total_price, deposit_paid, deposit_type,
-        deposit_asset_desc, branch_code, refund_bank_info, status, items_json, customer_notes, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        deposit_required_amount, deposit_asset_desc, branch_code, refund_bank_info, status, items_json, customer_notes, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         rental_code, target_user_id, first_item_id, first_combo_id,
         f"Gói {len(processed_items)} món", req.start_time, effective_overall_end,
         max_duration_hours, hold_expires_at, total_rental_price, final_deposit,
-        dep_type, asset_desc, selected_branch, req.refund_bank_info, initial_status, items_json_str,
+        dep_type, deposit_required_amount, asset_desc, selected_branch, req.refund_bank_info, initial_status, items_json_str,
         req.customer_notes or ("Bán tại quầy KiotViet POS" if is_admin_mode else "Đơn giỏ hàng Shopee"),
         now_str
     ))
@@ -3459,16 +3468,6 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
     # Chỉ gửi thông báo ngay nếu là Admin bán tại quầy POS trực tiếp
     if is_admin_mode:
         _send_telegram_notification(tele_msg, rental_id=rental_id, event_type="NEW_RENTAL")
-        if req.is_direct_paid and (final_deposit > 0 or dep_type in ("CCCD", "ASSET", "CASH")):
-            notify_deposit_event("THU_COC", {
-                "rental_code": rental_code,
-                "customer_name": target_user_name,
-                "customer_phone": target_user_phone,
-                "item_name": f"Gói {len(processed_items)} món",
-                "deposit_paid": final_deposit,
-                "deposit_type": dep_type,
-                "deposit_asset_desc": asset_desc
-            })
 
     # Tạo trước nội dung bill K80 ESC/POS
     bill_data = {
@@ -3500,6 +3499,7 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
         "items": processed_items,
         "total_price": total_rental_price,
         "deposit_amount": final_deposit,
+        "deposit_required_amount": deposit_required_amount,
         "deposit_type": dep_type,
         "deposit_asset_desc": asset_desc,
         "discount_applied": 0,

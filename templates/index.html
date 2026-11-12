@@ -2083,12 +2083,12 @@
                             <!-- HÌNH THỨC CỌC & TIỀN CỌC POS (DÀNH RIÊNG CHO ADMIN) -->
                             <div class="bg-amber-50/80 p-2.5 rounded-xl border border-amber-300 space-y-1.5 text-xs font-mono">
                                 <div class="flex items-center justify-between text-[11px] font-bold text-amber-900">
-                                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-shield-halved text-amber-600"></i> Hình thức cọc tại quầy (Chỉ dành cho Admin):</span>
-                                    <span class="text-gray-500 font-normal">Tự động đồng bộ hóa đơn</span>
+                                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-shield-halved text-amber-600"></i> Tiền cọc dự kiến (thu khi khách nhận đồ):</span>
+                                    <span class="text-gray-500 font-normal">Không cộng vào tiền thuê</span>
                                 </div>
                                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                     <div>
-                                        <label class="block text-[10px] font-bold text-amber-800 mb-0.5">Hình thức cọc:</label>
+                                        <label class="block text-[10px] font-bold text-amber-800 mb-0.5">Hình thức cọc dự kiến:</label>
                                         <select id="pos-deposit-type-select" onchange="posRecalculateActiveInvoice()" class="w-full bg-white border border-amber-400 rounded-lg p-1.5 text-xs font-bold text-gray-800">
                                             <option value="NONE">Cọc 0đ (Giữ giấy tờ)</option>
                                             <option value="CCCD">Giữ CCCD gốc</option>
@@ -2097,11 +2097,11 @@
                                         </select>
                                     </div>
                                     <div>
-                                        <label class="block text-[10px] font-bold text-amber-800 mb-0.5">Tiền cọc thu (VNĐ):</label>
+                                        <label class="block text-[10px] font-bold text-amber-800 mb-0.5">Mức cọc (VNĐ):</label>
                                         <input type="number" id="pos-deposit-amount-input" oninput="posRecalculateActiveInvoice()" placeholder="0" class="w-full bg-white border border-amber-400 rounded-lg p-1.5 text-xs text-amber-800 font-bold font-mono focus:outline-none">
                                     </div>
                                     <div>
-                                        <label class="block text-[10px] font-bold text-amber-800 mb-0.5">Mô tả tài sản cọc:</label>
+                                        <label class="block text-[10px] font-bold text-amber-800 mb-0.5">Ghi chú cọc:</label>
                                         <input type="text" id="pos-deposit-desc-input" placeholder="vd: iPhone 14, Xe Wave..." class="w-full bg-white border border-amber-400 rounded-lg p-1.5 text-xs text-gray-800 focus:outline-none">
                                     </div>
                                 </div>
@@ -2575,7 +2575,7 @@
                         <strong class="text-amber-700 font-bold" id="calc-night-surcharge">30.000đ</strong>
                     </div>
                     <div id="calc-deposit-row" class="hidden flex justify-between text-gray-400">
-                        <span>Phí cọc (hoàn lại khi trả):</span>
+                        <span>Tiền cọc tại cửa hàng (hoàn lại khi trả):</span>
                         <strong class="text-emerald-400 font-bold" id="calc-deposit-price">0đ</strong>
                     </div>
 
@@ -2594,9 +2594,10 @@
                     </div>
 
                     <div class="flex justify-between text-amber-300 text-sm font-bold border-t border-gray-800 pt-2">
-                        <span>TỔNG TIỀN THANH TOÁN:</span>
+                        <span>TIỀN THANH TOÁN KHI ĐẶT:</span>
                         <strong class="text-base" id="calc-total">0đ</strong>
                     </div>
+                    <div class="text-[11px] text-gray-400 leading-relaxed">Tiền cọc chỉ thu tại cửa hàng khi nhận đồ, không cộng vào hóa đơn/VietQR.</div>
                 </div>
 
                 <div>
@@ -2857,6 +2858,8 @@
                     </div>
                 </div>
             </div>
+
+            <div id="qr-modal-deposit-info" class="hidden rounded-xl border border-amber-500/30 bg-amber-950/30 px-3 py-2 text-[11px] text-amber-200 font-sans leading-relaxed"></div>
 
             <!-- Khung Gửi Ảnh Biên Lai / Báo Chuyển Tiền -->
             <div id="customer-proof-upload-box" class="bg-gray-950 p-4 rounded-2xl border border-emerald-500/40 space-y-3 text-xs">
@@ -4907,7 +4910,7 @@
                                     </div>
                                 </div>
                                 <div class="flex items-center justify-between text-[#78716c] text-[11px]">
-                                    <span>Phí cọc:</span>
+                                    <span>Cọc tại cửa hàng:</span>
                                     <span class="font-medium text-[#2e7d32] font-mono">${Number(item.deposit_amount || 0).toLocaleString()}đ</span>
                                 </div>
                                 <div class="flex items-center justify-between text-[#a8a29e] text-[10.5px]">
@@ -5454,7 +5457,7 @@
         // ==============================================================
         let currentK80Code = '';
 
-        async function openK80BillModal(code, item, price, deposit, customer, phone, start, end, depType, depDescEncoded, status, itemsArray = null) {
+        async function openK80BillModal(code, item, price, deposit, customer, phone, start, end, depType, depDescEncoded, status, itemsArray = null, depositIsPaid = null) {
             currentK80Code = code;
 
             // Nếu thiếu thông tin chi tiết (ví dụ khách mở chỉ với mã code), tự động tải từ API track
@@ -5466,7 +5469,8 @@
                         const r = td.rental;
                         item = r.item_name;
                         price = r.total_price;
-                        deposit = r.deposit_paid || 0;
+                        depositIsPaid = Number(r.deposit_paid || 0) > 0;
+                        deposit = depositIsPaid ? r.deposit_paid : (r.deposit_required_amount || 0);
                         customer = r.customer_name;
                         phone = r.customer_phone;
                         start = r.start_time;
@@ -5479,7 +5483,8 @@
 
             const subtotal = Number(price) || 0;
             const depAmt = Number(deposit) || 0;
-            const total = subtotal + depAmt;
+            if (depositIsPaid === null) depositIsPaid = depAmt > 0;
+            const total = subtotal + (depositIsPaid ? depAmt : 0);
 
             // 1. Điền mã hóa đơn & ngày giờ
             const hdCode = code ? (code.startsWith('TDB-') ? 'HD' + code.replace('TDB-', '') : code) : 'HD001135';
@@ -5560,6 +5565,8 @@
 
             const depositEl = document.getElementById('k80-disp-deposit');
             if (depositEl) depositEl.innerText = depAmt.toLocaleString();
+            const depositLabel = depositEl && depositEl.previousElementSibling;
+            if (depositLabel) depositLabel.innerText = depositIsPaid ? 'Tiền cọc đã nhận:' : 'Cọc dự kiến (thu khi nhận đồ):';
 
             const totalEl = document.getElementById('k80-disp-total');
             if (totalEl) totalEl.innerText = total.toLocaleString();
@@ -6972,14 +6979,14 @@
             if (depRow) {
                 if (itemDep > 0) {
                     depRow.classList.remove('hidden');
-                    document.getElementById('calc-deposit-price').innerText = `+${itemDep.toLocaleString()}đ`;
+                    document.getElementById('calc-deposit-price').innerText = `${itemDep.toLocaleString()}đ`;
                 } else {
                     depRow.classList.add('hidden');
                 }
             }
 
             // Tổng tiền thanh toán = tiền thuê (hoặc giá do Admin chỉnh) + cọc (nếu có)
-            const totalPayable = rentalPrice + itemDep;
+            const totalPayable = rentalPrice;
 
             document.getElementById('calc-days').innerText = `${rentalType} (${Math.round(hours)} giờ)`;
             document.getElementById('calc-rental-price').innerText = `${rentalPrice.toLocaleString()}đ`;
@@ -7020,9 +7027,9 @@
                 end_time: endVal,
                 branch_code: branchCode,
                 customer_notes: notes,
-                deposit_type: itemDep > 0 ? 'CASH' : 'NONE',
-                deposit_asset_desc: itemDep > 0 ? `Phí cọc: ${itemDep.toLocaleString()}đ` : 'Theo thỏa thuận tại quầy',
-                custom_deposit_amount: itemDep,
+                deposit_type: 'NONE',
+                deposit_asset_desc: itemDep > 0 ? `Cọc dự kiến ${itemDep.toLocaleString()}đ, thu tại cửa hàng khi nhận đồ.` : 'Thu cọc theo thỏa thuận tại cửa hàng khi nhận đồ.',
+                custom_deposit_amount: 0,
                 refund_bank_info: refundBank,
                 custom_rental_price: adminCustomPrice
             };
@@ -7050,7 +7057,7 @@
 
                 closeBookingModal();
                 const payable = Number(data.total_payable !== undefined ? data.total_payable : (data.total_payment !== undefined ? data.total_payment : data.total_price || 0));
-                showQrModal(data.qr_image_url || data.qr_url, `${data.item_name} (${data.rental_days || 1} ngày)`, `${payable.toLocaleString()} VNĐ`, data.rental_code, data.rental_id);
+                showQrModal(data.qr_image_url || data.qr_url, `${data.item_name} (${data.rental_days || 1} ngày)`, `${payable.toLocaleString()} VNĐ`, data.rental_code, data.rental_id, data.deposit_required_amount || data.deposit_amount || itemDep);
                 fetchCatalog();
                 checkAuthSession(); // Cập nhật lại số điểm VIP
             } catch (err) {
@@ -7066,7 +7073,7 @@
         let currentActiveAmountRaw = "0";
         let currentActiveCodeRaw = "";
 
-        function showQrModal(imgUrl, desc, amount, code, rentalId = null) {
+        function showQrModal(imgUrl, desc, amount, code, rentalId = null, depositRequired = 0) {
             currentActiveRentalId = rentalId;
             currentActiveCodeRaw = code || '';
             currentActiveAmountRaw = String(amount || '').replace(/[^\d]/g, '');
@@ -7075,6 +7082,14 @@
             document.getElementById('qr-modal-desc').innerText = desc;
             document.getElementById('qr-modal-amount').innerText = amount;
             document.getElementById('qr-modal-code').innerText = `Thanh toan thue do ${code}`;
+            const depositInfoEl = document.getElementById('qr-modal-deposit-info');
+            if (depositInfoEl) {
+                const depositValue = Number(depositRequired) || 0;
+                depositInfoEl.innerText = depositValue > 0
+                    ? `Tiền cọc dự kiến: ${depositValue.toLocaleString()}đ · nộp tại cửa hàng khi nhận đồ, không chuyển cùng hóa đơn này.`
+                    : 'Tiền cọc (nếu có) nộp tại cửa hàng khi nhận đồ, không chuyển cùng hóa đơn này.';
+                depositInfoEl.classList.remove('hidden');
+            }
             const rawCodeEl = document.getElementById('qr-modal-code-raw');
             if (rawCodeEl) rawCodeEl.innerText = code ? `Mã Đơn: ${code}` : 'TDB-XXXXXX';
 
@@ -7648,7 +7663,7 @@
                 closeCartDrawer();
 
                 const payable = Number(data.total_payable !== undefined ? data.total_payable : (data.total_payment !== undefined ? data.total_payment : data.total_price || 0));
-                showQrModal(data.qr_image_url || data.qr_url, `Đơn gộp ${data.items_count || 1} món (${data.rental_code})`, `${payable.toLocaleString()} VNĐ`, data.rental_code, data.rental_id);
+                showQrModal(data.qr_image_url || data.qr_url, `Đơn gộp ${data.items_count || 1} món (${data.rental_code})`, `${payable.toLocaleString()} VNĐ`, data.rental_code, data.rental_id, data.deposit_required_amount || 0);
                 fetchCatalog();
                 checkAuthSession();
             } catch (err) {
@@ -8181,13 +8196,15 @@
             const depAmtInp = document.getElementById('pos-deposit-amount-input');
             const depDescInp = document.getElementById('pos-deposit-desc-input');
             const depType = depTypeSelect ? depTypeSelect.value : 'NONE';
-            const depAmt = depAmtInp ? (parseInt(depAmtInp.value) || 0) : 0;
+            const defaultDeposit = activeInv.items.reduce((sum, item) => sum + (Number(item.deposit_amount) || 0), 0);
+            const hasCustomDeposit = !!(depAmtInp && depAmtInp.value.trim() !== '');
+            const depAmt = hasCustomDeposit ? Math.max(0, parseInt(depAmtInp.value) || 0) : defaultDeposit;
             const depDesc = depDescInp ? depDescInp.value.trim() : '';
             activeInv.depositType = depType;
             activeInv.depositAmount = depAmt;
             activeInv.depositDesc = depDesc;
 
-            const totalPayable = subtotalRent + depAmt;
+            const totalPayable = subtotalRent;
 
             document.getElementById('pos-subtotal-rent').innerText = `${subtotalRent.toLocaleString()}đ`;
             document.getElementById('pos-items-count').innerText = `${activeInv.items.length} món`;
@@ -8515,7 +8532,8 @@
                 branch_code: branchCode,
                 deposit_type: depType,
                 deposit_asset_desc: depDesc,
-                custom_deposit_amount: depAmt,
+                custom_deposit_amount: 0,
+                custom_deposit_required_amount: depAmt,
                 pos_discount: activeInv.discountVal || 0,
                 pos_surcharge: activeInv.surchargeVal || 0,
                 walk_in_customer_name: activeInv.customerName,
@@ -8553,7 +8571,7 @@
                     data.rental_code,
                     `Gói ${data.items_count} món KiotViet`,
                     data.total_price,
-                    data.deposit_amount,
+                    data.deposit_required_amount || 0,
                     activeInv.customerName,
                     activeInv.customerPhone,
                     data.start_time,
@@ -8561,7 +8579,8 @@
                     data.deposit_type,
                     encodeURIComponent(data.deposit_asset_desc || ''),
                     'ACTIVE',
-                    activeInv.items
+                    activeInv.items,
+                    false
                 );
 
                 activeInv.items = [];
