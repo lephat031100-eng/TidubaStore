@@ -22,8 +22,7 @@ class TidubaSplashScreen extends StatefulWidget {
 
 class _TidubaSplashScreenState extends State<TidubaSplashScreen>
     with SingleTickerProviderStateMixin {
-  static const _animationDuration = Duration(milliseconds: 3200);
-  static const _completionHold = Duration(milliseconds: 800);
+  static const _animationDuration = Duration(milliseconds: 4000);
 
   late final AnimationController _controller;
   late final Animation<double> _titleOpacity;
@@ -40,25 +39,24 @@ class _TidubaSplashScreenState extends State<TidubaSplashScreen>
     );
     _titleOpacity = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(2.3 / 3.2, 2.95 / 3.2, curve: Curves.easeOut),
+      curve: const Interval(2.82 / 4, 3.42 / 4, curve: Curves.easeOut),
     );
     _titleSlide = Tween<Offset>(
       begin: const Offset(0, .18),
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _controller,
-      curve: const Interval(2.3 / 3.2, 2.95 / 3.2, curve: Curves.easeOutCubic),
+      curve: const Interval(2.82 / 4, 3.42 / 4, curve: Curves.easeOutBack),
     ));
     _taglineOpacity = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(2.72 / 3.2, 1, curve: Curves.easeIn),
+      curve: const Interval(3.05 / 4, 3.5 / 4, curve: Curves.easeIn),
     );
     _playIntro();
   }
 
   Future<void> _playIntro() async {
     await _controller.forward();
-    await Future<void>.delayed(_completionHold);
     _complete();
   }
 
@@ -90,15 +88,15 @@ class _TidubaSplashScreenState extends State<TidubaSplashScreen>
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark,
+      value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF3EFE6),
+        backgroundColor: const Color(0xFF0E1117),
         body: DecoratedBox(
           decoration: const BoxDecoration(
             gradient: RadialGradient(
               center: Alignment(0, -.12),
               radius: 1.05,
-              colors: [Color(0xFFFFFFFF), Color(0xFFF6F2EA), Color(0xFFF3EFE6)],
+              colors: [Color(0xFF171B22), Color(0xFF0E1117), Color(0xFF0A0C10)],
               stops: [0, .58, 1],
             ),
           ),
@@ -149,14 +147,14 @@ class _TidubaSplashScreenState extends State<TidubaSplashScreen>
                                           ),
                                           children: [
                                             TextSpan(
-                                              text: 'tiduba',
+                                              text: 'Tiduba',
                                               style: TextStyle(
-                                                  color: Color(0xFF18181B)),
+                                                  color: Colors.white),
                                             ),
                                             TextSpan(
                                               text: 'Store',
                                               style: TextStyle(
-                                                  color: Color(0xFF0284C7)),
+                                                  color: Color(0xFFEAD8B1)),
                                             ),
                                           ],
                                         ),
@@ -170,7 +168,7 @@ class _TidubaSplashScreenState extends State<TidubaSplashScreen>
                                       'Camera, Equipment & Outfit Rental',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
-                                        color: Color(0xFF6B7280),
+                                        color: Color(0xFFA8A29E),
                                         fontSize: 13,
                                         letterSpacing: .25,
                                       ),
@@ -191,8 +189,8 @@ class _TidubaSplashScreenState extends State<TidubaSplashScreen>
                   child: TextButton(
                     onPressed: _complete,
                     style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF18181B),
-                      backgroundColor: const Color(0xFFEAE5DC),
+                      foregroundColor: const Color(0xFFFAF3E0),
+                      backgroundColor: const Color(0xFF2C2A26),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 18, vertical: 11),
                       minimumSize: const Size(0, 44),
@@ -218,62 +216,64 @@ class _TidubaTLogoPainter extends CustomPainter {
   final double progress;
 
   static const _designSize = 200.0;
-  static const _strokeEnd = 1.5 / 3.2;
-  static const _fillEnd = 2.3 / 3.2;
+  static const _hudEnd = .25;
+  static const _assemblyStart = .25;
+  static const _assemblyEnd = .575;
+  static const _shineStart = .575;
+  static const _shineEnd = .825;
+
+  static final Path _leftWing = Path()
+    ..moveTo(28, 24)
+    ..lineTo(105, 24)
+    ..lineTo(113, 39)
+    ..lineTo(100, 68)
+    ..lineTo(20, 68)
+    ..close();
+
+  static final Path _rightWing = Path()
+    ..moveTo(105, 24)
+    ..lineTo(190, 24)
+    ..lineTo(182, 68)
+    ..lineTo(100, 68)
+    ..lineTo(113, 39)
+    ..close();
+
+  static final Path _keystone = Path()
+    ..moveTo(94, 31)
+    ..lineTo(112, 31)
+    ..lineTo(124, 47)
+    ..lineTo(112, 64)
+    ..lineTo(94, 64)
+    ..lineTo(82, 47)
+    ..close();
+
+  static final Path _pillar = Path()
+    ..moveTo(78, 63)
+    ..lineTo(126, 63)
+    ..lineTo(113, 176)
+    ..lineTo(93, 176)
+    ..close();
 
   static final Path _outerPath = Path()
     ..moveTo(28, 24)
     ..lineTo(190, 24)
     ..lineTo(182, 68)
-    ..lineTo(136, 68)
-    ..lineTo(112, 176)
-    ..lineTo(55, 176)
-    ..lineTo(76, 68)
+    ..lineTo(126, 68)
+    ..lineTo(111, 176)
+    ..lineTo(93, 176)
+    ..lineTo(56, 68)
     ..lineTo(20, 68)
     ..close();
-
-  static final Path _crossbarPath = Path()
-    ..moveTo(28, 24)
-    ..lineTo(190, 24)
-    ..lineTo(182, 68)
-    ..lineTo(20, 68)
-    ..close();
-
-  static final Path _stemPath = Path()
-    ..moveTo(76, 66)
-    ..lineTo(137, 66)
-    ..lineTo(112, 176)
-    ..lineTo(55, 176)
-    ..close();
-
-  static final List<Path> _guides = [
-    _outerPath,
-    Path()
-      ..moveTo(37, 34)
-      ..lineTo(182, 34),
-    Path()
-      ..moveTo(27, 59)
-      ..lineTo(178, 59),
-    Path()
-      ..moveTo(84, 78)
-      ..lineTo(67, 160),
-    Path()
-      ..moveTo(128, 78)
-      ..lineTo(109, 160),
-    Path()
-      ..moveTo(76, 68)
-      ..lineTo(136, 68),
-  ];
 
   static const List<Offset> _anchors = [
     Offset(28, 24),
     Offset(190, 24),
     Offset(182, 68),
-    Offset(136, 68),
-    Offset(112, 176),
-    Offset(55, 176),
-    Offset(76, 68),
     Offset(20, 68),
+    Offset(95, 176),
+    Offset(111, 176),
+    Offset(82, 47),
+    Offset(124, 47),
   ];
 
   @override
@@ -287,74 +287,180 @@ class _TidubaTLogoPainter extends CustomPainter {
     canvas.translate(dx, dy);
     canvas.scale(scale);
 
-    final fillProgress = ((progress - _strokeEnd) / (_fillEnd - _strokeEnd))
+    final hudProgress = (progress / _hudEnd).clamp(0.0, 1.0).toDouble();
+    final hudOpacity = progress < _assemblyEnd
+        ? (1 - ((progress - _assemblyStart) / (_assemblyEnd - _assemblyStart)))
+            .clamp(0.0, 1.0)
+            .toDouble()
+        : 0.0;
+    if (hudOpacity > 0) _drawHud(canvas, hudProgress, hudOpacity);
+
+    final assemble = Curves.easeOutExpo.transform(
+      ((progress - _assemblyStart) / (_assemblyEnd - _assemblyStart))
+          .clamp(0.0, 1.0)
+          .toDouble(),
+    );
+    if (assemble > 0) _drawAssembly(canvas, assemble);
+
+    final impact = ((progress - .525) / .085).clamp(0.0, 1.0).toDouble();
+    if (impact > 0 && impact < 1) _drawImpact(canvas, impact);
+
+    final shine = ((progress - _shineStart) / (_shineEnd - _shineStart))
         .clamp(0.0, 1.0)
         .toDouble();
-    final wireOpacity = 1 - fillProgress;
-
-    if (fillProgress > 0) {
-      final fade = Curves.easeInOutCubic.transform(fillProgress);
-      final barPaint = Paint()
-        ..style = PaintingStyle.fill
-        ..shader = ui.Gradient.linear(
-          const Offset(20, 24),
-          const Offset(190, 68),
-          [
-            Color.fromRGBO(56, 189, 248, fade),
-            Color.fromRGBO(2, 132, 199, fade),
-          ],
-        );
-      canvas.drawPath(_crossbarPath, barPaint);
-
-      final stemPaint = Paint()
-        ..style = PaintingStyle.fill
-        ..color = const Color(0xFF1E293B).withOpacity(fade);
-      canvas.drawPath(_stemPath, stemPaint);
-    }
-
-    if (wireOpacity > 0) {
-      final strokeProgress = (progress / _strokeEnd).clamp(0.0, 1.0).toDouble();
-      final wirePaint = Paint()
-        ..color = const Color(0xFF8C857B).withOpacity(.55 * wireOpacity)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round;
-      _drawGuides(canvas, strokeProgress, wirePaint);
-
-      final dotPaint = Paint()
-        ..color = const Color(0xFF8C857B).withOpacity(.55 * wireOpacity)
-        ..style = PaintingStyle.fill;
-      for (var i = 0; i < _anchors.length; i++) {
-        final revealAt = i / (_anchors.length - 1);
-        if (strokeProgress >= revealAt) {
-          canvas.drawCircle(_anchors[i], 2.1, dotPaint);
-        }
-      }
-    }
+    if (shine > 0 && shine < 1) _drawShine(canvas, shine);
 
     canvas.restore();
   }
 
-  void _drawGuides(Canvas canvas, double progress, Paint paint) {
-    var totalLength = 0.0;
-    final metricsByPath = <List<ui.PathMetric>>[];
-    for (final path in _guides) {
-      final metrics = path.computeMetrics().toList();
-      metricsByPath.add(metrics);
-      totalLength +=
-          metrics.fold<double>(0, (sum, metric) => sum + metric.length);
-    }
+  void _drawHud(Canvas canvas, double progress, double opacity) {
+    final hud = Paint()
+      ..color = const Color(0xFFFAF3E0).withOpacity(.25 * opacity)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.1
+      ..strokeCap = StrokeCap.square;
+    final center = Offset(105, 98);
+    final reveal = Curves.easeOutCubic.transform(progress);
+    canvas.drawLine(Offset(8, 98), Offset(42 + 25 * reveal, 98), hud);
+    canvas.drawLine(Offset(158, 98), Offset(198, 98), hud);
+    canvas.drawLine(Offset(104, 7), Offset(104, 19 + 12 * reveal), hud);
+    canvas.drawLine(Offset(104, 181), Offset(104, 194), hud);
+    canvas.drawCircle(center, 43 * reveal, hud);
+    _drawBracket(canvas, const Rect.fromLTWH(12, 10, 176, 178), 15, hud);
 
-    var remaining = totalLength * progress;
-    for (final metrics in metricsByPath) {
-      for (final metric in metrics) {
-        if (remaining <= 0) return;
-        final segmentLength = math.min(remaining, metric.length).toDouble();
-        canvas.drawPath(metric.extractPath(0, segmentLength), paint);
-        remaining -= segmentLength;
+    final wire = Paint()
+      ..color = const Color(0xFFFAF3E0).withOpacity(.72 * opacity)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..strokeJoin = StrokeJoin.miter
+      ..strokeCap = StrokeCap.square;
+    final metrics = _outerPath.computeMetrics().toList();
+    if (metrics.isNotEmpty) {
+      canvas.drawPath(
+          metrics.first.extractPath(0, metrics.first.length * progress), wire);
+    }
+    final node = Paint()
+      ..color = const Color(0xFFFAF3E0).withOpacity(.8 * opacity)
+      ..style = PaintingStyle.fill;
+    for (var i = 0; i < _anchors.length; i++) {
+      if (progress >= i / (_anchors.length - 1))
+        canvas.drawCircle(_anchors[i], 2, node);
+    }
+  }
+
+  void _drawBracket(Canvas canvas, Rect rect, double corner, Paint paint) {
+    for (final signX in [-1.0, 1.0]) {
+      for (final signY in [-1.0, 1.0]) {
+        final x = signX < 0 ? rect.left : rect.right;
+        final y = signY < 0 ? rect.top : rect.bottom;
+        canvas.drawLine(Offset(x, y + signY * corner), Offset(x, y), paint);
+        canvas.drawLine(Offset(x, y), Offset(x + signX * corner, y), paint);
       }
     }
+    canvas.drawLine(const Offset(24, 164), const Offset(48, 140), paint);
+    canvas.drawLine(const Offset(162, 58), const Offset(184, 36), paint);
+  }
+
+  void _drawAssembly(Canvas canvas, double t) {
+    final leftT = Curves.easeOutBack.transform(t);
+    final rightT = Curves.easeOutBack.transform(t);
+    final pillarT = Curves.easeOutExpo.transform(t);
+    final lockT =
+        Curves.easeOutBack.transform(((t - .58) / .42).clamp(0.0, 1.0));
+    _drawPiece(
+        canvas, _leftWing, Offset(-72 * (1 - leftT), -12 * (1 - leftT)), t);
+    _drawPiece(
+        canvas, _rightWing, Offset(72 * (1 - rightT), -12 * (1 - rightT)), t);
+    _drawPiece(
+      canvas,
+      _pillar,
+      Offset(0, 112 * (1 - pillarT)),
+      t,
+      white: true,
+    );
+    _drawPiece(canvas, _keystone, Offset(0, 26 * (1 - lockT)), lockT);
+  }
+
+  void _drawPiece(
+    Canvas canvas,
+    Path path,
+    Offset offset,
+    double opacity, {
+    bool white = false,
+  }) {
+    canvas.save();
+    canvas.translate(offset.dx, offset.dy);
+    final alpha = opacity.clamp(0.0, 1.0).toDouble();
+    final shadow = Paint()
+      ..color = const Color(0xFF000000).withOpacity(.38 * alpha)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+    canvas.save();
+    canvas.translate(0, 5);
+    canvas.drawPath(path, shadow);
+    canvas.restore();
+
+    final fill = Paint()
+      ..style = PaintingStyle.fill
+      ..shader = ui.Gradient.linear(
+        const Offset(36, 20),
+        const Offset(170, 180),
+        white
+            ? const [Colors.white, Color(0xFFFAF3E0)]
+            : const [Color(0xFFFAF3E0), Color(0xFFE6D5B8)],
+        [0.0, 1.0],
+        TileMode.clamp,
+      )
+      ..colorFilter = ColorFilter.mode(
+        Colors.white.withOpacity(alpha),
+        BlendMode.modulate,
+      );
+    canvas.drawPath(path, fill);
+
+    final edge = Paint()
+      ..color = Colors.white.withOpacity(.92 * alpha)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.35
+      ..strokeJoin = StrokeJoin.miter;
+    canvas.drawPath(path, edge);
+    final bevel = Paint()
+      ..color = const Color(0xFFB99D72).withOpacity(.75 * alpha)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeJoin = StrokeJoin.miter;
+    canvas.drawPath(path, bevel);
+    canvas.restore();
+  }
+
+  void _drawImpact(Canvas canvas, double t) {
+    final eased = Curves.easeOutCubic.transform(t);
+    final paint = Paint()
+      ..color = const Color(0xFFFAF3E0).withOpacity((1 - t) * .8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5 * (1 - t) + .5;
+    canvas.drawCircle(const Offset(104, 48), 5 + eased * 37, paint);
+    final flash = Paint()
+      ..color = Colors.white.withOpacity((1 - t) * .72)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+    canvas.drawCircle(const Offset(104, 48), 12 * (1 - t), flash);
+  }
+
+  void _drawShine(Canvas canvas, double t) {
+    canvas.save();
+    canvas.clipPath(_outerPath);
+    final x = -120 + 420 * Curves.easeInOutCubic.transform(t);
+    final shine = Paint()
+      ..shader = ui.Gradient.linear(
+        Offset(x - 34, 10),
+        Offset(x + 34, 186),
+        [
+          Colors.white.withOpacity(0),
+          Colors.white.withOpacity(.58),
+          const Color(0xFFFAF3E0).withOpacity(0),
+        ],
+        const [0, .5, 1],
+      );
+    canvas.drawRect(const Rect.fromLTWH(0, 0, 200, 200), shine);
+    canvas.restore();
   }
 
   @override
