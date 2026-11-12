@@ -1,0 +1,14 @@
+name: tiduba_flutter_ui
+description: Flutter UI previews for Tiduba Store.
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

@@ -188,17 +188,15 @@
             z-index: 10000;
             display: grid;
             place-items: center;
-            padding: 24px;
+            padding: 0;
             color: #33291f;
             overflow: hidden;
-            background: radial-gradient(ellipse at 50% 38%, #fffefa 0%, #f5efe5 58%, #e9ddce 100%);
+            background: #0e1117;
             opacity: 1;
             visibility: visible;
             transition: opacity .48s ease, visibility .48s ease;
         }
-        #site-intro::before, #site-intro::after { content: ''; position: absolute; pointer-events: none; border: 1px solid rgba(165,119,94,.16); border-radius: 50%; }
-        #site-intro::before { width: min(88vw, 820px); aspect-ratio: 1; top: -48%; left: -34%; }
-        #site-intro::after { width: min(76vw, 680px); aspect-ratio: 1; right: -28%; bottom: -48%; }
+        #site-intro-frame { display: block; width: 100%; height: 100%; border: 0; background: #0e1117; }
         #site-intro.site-intro-dismissed { opacity: 0; visibility: hidden; pointer-events: none; }
         .site-intro-content { position: relative; z-index: 1; width: min(100%, 470px); padding: clamp(26px, 5vw, 46px) 24px 30px; text-align: center; border: 1px solid rgba(255,255,255,.86); border-radius: 30px; background: rgba(255,253,249,.62); box-shadow: 0 24px 80px rgba(94,68,48,.09), inset 0 1px 0 white; backdrop-filter: blur(12px); }
         .site-intro-mark { width: min(164px, 42vw); height: auto; aspect-ratio: 240 / 190; margin: 0 auto 12px; color: #9d705a; filter: drop-shadow(0 9px 13px rgba(134,93,70,.16)); }
@@ -216,7 +214,7 @@
         .site-intro-progress { width: 68px; height: 2px; margin: 20px auto 0; overflow: hidden; border-radius: 99px; background: rgba(141,104,67,.17); }
         .site-intro-progress::after { content: ''; display: block; width: 42%; height: 100%; border-radius: inherit; background: #a78055; animation: siteIntroProgress 2.5s ease-in-out both; }
         .site-intro-skip {
-            position: absolute; right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom));
+            position: absolute; z-index: 2; right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom));
             min-height: 44px; padding: 0 15px; border: 1px solid rgba(117,91,62,.2); border-radius: 999px;
             color: #66523e; background: rgba(255,255,255,.55); font: inherit; font-size: 12px; font-weight: 600; backdrop-filter: blur(8px);
         }
@@ -461,17 +459,7 @@
 <body class="min-h-screen flex flex-col antialiased bg-[#faf7f2] text-[#1c1917]">
 
     <div id="site-intro" role="status" aria-live="polite" aria-label="Tiduba Store">
-        <div class="site-intro-content">
-            <p class="site-intro-kicker">Thuê đồ đẹp · Lưu khoảnh khắc</p>
-            <div class="site-intro-mark" aria-hidden="true"><svg viewBox="0 0 240 190" role="presentation">
-                <text class="logo-outline" x="120" y="154" text-anchor="middle" font-family="'Cormorant Garamond', Georgia, serif" font-size="158" font-style="italic" font-weight="600">T</text>
-            </svg></div>
-            <h1 class="site-intro-brand" aria-label="Tiduba Store"><span class="site-intro-main-word"><span style="--letter-index:0">T</span><span style="--letter-index:1">I</span><span style="--letter-index:2">D</span><span style="--letter-index:3">U</span><span style="--letter-index:4">B</span><span style="--letter-index:5">A</span></span><span class="site-intro-store">STORE</span></h1>
-            <p class="site-intro-caption">Phong cách của bạn, khoảnh khắc của bạn</p>
-            <p class="site-intro-subtitle">Trang phục thiết kế và máy ảnh chất lượng, sẵn sàng đồng hành cùng những dịp thật đặc biệt.</p>
-            <div class="site-intro-rule" aria-hidden="true"></div>
-            <div class="site-intro-progress" aria-hidden="true"></div>
-        </div>
+        <iframe id="site-intro-frame" src="/static/flutter_splash/index.html" title="Tiduba Store loading animation" loading="eager"></iframe>
         <button type="button" class="site-intro-skip" onclick="dismissSiteIntro()">Bỏ qua</button>
     </div>
 
@@ -10509,8 +10497,19 @@
         function startSiteIntro() {
             if (!document.getElementById('site-intro')) return;
             document.body.classList.add('site-intro-active');
-            const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-            siteIntroTimer = setTimeout(dismissSiteIntro, reducedMotion ? 350 : 3400);
+            const frame = document.getElementById('site-intro-frame');
+            const onSplashComplete = (event) => {
+                if (event.origin !== window.location.origin || event.source !== frame?.contentWindow || event.data !== 'tiduba:flutter-splash-complete') return;
+                window.removeEventListener('message', onSplashComplete);
+                dismissSiteIntro();
+            };
+            window.addEventListener('message', onSplashComplete);
+            // If Flutter Web cannot initialize on a very old browser/device, let
+            // the storefront appear instead of leaving the loading layer stuck.
+            siteIntroTimer = setTimeout(() => {
+                window.removeEventListener('message', onSplashComplete);
+                dismissSiteIntro();
+            }, 12000);
         }
 
         function clearAuthLoginError() {
