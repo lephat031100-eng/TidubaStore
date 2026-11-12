@@ -4477,6 +4477,7 @@
         let allCombos = [];
         let currentCategory = 'ALL';
         let currentUser = null;
+        let authSessionRevision = 0;
         let selectedItemForBooking = null;
         let selectedComboForBooking = null;
         let currentReviewItemId = null;
@@ -6392,6 +6393,42 @@
             return ["ao dai", "ao_dai", "aodai"].some(k => combined.includes(k));
         }
 
+        function isPosCostumeItem(item) {
+            return !!item && (item.category === 'COSTUME_FASHION' || isAoDaiItem(item));
+        }
+
+        function posCalendarDayDiff(startValue, endValue) {
+            const start = new Date(startValue);
+            const end = new Date(endValue);
+            if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
+            start.setHours(0, 0, 0, 0);
+            end.setHours(0, 0, 0, 0);
+            return Math.round((end - start) / 86400000);
+        }
+
+        function posNormalizeCostumePickup(value) {
+            const pickup = new Date(value);
+            if (Number.isNaN(pickup.getTime())) return new Date();
+            if (pickup.getHours() < 8) pickup.setHours(8, 0, 0, 0);
+            else if (pickup.getHours() >= 20) {
+                pickup.setDate(pickup.getDate() + 1);
+                pickup.setHours(8, 0, 0, 0);
+            }
+            return pickup;
+        }
+
+        function posCostumeDeadline(startValue, days, isAoDai) {
+            const start = new Date(startValue);
+            const dateOffset = isAoDai ? Math.max(0, Number(days || 1) - 1) : Math.max(1, Number(days || 1));
+            start.setDate(start.getDate() + dateOffset);
+            start.setHours(20, 0, 0, 0);
+            return start;
+        }
+
+        function posIsCostumeOnlyInvoice(invoice) {
+            return !!invoice && invoice.items.length > 0 && invoice.items.every(isPosCostumeItem);
+        }
+
         function openBookingModal(itemId) {
             if (!currentUser) {
                 showToast("Vui lòng đăng nhập trước khi đặt thuê!");
@@ -7829,15 +7866,37 @@
 
             if (!sourceItem) return;
 
+            const hasItems = activeInv.items.length > 0;
+            const hadCamera = activeInv.items.some(isCameraItem);
+            if (!hasItems) posResetInvoiceWindow(activeInv);
             activeInv.items.push(sourceItem);
+            if (hasItems && !hadCamera && isCameraItem(sourceItem)) {
+                const start = activeInv.startTime || formatDtInput(new Date());
+                activeInv.startTime = start;
+                posApplyInvoiceDuration(activeInv, '1_day', 1, 24);
+            }
             renderActivePosInvoice();
             showToast(`Đã thêm "${sourceItem.name}" vào ${activeInv.name}`);
+        }
+
+        function posResetInvoiceWindow(activeInv) {
+            if (!activeInv) return;
+            activeInv.startTime = '';
+            activeInv.endTime = '';
+            activeInv.rentalDurationHours = 0;
+            activeInv.durationPackage = '';
+            activeInv.durationDays = 0;
+            activeInv.durationLabel = '';
         }
 
         function posRemoveItemFromInvoice(itemIdx) {
             const activeInv = posInvoices[activePosTabIdx];
             if (!activeInv) return;
+            const hadCamera = activeInv.items.some(isCameraItem);
             activeInv.items.splice(itemIdx, 1);
+            if (!activeInv.items.length || (hadCamera && !activeInv.items.some(isCameraItem) && posIsCostumeOnlyInvoice(activeInv))) {
+                posResetInvoiceWindow(activeInv);
+            }
             renderActivePosInvoice();
         }
 
@@ -7846,6 +7905,7 @@
             if (!activeInv || activeInv.items.length === 0) return;
             if (!confirm(`Xóa toàn bộ hàng hóa trong ${activeInv.name}?`)) return;
             activeInv.items = [];
+            posResetInvoiceWindow(activeInv);
             renderActivePosInvoice();
         }
 
@@ -7861,7 +7921,7 @@
             renderActivePosInvoice();
         }
 
-        function posApplyInvoiceDuration(activeInv, pkg, days, hours) {
+        function posApplyInvoiceDuration(activeInv, pkg, days, hours, endOverride = null) {
             if (!activeInv) return;
             const startInp = document.getElementById('pos-start-time');
             const endInp = document.getElementById('pos-end-time');
@@ -7869,7 +7929,7 @@
             let start = startValue ? new Date(startValue) : new Date();
             if (Number.isNaN(start.getTime())) start = new Date();
             const durationHours = Math.max(0.25, Number(hours) || 24);
-            const end = new Date(start.getTime() + durationHours * 60 * 60 * 1000);
+            const end = endOverride ? new Date(endOverride) : new Date(start.getTime() + durationHours * 60 * 60 * 1000);
 
             activeInv.startTime = formatDtInput(start);
             activeInv.endTime = formatDtInput(end);
@@ -7898,9 +7958,13 @@
                     return;
                 }
 
-                const billedDays = Math.max(1, Math.ceil(durationHours / 24));
-                it.days = billedDays;
+                const calendarDays = Math.max(0, posCalendarDayDiff(start, end));
+                const isCostume = isPosCostumeItem(it);
                 const isAoDai = isAoDaiItem(it);
+                const billedDays = isCostume
+                    ? (durationHours <= 24 ? 1 : (isAoDai ? Math.max(1, calendarDays + 1) : Math.max(1, calendarDays)))
+                    : Math.max(1, Math.ceil(durationHours / 24));
+                it.days = billedDays;
                 const extraRate = isAoDai ? 20000 : ((Number(it.price_24h) >= 1000000) ? 30000 : 10000);
                 it.price = (Number(it.price_24h) || 0) + Math.round((billedDays - 1) * extraRate);
             });
@@ -7914,6 +7978,45 @@
             if (!startInp || !endInp) return;
             let start = startInp.value ? new Date(startInp.value) : new Date();
             if (Number.isNaN(start.getTime())) return;
+
+            if (posIsCostumeOnlyInvoice(activeInv)) {
+                start = posNormalizeCostumePickup(start);
+                const isAoDaiOnly = activeInv.items.every(isAoDaiItem);
+                const minOffset = isAoDaiOnly ? 0 : 1;
+                if (changedField === 'start') {
+                    const existingEnd = endInp.value ? new Date(endInp.value) : null;
+                    let offset = existingEnd && !Number.isNaN(existingEnd.getTime())
+                        ? Math.max(minOffset, posCalendarDayDiff(start, existingEnd))
+                        : minOffset;
+                    const end = posCostumeDeadline(start, offset + (isAoDaiOnly ? 1 : 0), isAoDaiOnly);
+                    activeInv.startTime = formatDtInput(start);
+                    activeInv.endTime = formatDtInput(end);
+                    startInp.value = activeInv.startTime;
+                    endInp.value = activeInv.endTime;
+                } else {
+                    let end = endInp.value ? new Date(endInp.value) : null;
+                    if (!end || Number.isNaN(end.getTime())) end = posCostumeDeadline(start, 1, isAoDaiOnly);
+                    let offset = Math.max(minOffset, posCalendarDayDiff(start, end));
+                    end = new Date(start);
+                    end.setDate(end.getDate() + offset);
+                    end.setHours(20, 0, 0, 0);
+                    activeInv.startTime = formatDtInput(start);
+                    activeInv.endTime = formatDtInput(end);
+                    startInp.value = activeInv.startTime;
+                    endInp.value = activeInv.endTime;
+                }
+                const days = Math.max(1, posCalendarDayDiff(activeInv.startTime, activeInv.endTime) + (isAoDaiOnly ? 1 : 0));
+                const billedDays = isAoDaiOnly ? days : Math.max(1, days);
+                activeInv.items.forEach(it => {
+                    it.days = billedDays;
+                    const rate = isAoDaiItem(it) ? 20000 : ((Number(it.price_24h) >= 1000000) ? 30000 : 10000);
+                    it.price = (Number(it.price_24h) || 0) + (billedDays - 1) * rate;
+                });
+                activeInv.rentalDurationHours = (new Date(activeInv.endTime) - new Date(activeInv.startTime)) / 3600000;
+                activeInv.durationLabel = `${billedDays} ngày · trả ${isAoDaiOnly && billedDays === 1 ? 'hôm nay' : 'trước 20:00'}`;
+                renderActivePosInvoice();
+                return;
+            }
 
             if (changedField === 'start') {
                 const keepHours = Number(activeInv.rentalDurationHours) || 24;
@@ -7980,6 +8083,11 @@
             if (endInp && endInp.value) activeInv.endTime = endInp.value;
 
             let durationText = activeInv.durationLabel || "1 ngày";
+            if (posIsCostumeOnlyInvoice(activeInv)) {
+                const aoDaiOnly = activeInv.items.every(isAoDaiItem);
+                const dayCount = Math.max(1, Number(activeInv.items[0].days) || 1);
+                durationText = `${dayCount} ngày · trả ${aoDaiOnly && dayCount === 1 ? 'hôm nay' : (dayCount === 1 ? 'ngày mai' : 'trước 20:00')}`;
+            }
             if (activeInv.startTime && activeInv.endTime) {
                 const dtS = new Date(activeInv.startTime);
                 const dtE = new Date(activeInv.endTime);
@@ -8040,7 +8148,7 @@
             const posEndInp = document.getElementById('pos-end-time');
             if (posStartInp) {
                 if (!activeInv.startTime) {
-                    const now = new Date();
+                    const now = posIsCostumeOnlyInvoice(activeInv) ? posNormalizeCostumePickup(new Date()) : new Date();
                     activeInv.startTime = formatDtInput(now);
                 }
                 posStartInp.value = activeInv.startTime;
@@ -8049,7 +8157,12 @@
             if (posEndInp) {
                 if (!activeInv.endTime) {
                     const start = new Date(activeInv.startTime);
-                    activeInv.endTime = formatDtInput(new Date(start.getTime() + 24 * 60 * 60 * 1000));
+                    if (posIsCostumeOnlyInvoice(activeInv)) {
+                        const aoDaiOnly = activeInv.items.every(isAoDaiItem);
+                        activeInv.endTime = formatDtInput(posCostumeDeadline(start, 1, aoDaiOnly));
+                    } else {
+                        activeInv.endTime = formatDtInput(new Date(start.getTime() + 24 * 60 * 60 * 1000));
+                    }
                 }
                 posEndInp.value = activeInv.endTime;
                 posEndInp.min = activeInv.startTime;
@@ -8088,7 +8201,7 @@
 
             area.innerHTML = activeInv.items.map((it, idx) => {
                 const isCamera = it.category === 'CAMERA_GEAR';
-                const isCostume = it.category === 'COSTUME_FASHION';
+                const isCostume = isPosCostumeItem(it);
                 const pkg = it.rental_type || '24h';
 
                 return `
@@ -8129,7 +8242,7 @@
                         ` : isCostume ? `
                             <div class="pt-1.5 border-t border-gray-200/60 text-[10px] font-mono text-purple-700 flex items-center justify-between">
                                 <span><i class="fa-solid fa-shirt"></i> Trang phục:</span>
-                                <span class="text-emerald-700 font-bold">Hạn trả 20:00 ngày tiếp theo (1 ngày)</span>
+                                <span class="text-emerald-700 font-bold">${isAoDaiItem(it) && (it.days || 1) === 1 ? 'Hạn trả trong ngày, trước 20:00' : (isAoDaiItem(it) ? `Hạn trả trước 20:00 (${it.days} ngày)` : ((it.days || 1) === 1 ? 'Hạn trả ngày mai, trước 20:00' : `Hạn trả trước 20:00 (${it.days} ngày)`) )}</span>
                             </div>
                         ` : ''}
                     </div>
@@ -8241,15 +8354,29 @@
                 if (it.days && it.days > maxDays) maxDays = it.days;
             });
 
-            const itemsPayload = activeInv.items.map(it => ({
-                item_id: it.item_id || null,
-                combo_id: it.combo_id || null,
-                rental_type: it.rental_type || '24h',
-                days: it.days || maxDays,
-                start_time: startTime,
-                end_time: endTime,
-                custom_price: it.price
-            }));
+            const itemsPayload = activeInv.items.map(it => {
+                let itemEndTime = endTime;
+                if (isPosCostumeItem(it)) {
+                    const isAoDai = isAoDaiItem(it);
+                    const start = new Date(rawStartTime);
+                    const invoiceEnd = new Date(rawEndTime);
+                    const itemDays = Math.max(1, Number(it.days) || 1);
+                    const returnOffset = isAoDai ? Math.max(0, itemDays - 1) : Math.max(1, itemDays);
+                    const costumeEnd = new Date(start);
+                    costumeEnd.setDate(costumeEnd.getDate() + returnOffset);
+                    costumeEnd.setHours(20, 0, 0, 0);
+                    itemEndTime = formatDtInput(costumeEnd).replace('T', ' ');
+                }
+                return {
+                    item_id: it.item_id || null,
+                    combo_id: it.combo_id || null,
+                    rental_type: it.rental_type || '24h',
+                    days: it.days || maxDays,
+                    start_time: startTime,
+                    end_time: itemEndTime,
+                    custom_price: it.price
+                };
+            });
 
             const branchCode = document.getElementById('pos-branch-code') ? document.getElementById('pos-branch-code').value : 'CN1';
 
@@ -10423,10 +10550,7 @@
                     return;
                 }
 
-                localStorage.setItem('tiduba_token', data.token);
-                currentUser = data.user;
-                updateAuthUI();
-                renderCatalog();
+                commitAuthSession(data.user, data.token);
                 closeAuthModal();
                 showToast(data.message || 'Đăng nhập thành công!');
                 if (currentUser.role === 'admin') showSection('admin');
@@ -10710,10 +10834,7 @@
                     return;
                 }
 
-                localStorage.setItem('tiduba_token', data.token);
-                currentUser = data.user;
-                updateAuthUI();
-                renderCatalog();
+                commitAuthSession(data.user, data.token);
                 closeAuthModal();
                 showToast("🎉 Đăng ký tài khoản thành công! Tặng bạn 50.000đ điểm VIP.");
                 showSection('catalog');
@@ -10782,18 +10903,38 @@
             autoLoginAdminIfNeeded();
         });
 
+        function commitAuthSession(user, token = null) {
+            authSessionRevision++;
+            if (token) localStorage.setItem('tiduba_token', token);
+            else localStorage.removeItem('tiduba_token');
+            currentUser = user || null;
+            if ((!currentUser || currentUser.role !== 'admin') && adminRealtimePoller) {
+                clearInterval(adminRealtimePoller);
+                adminRealtimePoller = null;
+            }
+            updateAuthUI();
+            renderCatalog();
+            document.dispatchEvent(new CustomEvent('tiduba:authchange', { detail: { user: currentUser } }));
+        }
+
+        window.addEventListener('storage', function(event) {
+            if (event.key !== 'tiduba_token') return;
+            if (!event.newValue) commitAuthSession(null);
+            else checkAuthSession();
+        });
+
         async function checkAuthSession() {
             const token = localStorage.getItem('tiduba_token');
             if (token) {
+                const revision = authSessionRevision;
                 try {
                     const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
                     const data = await res.json();
+                    if (revision !== authSessionRevision || localStorage.getItem('tiduba_token') !== token) return;
                     if (data.authenticated) {
-                        currentUser = data.user;
-                        updateAuthUI();
-                        renderCatalog();
+                        commitAuthSession(data.user);
                     } else {
-                        localStorage.removeItem('tiduba_token');
+                        commitAuthSession(null);
                     }
                 } catch (e) {
                     console.error(e);
@@ -11404,11 +11545,11 @@
         }
 
         function logout() {
-            localStorage.removeItem('tiduba_token');
-            currentUser = null;
-            updateAuthUI();
-            renderCatalog();
+            commitAuthSession(null);
+            closeAuthModal();
+            closeAdminNavDropdown();
             showSection('catalog');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             showToast("Đã đăng xuất tài khoản!");
         }
 
