@@ -3139,6 +3139,9 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
     if not req.items or len(req.items) == 0:
         raise HTTPException(status_code=400, detail="Giỏ hàng trống! Vui lòng chọn ít nhất 1 sản phẩm.")
 
+    if req.is_direct_paid and (not user or user.get("role") != "admin"):
+        raise HTTPException(status_code=403, detail="Phiên Quản trị viên không hợp lệ. Đăng nhập tài khoản Admin để sử dụng POS KiotViet.")
+
     conn = get_db()
     cur = conn.cursor()
 
@@ -3253,7 +3256,20 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
         # Nếu là máy ảnh và người dùng chọn gói riêng: 4h, 8h, 1_day, multi_days
         is_cam = is_camera_body_item(cat, name, (item["subcategory"] if item else None))
         if is_cam and item_req.rental_type:
-            if item_req.rental_type == "4h":
+            if item_req.rental_type == "overnight":
+                if not is_admin_mode:
+                    conn.close()
+                    raise HTTPException(status_code=403, detail="Gói thuê đêm chỉ dành cho nhân viên tạo đơn tại POS KiotViet.")
+                overnight_start = parse_dt_safe(it_start)
+                overnight_end = parse_dt_safe(it_end)
+                if (not overnight_start or not overnight_end
+                        or overnight_start.hour != 20 or overnight_start.minute != 0
+                        or overnight_end.hour != 8 or overnight_end.minute != 0
+                        or overnight_end.date() != overnight_start.date() + datetime.timedelta(days=1)):
+                    conn.close()
+                    raise HTTPException(status_code=400, detail="Gói thuê đêm chỉ áp dụng từ 20:00 đến 08:00 sáng hôm sau.")
+                r_type = "Thuê đêm (20:00 - 08:00)"; hours = 12.0; r_days = 0.5; it_price = price_4h
+            elif item_req.rental_type == "4h":
                 r_type = "4h"; hours = 4.0; r_days = 0.5; it_price = price_4h
             elif item_req.rental_type == "8h":
                 r_type = "8h"; hours = 8.0; r_days = 0.5; it_price = price_8h
@@ -3293,7 +3309,7 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
         night_start = parse_dt_safe(it_start) if is_cam else None
         night_end = parse_dt_safe(it_end) if is_cam else None
         night_count = max(0, (night_end.date() - night_start.date()).days) if night_start and night_end else 0
-        night_surcharge = night_count * 30000
+        night_surcharge = 0 if is_cam and item_req.rental_type == "overnight" else night_count * 30000
         if night_surcharge:
             it_price += night_surcharge
             r_type += f" + phụ thu đêm ({night_count} đêm)"

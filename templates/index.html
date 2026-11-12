@@ -4511,6 +4511,10 @@
         });
 
         function showSection(secName) {
+            if (secName === 'kiotviet-pos' && (!currentUser || currentUser.role !== 'admin')) {
+                showToast('Chức năng POS KiotViet chỉ dành cho Admin.');
+                secName = 'catalog';
+            }
             ['catalog', 'my-rentals', 'admin', 'kiotviet-pos'].forEach(s => {
                 const el = document.getElementById(`sec-${s}`);
                 if (el) {
@@ -4543,8 +4547,13 @@
             if (secName === 'kiotviet-pos') initKiotvietPos();
         }
 
-        function switchToKiotvietPos() {
-            if (!currentUser || currentUser.role !== 'admin') {
+        async function switchToKiotvietPos() {
+            const validAdminSession = await ensureAdminPosSession();
+            if (validAdminSession !== true) {
+                if (!currentUser) {
+                    openAuthModal();
+                    toggleAuthTab('login');
+                }
                 showToast("Chức năng POS KiotViet chỉ dành cho Admin!");
                 return;
             }
@@ -7936,6 +7945,23 @@
             const activeInv = posInvoices[activePosTabIdx];
             if (!activeInv || !activeInv.items[itemIdx]) return;
             const item = activeInv.items[itemIdx];
+            if (pkg === 'overnight') {
+                const startInp = document.getElementById('pos-start-time');
+                const endInp = document.getElementById('pos-end-time');
+                let start = new Date((startInp && startInp.value) || activeInv.startTime || new Date());
+                if (Number.isNaN(start.getTime())) start = new Date();
+                start.setHours(20, 0, 0, 0);
+                const end = new Date(start);
+                end.setDate(end.getDate() + 1);
+                end.setHours(8, 0, 0, 0);
+                activeInv.startTime = formatDtInput(start);
+                activeInv.endTime = formatDtInput(end);
+                if (startInp) startInp.value = activeInv.startTime;
+                if (endInp) { endInp.value = activeInv.endTime; endInp.min = activeInv.startTime; }
+                posApplyInvoiceDuration(activeInv, 'overnight', 0.5, 12, activeInv.endTime);
+                renderActivePosInvoice();
+                return;
+            }
             const days = pkg === 'multi_days'
                 ? Math.max(2, parseFloat(customDays) || (item.days > 1 ? item.days : 2))
                 : (pkg === '4h' || pkg === '8h' ? 0.5 : 1);
@@ -7959,7 +7985,8 @@
             activeInv.rentalDurationHours = durationHours;
             activeInv.durationPackage = pkg;
             activeInv.durationDays = days;
-            activeInv.durationLabel = pkg === '4h' ? '4 giờ'
+            activeInv.durationLabel = pkg === 'overnight' ? 'Thuê đêm (20:00 - 08:00)'
+                : pkg === '4h' ? '4 giờ'
                 : pkg === '8h' ? '8 giờ'
                 : pkg === 'multi_days' ? `${days} ngày`
                 : '1 ngày';
@@ -7975,11 +8002,12 @@
                     it.rental_type = pkg;
                     it.days = days;
                     let basePrice = 0;
-                    if (pkg === '4h') basePrice = Number(it.price_4h ?? Math.round((Number(it.price_24h) || 0) * 0.5));
+                    if (pkg === 'overnight') basePrice = Number(it.price_4h ?? Math.round((Number(it.price_24h) || 0) * 0.5));
+                    else if (pkg === '4h') basePrice = Number(it.price_4h ?? Math.round((Number(it.price_24h) || 0) * 0.5));
                     else if (pkg === '8h') basePrice = Number(it.price_8h ?? Math.round((Number(it.price_24h) || 0) * 0.7));
                     else if (pkg === '1_day') basePrice = Number(it.price_24h) || 0;
                     else basePrice = Math.round(days * (Number(it.price_24h) || 0));
-                    it.nightCount = posCameraNightCount(start, end);
+                    it.nightCount = pkg === 'overnight' ? 0 : posCameraNightCount(start, end);
                     it.nightSurcharge = it.nightCount * 30000;
                     it.price = basePrice + it.nightSurcharge;
                     return;
@@ -8048,13 +8076,22 @@
             if (changedField === 'start') {
                 const keepHours = Number(activeInv.rentalDurationHours) || 24;
                 activeInv.startTime = formatDtInput(start);
-                activeInv.endTime = formatDtInput(new Date(start.getTime() + keepHours * 60 * 60 * 1000));
+                if (activeInv.durationPackage === 'overnight') {
+                    start.setHours(20, 0, 0, 0);
+                    const end = new Date(start);
+                    end.setDate(end.getDate() + 1);
+                    end.setHours(8, 0, 0, 0);
+                    activeInv.startTime = formatDtInput(start);
+                    activeInv.endTime = formatDtInput(end);
+                } else {
+                    activeInv.endTime = formatDtInput(new Date(start.getTime() + keepHours * 60 * 60 * 1000));
+                }
                 endInp.value = activeInv.endTime;
                 endInp.min = activeInv.startTime;
                 if (activeInv.items.some(isCameraItem)) {
                     const pkg = activeInv.durationPackage || (keepHours <= 4 ? '4h' : keepHours <= 8 ? '8h' : keepHours <= 24 ? '1_day' : 'multi_days');
                     const days = pkg === 'multi_days' ? Math.max(2, Number(activeInv.durationDays) || Math.ceil(keepHours / 24)) : (pkg === '4h' || pkg === '8h' ? 0.5 : 1);
-                    posApplyInvoiceDuration(activeInv, pkg, days, keepHours, activeInv.endTime);
+                    posApplyInvoiceDuration(activeInv, pkg, pkg === 'overnight' ? 0.5 : days, pkg === 'overnight' ? 12 : keepHours, activeInv.endTime);
                 }
             } else {
                 const end = endInp.value ? new Date(endInp.value) : null;
@@ -8065,15 +8102,18 @@
                 }
                 const durationHours = (end.getTime() - start.getTime()) / (60 * 60 * 1000);
                 const billDays = Math.max(1, Math.ceil(durationHours / 24));
-                const pkg = durationHours <= 4 ? '4h'
+                const isOvernightWindow = start.getHours() === 20 && start.getMinutes() === 0
+                    && end.getHours() === 8 && end.getMinutes() === 0
+                    && posCalendarDayDiff(start, end) === 1;
+                const pkg = isOvernightWindow ? 'overnight' : durationHours <= 4 ? '4h'
                     : durationHours <= 8 ? '8h'
                     : durationHours <= 24 ? '1_day'
                     : 'multi_days';
-                const packageDays = pkg === '4h' || pkg === '8h' ? 0.5 : (pkg === '1_day' ? 1 : billDays);
+                const packageDays = pkg === 'overnight' || pkg === '4h' || pkg === '8h' ? 0.5 : (pkg === '1_day' ? 1 : billDays);
                 activeInv.startTime = formatDtInput(start);
                 activeInv.endTime = formatDtInput(end);
                 activeInv.rentalDurationHours = durationHours;
-                posApplyInvoiceDuration(activeInv, pkg, packageDays, durationHours);
+                posApplyInvoiceDuration(activeInv, pkg, packageDays, durationHours, formatDtInput(end));
                 // Preserve the manually selected return time after syncing item prices and package states.
                 activeInv.endTime = formatDtInput(end);
                 endInp.value = activeInv.endTime;
@@ -8211,7 +8251,7 @@
                 const end = new Date(activeInv.endTime);
                 const hours = (end.getTime() - start.getTime()) / 3600000;
                 const pkg = activeInv.durationPackage || (hours <= 4 ? '4h' : hours <= 8 ? '8h' : hours <= 24 ? '1_day' : 'multi_days');
-                const days = pkg === 'multi_days' ? Math.max(2, Number(activeInv.durationDays) || Math.ceil(hours / 24)) : (pkg === '4h' || pkg === '8h' ? 0.5 : 1);
+                const days = pkg === 'multi_days' ? Math.max(2, Number(activeInv.durationDays) || Math.ceil(hours / 24)) : (pkg === '4h' || pkg === '8h' || pkg === 'overnight' ? 0.5 : 1);
                 posApplyInvoiceDuration(activeInv, pkg, days, hours, activeInv.endTime);
             }
 
@@ -8243,7 +8283,7 @@
                 const isCamera = it.category === 'CAMERA_GEAR';
                 const isCostume = isPosCostumeItem(it);
                 const pkg = it.rental_type || '24h';
-                const nightCount = isCamera ? posCameraNightCount(activeInv.startTime, activeInv.endTime) : 0;
+                const nightCount = isCamera && pkg !== 'overnight' ? posCameraNightCount(activeInv.startTime, activeInv.endTime) : 0;
                 const nightSurcharge = nightCount * 30000;
 
                 return `
@@ -8274,12 +8314,14 @@
                                 <span class="text-gray-500 font-bold">Gói:</span>
                                 <button type="button" onclick="posSetItemDuration(${idx}, '4h')" class="px-2 py-0.5 rounded-lg border font-bold ${pkg === '4h' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-gray-600 border-gray-300'}">4h</button>
                                 <button type="button" onclick="posSetItemDuration(${idx}, '8h')" class="px-2 py-0.5 rounded-lg border font-bold ${pkg === '8h' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-gray-600 border-gray-300'}">8h</button>
+                                <button type="button" onclick="posSetItemDuration(${idx}, 'overnight')" class="px-2 py-0.5 rounded-lg border font-bold ${pkg === 'overnight' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-gray-600 border-gray-300'}">Đêm 20h–8h</button>
                                 <button type="button" onclick="posSetItemDuration(${idx}, '1_day')" class="px-2 py-0.5 rounded-lg border font-bold ${pkg === '1_day' || pkg === '24h' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-gray-600 border-gray-300'}">1 Ngày</button>
                                 <button type="button" onclick="posSetItemDuration(${idx}, 'multi_days', 2)" class="px-2 py-0.5 rounded-lg border font-bold ${pkg === 'multi_days' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-gray-600 border-gray-300'}">Nhiều ngày</button>
                                 ${pkg === 'multi_days' ? `
                                     <input type="number" min="2" max="60" value="${it.days || 2}" onchange="posSetItemDuration(${idx}, 'multi_days', this.value)" class="w-12 bg-white border border-emerald-500 rounded px-1 py-0.5 text-center font-bold text-emerald-700">
                                     <span class="text-gray-400">ngày</span>
                                 ` : ''}
+                                ${pkg === 'overnight' ? `<span class="w-full pt-1 text-[10px] font-sans font-semibold text-emerald-700"><i class="fa-solid fa-moon mr-1"></i>Gói đêm 20:00–08:00 · tính giá 4 giờ · không phụ thu đêm</span>` : ''}
                                 ${nightCount > 0 ? `<span class="w-full pt-1 text-[10px] font-sans font-semibold text-amber-700"><i class="fa-solid fa-moon mr-1"></i>Phụ thu qua đêm: ${nightCount} × 30.000đ = ${nightSurcharge.toLocaleString()}đ (đã tính trong giá)</span>` : ''}
                             </div>
                         ` : isCostume ? `
@@ -8377,10 +8419,47 @@
             }
         }
 
+        async function ensureAdminPosSession() {
+            const token = localStorage.getItem('tiduba_token');
+            if (!token) {
+                commitAuthSession(null);
+                return false;
+            }
+            try {
+                const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await res.json();
+                if (!res.ok || !data.authenticated || !data.user) {
+                    commitAuthSession(null);
+                    return false;
+                }
+                if (data.user.role !== 'admin') {
+                    commitAuthSession(data.user);
+                    return false;
+                }
+                if (!currentUser || currentUser.id !== data.user.id || currentUser.role !== 'admin') commitAuthSession(data.user);
+                return true;
+            } catch (error) {
+                console.error('Admin POS session check failed:', error);
+                return null;
+            }
+        }
+
         async function posCheckoutDirect(isPaidNow = true) {
             const activeInv = posInvoices[activePosTabIdx];
             if (!activeInv || activeInv.items.length === 0) {
                 alert("Hóa đơn chưa có sản phẩm nào!");
+                return;
+            }
+
+            const adminSessionValid = await ensureAdminPosSession();
+            if (adminSessionValid !== true) {
+                if (adminSessionValid === false) {
+                    openAuthModal();
+                    toggleAuthTab('login');
+                    showToast('Phiên Admin không hợp lệ hoặc đã hết hạn. Đăng nhập tài khoản Admin để tiếp tục POS.');
+                } else {
+                    showToast('Chưa kiểm tra được phiên Admin. Vui lòng thử lại khi kết nối ổn định.');
+                }
                 return;
             }
 
