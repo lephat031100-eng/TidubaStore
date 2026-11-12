@@ -1962,20 +1962,18 @@
                             </button>
                         </div>
 
-                        <!-- Category Filter Pills -->
-                        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-                            <button onclick="posFilterCategory('ALL')" id="pos-cat-ALL" class="pos-cat-pill bg-emerald-600 text-white font-bold px-3 py-1 rounded-full whitespace-nowrap shadow-sm">
-                                Tất cả
+                        <!-- Compact product category dropdown -->
+                        <div class="relative" id="pos-category-menu-wrap">
+                            <button type="button" onclick="togglePosCategoryMenu()" aria-haspopup="listbox" aria-expanded="false" id="pos-category-menu-button" class="w-full flex items-center justify-between gap-3 rounded-xl border border-[#d9d4cd] bg-[#faf8f4] px-3.5 py-2.5 text-left text-xs transition hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100">
+                                <span class="flex min-w-0 items-center gap-2"><i class="fa-solid fa-box-open text-emerald-600"></i><span class="font-semibold text-gray-700">Sản Phẩm</span><span class="truncate text-gray-500" id="pos-category-selected-label">Tất cả</span></span>
+                                <i class="fa-solid fa-chevron-down text-gray-500 text-[10px] transition-transform" id="pos-category-chevron"></i>
                             </button>
-                            <button onclick="posFilterCategory('CAMERA_GEAR')" id="pos-cat-CAMERA_GEAR" class="pos-cat-pill bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-3 py-1 rounded-full whitespace-nowrap">
-                                Máy ảnh & Gear
-                            </button>
-                            <button onclick="posFilterCategory('COSTUME_FASHION')" id="pos-cat-COSTUME_FASHION" class="pos-cat-pill bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-3 py-1 rounded-full whitespace-nowrap">
-                                Trang phục
-                            </button>
-                            <button onclick="posFilterCategory('COMBOS')" id="pos-cat-COMBOS" class="pos-cat-pill bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-3 py-1 rounded-full whitespace-nowrap">
-                                Combo tiết kiệm
-                            </button>
+                            <div id="pos-category-menu" role="listbox" aria-label="Lọc sản phẩm" class="hidden absolute z-30 mt-1.5 w-full overflow-hidden rounded-xl border border-[#e5e0d8] bg-white p-1 shadow-xl">
+                                <button type="button" role="option" onclick="posFilterCategory('ALL')" class="pos-category-option w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-700 transition hover:bg-emerald-50 hover:text-emerald-800">Tất cả</button>
+                                <button type="button" role="option" onclick="posFilterCategory('CAMERA_GEAR')" class="pos-category-option w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-700 transition hover:bg-emerald-50 hover:text-emerald-800">Máy ảnh &amp; Gear</button>
+                                <button type="button" role="option" onclick="posFilterCategory('COSTUME_FASHION')" class="pos-category-option w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-700 transition hover:bg-emerald-50 hover:text-emerald-800">Trang phục</button>
+                                <button type="button" role="option" onclick="posFilterCategory('COMBOS')" class="pos-category-option w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-700 transition hover:bg-emerald-50 hover:text-emerald-800">Combo tiết kiệm</button>
+                            </div>
                         </div>
 
                         <!-- Subcategory Title -->
@@ -7733,16 +7731,41 @@
 
         function posFilterCategory(cat) {
             posCurrentCat = cat;
-            ['ALL', 'CAMERA_GEAR', 'COSTUME_FASHION', 'COMBOS'].forEach(c => {
-                const btn = document.getElementById(`pos-cat-${c}`);
-                if (!btn) return;
-                if (c === cat) {
-                    btn.className = "pos-cat-pill bg-emerald-600 text-white font-bold px-3 py-1 rounded-full whitespace-nowrap shadow-sm";
-                } else {
-                    btn.className = "pos-cat-pill bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-3 py-1 rounded-full whitespace-nowrap";
-                }
+            const labels = { ALL: 'Tất cả', CAMERA_GEAR: 'Máy ảnh & Gear', COSTUME_FASHION: 'Trang phục', COMBOS: 'Combo tiết kiệm' };
+            const label = document.getElementById('pos-category-selected-label');
+            if (label) label.innerText = labels[cat] || labels.ALL;
+            document.querySelectorAll('.pos-category-option').forEach(option => {
+                const selected = option.innerText.trim() === (labels[cat] || labels.ALL);
+                option.classList.toggle('bg-emerald-50', selected);
+                option.classList.toggle('text-emerald-800', selected);
             });
+            const menu = document.getElementById('pos-category-menu');
+            const button = document.getElementById('pos-category-menu-button');
+            const chevron = document.getElementById('pos-category-chevron');
+            if (menu) menu.classList.add('hidden');
+            if (button) button.setAttribute('aria-expanded', 'false');
+            if (chevron) chevron.classList.remove('rotate-180');
             posFilterCatalogList();
+        }
+
+        function togglePosCategoryMenu(forceOpen = null) {
+            const menu = document.getElementById('pos-category-menu');
+            const button = document.getElementById('pos-category-menu-button');
+            const chevron = document.getElementById('pos-category-chevron');
+            if (!menu) return;
+            const open = forceOpen === null ? menu.classList.contains('hidden') : !!forceOpen;
+            menu.classList.toggle('hidden', !open);
+            if (button) button.setAttribute('aria-expanded', String(open));
+            if (chevron) chevron.classList.toggle('rotate-180', open);
+        }
+
+        document.addEventListener('click', function(event) {
+            const wrap = document.getElementById('pos-category-menu-wrap');
+            if (wrap && !wrap.contains(event.target)) togglePosCategoryMenu(false);
+        });
+
+        function posCameraNightCount(startValue, endValue) {
+            return Math.max(0, posCalendarDayDiff(startValue, endValue));
         }
 
         function posFilterCatalogList() {
@@ -7951,10 +7974,14 @@
                 if (isCameraItem(it)) {
                     it.rental_type = pkg;
                     it.days = days;
-                    if (pkg === '4h') it.price = Number(it.price_4h ?? Math.round((Number(it.price_24h) || 0) * 0.5));
-                    else if (pkg === '8h') it.price = Number(it.price_8h ?? Math.round((Number(it.price_24h) || 0) * 0.7));
-                    else if (pkg === '1_day') it.price = Number(it.price_24h) || 0;
-                    else it.price = Math.round(days * (Number(it.price_24h) || 0));
+                    let basePrice = 0;
+                    if (pkg === '4h') basePrice = Number(it.price_4h ?? Math.round((Number(it.price_24h) || 0) * 0.5));
+                    else if (pkg === '8h') basePrice = Number(it.price_8h ?? Math.round((Number(it.price_24h) || 0) * 0.7));
+                    else if (pkg === '1_day') basePrice = Number(it.price_24h) || 0;
+                    else basePrice = Math.round(days * (Number(it.price_24h) || 0));
+                    it.nightCount = posCameraNightCount(start, end);
+                    it.nightSurcharge = it.nightCount * 30000;
+                    it.price = basePrice + it.nightSurcharge;
                     return;
                 }
 
@@ -8024,6 +8051,11 @@
                 activeInv.endTime = formatDtInput(new Date(start.getTime() + keepHours * 60 * 60 * 1000));
                 endInp.value = activeInv.endTime;
                 endInp.min = activeInv.startTime;
+                if (activeInv.items.some(isCameraItem)) {
+                    const pkg = activeInv.durationPackage || (keepHours <= 4 ? '4h' : keepHours <= 8 ? '8h' : keepHours <= 24 ? '1_day' : 'multi_days');
+                    const days = pkg === 'multi_days' ? Math.max(2, Number(activeInv.durationDays) || Math.ceil(keepHours / 24)) : (pkg === '4h' || pkg === '8h' ? 0.5 : 1);
+                    posApplyInvoiceDuration(activeInv, pkg, days, keepHours, activeInv.endTime);
+                }
             } else {
                 const end = endInp.value ? new Date(endInp.value) : null;
                 if (!end || Number.isNaN(end.getTime()) || end <= start) {
@@ -8174,6 +8206,14 @@
                     ? (end.getTime() - start.getTime()) / 3600000
                     : 24;
             }
+            if (activeInv.items.some(isCameraItem)) {
+                const start = new Date(activeInv.startTime);
+                const end = new Date(activeInv.endTime);
+                const hours = (end.getTime() - start.getTime()) / 3600000;
+                const pkg = activeInv.durationPackage || (hours <= 4 ? '4h' : hours <= 8 ? '8h' : hours <= 24 ? '1_day' : 'multi_days');
+                const days = pkg === 'multi_days' ? Math.max(2, Number(activeInv.durationDays) || Math.ceil(hours / 24)) : (pkg === '4h' || pkg === '8h' ? 0.5 : 1);
+                posApplyInvoiceDuration(activeInv, pkg, days, hours, activeInv.endTime);
+            }
 
             // Đồng bộ ô cọc
             const depTypeSel = document.getElementById('pos-deposit-type-select');
@@ -8203,6 +8243,8 @@
                 const isCamera = it.category === 'CAMERA_GEAR';
                 const isCostume = isPosCostumeItem(it);
                 const pkg = it.rental_type || '24h';
+                const nightCount = isCamera ? posCameraNightCount(activeInv.startTime, activeInv.endTime) : 0;
+                const nightSurcharge = nightCount * 30000;
 
                 return `
                     <div class="p-3 mb-2 rounded-2xl border border-gray-200/80 bg-gray-50/60 space-y-2 text-xs">
@@ -8238,6 +8280,7 @@
                                     <input type="number" min="2" max="60" value="${it.days || 2}" onchange="posSetItemDuration(${idx}, 'multi_days', this.value)" class="w-12 bg-white border border-emerald-500 rounded px-1 py-0.5 text-center font-bold text-emerald-700">
                                     <span class="text-gray-400">ngày</span>
                                 ` : ''}
+                                ${nightCount > 0 ? `<span class="w-full pt-1 text-[10px] font-sans font-semibold text-amber-700"><i class="fa-solid fa-moon mr-1"></i>Phụ thu qua đêm: ${nightCount} × 30.000đ = ${nightSurcharge.toLocaleString()}đ (đã tính trong giá)</span>` : ''}
                             </div>
                         ` : isCostume ? `
                             <div class="pt-1.5 border-t border-gray-200/60 text-[10px] font-mono text-purple-700 flex items-center justify-between">
