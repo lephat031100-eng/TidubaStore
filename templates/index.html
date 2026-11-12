@@ -2415,7 +2415,7 @@
                         <strong class="text-white" id="calc-rental-price">0đ</strong>
                     </div>
                     <div id="calc-night-surcharge-row" class="hidden flex justify-between text-gray-400">
-                        <span>Phụ thu đêm (máy ảnh):</span>
+                        <span id="calc-night-surcharge-label">Phụ thu đêm máy ảnh:</span>
                         <strong class="text-amber-700 font-bold" id="calc-night-surcharge">30.000đ</strong>
                     </div>
                     <div id="calc-deposit-row" class="hidden flex justify-between text-gray-400">
@@ -6741,10 +6741,17 @@
                 rentalPrice = Math.round(days * target.price_24h);
             }
             
-            const nightSurcharge = isCam && dtEnd.toDateString() !== dtStart.toDateString() ? 30000 : 0;
+            const startDateKey = Date.UTC(dtStart.getFullYear(), dtStart.getMonth(), dtStart.getDate());
+            const endDateKey = Date.UTC(dtEnd.getFullYear(), dtEnd.getMonth(), dtEnd.getDate());
+            const nightCount = isCam ? Math.max(0, Math.round((endDateKey - startDateKey) / 86400000)) : 0;
+            const nightSurcharge = nightCount * 30000;
             rentalPrice += nightSurcharge;
             const nightRow = document.getElementById('calc-night-surcharge-row');
             if (nightRow) nightRow.classList.toggle('hidden', nightSurcharge === 0);
+            const nightLabel = document.getElementById('calc-night-surcharge-label');
+            if (nightLabel) nightLabel.innerText = `Phụ thu đêm máy ảnh (${nightCount} đêm):`;
+            const nightAmount = document.getElementById('calc-night-surcharge');
+            if (nightAmount) nightAmount.innerText = `${nightSurcharge.toLocaleString()}đ`;
 
             // ADMIN ĐỒNG BỘ CHỈNH GIÁ THUÊ TÙY CHỌN:
             const adminOverrideInput = document.getElementById('admin-override-rental-price');

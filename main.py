@@ -1192,7 +1192,8 @@ def calculate_rental_metrics(start_iso: str, end_iso: str, price_4h: int, price_
 
     hours = diff_seconds / 3600.0
     is_camera = is_camera_body_item(item_category, item_name, subcategory)
-    night_surcharge = 30000 if is_camera and dt_end.date() > dt_start.date() else 0
+    night_count = max(0, (dt_end.date() - dt_start.date()).days) if is_camera else 0
+    night_surcharge = night_count * 30000
     is_costume = item_category == "COSTUME_FASHION"
     is_ad = is_ao_dai_item(item_category, item_name, subcategory)
 
@@ -1279,7 +1280,7 @@ def calculate_rental_metrics(start_iso: str, end_iso: str, price_4h: int, price_
     if is_camera:
         total_price += night_surcharge
         if night_surcharge:
-            rental_type += " + phụ thu đêm"
+            rental_type += f" + phụ thu đêm ({night_count} đêm)"
     return rental_type, hours, rental_days, total_price, dt_start, dt_end
 
 
@@ -3289,10 +3290,13 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
             r_type = f"{d_cnt:g} ngày"; hours = d_cnt * 24.0; r_days = d_cnt
             it_price = int(price_24h + max(0.0, d_cnt - 1.0) * extra_rate)
 
-        night_surcharge = 30000 if is_cam and parse_dt_safe(it_end) and parse_dt_safe(it_start) and parse_dt_safe(it_end).date() > parse_dt_safe(it_start).date() else 0
+        night_start = parse_dt_safe(it_start) if is_cam else None
+        night_end = parse_dt_safe(it_end) if is_cam else None
+        night_count = max(0, (night_end.date() - night_start.date()).days) if night_start and night_end else 0
+        night_surcharge = night_count * 30000
         if night_surcharge:
             it_price += night_surcharge
-            r_type += " + phụ thu đêm"
+            r_type += f" + phụ thu đêm ({night_count} đêm)"
 
         # Nếu Admin chỉnh sửa giá trực tiếp cho món này:
         if is_admin_mode and item_req.custom_price is not None and item_req.custom_price >= 0:
