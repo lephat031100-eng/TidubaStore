@@ -189,45 +189,33 @@
             display: grid;
             place-items: center;
             padding: 24px;
-            color: #fff;
-            background: radial-gradient(ellipse at 50% 38%, #202b3b 0%, #101722 48%, #090d14 100%);
+            color: #33291f;
+            background: radial-gradient(ellipse at 50% 42%, #fffdf9 0%, #f7f1e7 58%, #eee3d3 100%);
             opacity: 1;
             visibility: visible;
             transition: opacity .48s ease, visibility .48s ease;
         }
         #site-intro.site-intro-dismissed { opacity: 0; visibility: hidden; pointer-events: none; }
         .site-intro-content { width: min(100%, 430px); text-align: center; }
-        .site-intro-mark {
-            width: 68px; height: 68px; margin: 0 auto 22px; display: grid; place-items: center;
-            border: 1px solid rgba(255,255,255,.18); border-radius: 22px;
-            background: linear-gradient(145deg, #263246, #151c28);
-            box-shadow: 0 18px 50px rgba(0,0,0,.35);
-            animation: siteIntroMark .85s cubic-bezier(.2,.8,.2,1) both;
-        }
-        .site-intro-mark i { color: #f5f1e9; font-size: 27px; }
-        .site-intro-brand {
-            margin: 0; color: #c9a876; font-size: 11px; font-weight: 800; letter-spacing: .28em;
-            animation: siteIntroText .68s .18s ease both;
-        }
-        .site-intro-title {
-            margin: 16px 0 10px; color: #fff; font-family: 'Playfair Display', Georgia, serif;
-            font-size: clamp(30px, 8vw, 43px); line-height: 1.12; font-weight: 700; letter-spacing: -.035em;
-            animation: siteIntroText .8s .34s cubic-bezier(.2,.8,.2,1) both;
-        }
-        .site-intro-title span { color: #e3c99e; font-style: italic; }
-        .site-intro-caption {
-            margin: 0; color: #c3cad4; font-size: 13px; line-height: 1.7;
-            animation: siteIntroText .72s .54s ease both;
-        }
-        .site-intro-progress { width: 108px; height: 3px; margin: 34px auto 0; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.16); }
-        .site-intro-progress::after { content: ''; display: block; width: 42%; height: 100%; border-radius: inherit; background: #c9a876; animation: siteIntroProgress 1.65s ease-in-out both; }
+        .site-intro-mark { width: 92px; height: 104px; margin: 0 auto 18px; color: #8d6843; filter: drop-shadow(0 8px 14px rgba(141,104,67,.13)); }
+        .site-intro-mark svg { display: block; width: 100%; height: 100%; overflow: visible; }
+        .site-intro-mark path { fill: none; stroke: currentColor; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 220; stroke-dashoffset: 220; animation: siteIntroDraw 1.05s cubic-bezier(.6,0,.3,1) .12s forwards; }
+        .site-intro-brand { display: flex; justify-content: center; gap: .005em; margin: 0; color: #392d21; font-family: 'Playfair Display', Georgia, serif; font-size: clamp(34px, 9vw, 48px); font-weight: 600; letter-spacing: -.055em; }
+        .site-intro-brand span { display: inline-block; opacity: 0; transform: translateY(13px); filter: blur(5px); animation: siteIntroLetter .42s cubic-bezier(.2,.75,.25,1) calc(1s + var(--letter-index) * 65ms) forwards; }
+        .site-intro-brand span:nth-child(7) { margin-left: .12em; }
+        .site-intro-caption { margin: 16px 0 0; color: #8a7866; font-size: 11px; font-weight: 600; letter-spacing: .24em; text-transform: uppercase; opacity: 0; animation: siteIntroText .65s 2s ease forwards; }
+        .site-intro-rule { width: 38px; height: 1px; margin: 24px auto 0; background: #c7a77f; transform: scaleX(0); animation: siteIntroRule .5s 2.25s ease forwards; }
+        .site-intro-progress { width: 68px; height: 2px; margin: 25px auto 0; overflow: hidden; border-radius: 99px; background: rgba(141,104,67,.17); }
+        .site-intro-progress::after { content: ''; display: block; width: 42%; height: 100%; border-radius: inherit; background: #a78055; animation: siteIntroProgress 2.5s ease-in-out both; }
         .site-intro-skip {
             position: absolute; right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom));
-            min-height: 44px; padding: 0 15px; border: 1px solid rgba(255,255,255,.22); border-radius: 999px;
-            color: #fff; background: rgba(255,255,255,.08); font: inherit; font-size: 12px; font-weight: 600; backdrop-filter: blur(8px);
+            min-height: 44px; padding: 0 15px; border: 1px solid rgba(117,91,62,.2); border-radius: 999px;
+            color: #66523e; background: rgba(255,255,255,.55); font: inherit; font-size: 12px; font-weight: 600; backdrop-filter: blur(8px);
         }
-        @keyframes siteIntroMark { from { opacity: 0; transform: translateY(14px) scale(.82); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        @keyframes siteIntroText { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes siteIntroDraw { to { stroke-dashoffset: 0; } }
+        @keyframes siteIntroLetter { to { opacity: 1; transform: translateY(0); filter: blur(0); } }
+        @keyframes siteIntroText { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes siteIntroRule { to { transform: scaleX(1); } }
         @keyframes siteIntroProgress { from { transform: translateX(-120%); } to { transform: translateX(260%); } }
         @keyframes authInvalidShake {
             0%, 100% { transform: translateX(0); }
@@ -391,10 +379,10 @@
 
     <div id="site-intro" role="status" aria-live="polite" aria-label="Tiduba Store">
         <div class="site-intro-content">
-            <div class="site-intro-mark"><i class="fa-solid fa-camera-retro" aria-hidden="true"></i></div>
-            <p class="site-intro-brand">TIDUBA STORE</p>
-            <h1 class="site-intro-title">Thiết bị tốt.<br><span>Khoảnh khắc đẹp.</span></h1>
-            <p class="site-intro-caption">Máy ảnh, thiết bị sáng tạo và trang phục<br>để bạn sẵn sàng cho khung hình tiếp theo.</p>
+            <div class="site-intro-mark" aria-hidden="true"><svg viewBox="0 0 100 110" role="presentation"><path d="M20 27 H80 M50 27 V88" /></svg></div>
+            <h1 class="site-intro-brand" aria-label="TidubaStore"><span style="--letter-index:0">T</span><span style="--letter-index:1">i</span><span style="--letter-index:2">d</span><span style="--letter-index:3">u</span><span style="--letter-index:4">b</span><span style="--letter-index:5">a</span><span style="--letter-index:6">S</span><span style="--letter-index:7">t</span><span style="--letter-index:8">o</span><span style="--letter-index:9">r</span><span style="--letter-index:10">e</span></h1>
+            <p class="site-intro-caption">Thiết kế • Khoảnh khắc • Tiduba</p>
+            <div class="site-intro-rule" aria-hidden="true"></div>
             <div class="site-intro-progress" aria-hidden="true"></div>
         </div>
         <button type="button" class="site-intro-skip" onclick="dismissSiteIntro()">Bỏ qua</button>
@@ -10113,7 +10101,7 @@
             if (!document.getElementById('site-intro')) return;
             document.body.classList.add('site-intro-active');
             const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-            siteIntroTimer = setTimeout(dismissSiteIntro, reducedMotion ? 350 : 2300);
+            siteIntroTimer = setTimeout(dismissSiteIntro, reducedMotion ? 350 : 3400);
         }
 
         function clearAuthLoginError() {
