@@ -203,12 +203,8 @@
         .site-intro-content { position: relative; z-index: 1; width: min(100%, 470px); padding: clamp(26px, 5vw, 46px) 24px 30px; text-align: center; border: 1px solid rgba(255,255,255,.86); border-radius: 30px; background: rgba(255,253,249,.62); box-shadow: 0 24px 80px rgba(94,68,48,.09), inset 0 1px 0 white; backdrop-filter: blur(12px); }
         .site-intro-mark { width: min(164px, 42vw); height: auto; aspect-ratio: 240 / 190; margin: 0 auto 12px; color: #9d705a; filter: drop-shadow(0 9px 13px rgba(134,93,70,.16)); }
         .site-intro-mark svg { display: block; width: 100%; height: 100%; overflow: visible; }
-        .site-intro-mark .logo-depth { fill: #95634f; stroke: #95634f; stroke-width: 1; stroke-linejoin: round; opacity: 0; animation: siteIntroFacet .4s .72s ease forwards; }
-        .site-intro-mark .logo-outline { fill: url(#tiduba-rose); stroke: #9f705a; stroke-width: 2.5; stroke-linejoin: round; stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: siteIntroDraw 1s cubic-bezier(.6,0,.3,1) .08s forwards; }
-        .site-intro-mark .logo-face { stroke: rgba(255,255,255,.9); stroke-width: 1.4; stroke-linejoin: round; opacity: 0; animation: siteIntroFacet .45s .82s ease forwards; }
-        .site-intro-mark .logo-lens { fill: url(#tiduba-lens); stroke: #fff8f1; stroke-width: 2; opacity: 0; transform-box: fill-box; transform-origin: center; animation: siteIntroLens .55s 1.02s cubic-bezier(.2,.8,.2,1) forwards; }
-        .site-intro-mark .logo-lens-ring { fill: none; stroke: rgba(255,255,255,.86); stroke-width: 1.5; opacity: 0; animation: siteIntroFacet .4s 1.18s ease forwards; }
-        .site-intro-mark .logo-spark { fill: #fffaf4; opacity: 0; animation: siteIntroFacet .4s 1.3s ease forwards; }
+        .site-intro-mark .logo-outline { fill: #b8795e; stroke: #a66d54; stroke-width: 2; stroke-linejoin: bevel; stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: siteIntroDraw 1s cubic-bezier(.6,0,.3,1) .08s forwards; }
+        .site-intro-mark .logo-face { stroke: rgba(255,250,245,.9); stroke-width: 2; stroke-linejoin: bevel; opacity: 0; animation: siteIntroFacet .5s .82s ease forwards; }
         .site-intro-brand { margin: 0; color: #4b4d50; font-family: 'Plus Jakarta Sans', Arial, sans-serif; }
         .site-intro-main-word { display: flex; justify-content: center; gap: .025em; font-size: clamp(28px, 7.8vw, 42px); font-weight: 700; letter-spacing: .12em; padding-left: .12em; }
         .site-intro-main-word span { display: inline-block; opacity: 0; transform: translateY(13px); filter: blur(5px); animation: siteIntroLetter .42s cubic-bezier(.2,.75,.25,1) calc(1.15s + var(--letter-index) * 75ms) forwards; }
@@ -228,7 +224,6 @@
         @keyframes siteIntroDraw { to { stroke-dashoffset: 0; } }
         @keyframes siteIntroFill { to { fill-opacity: 1; } }
         @keyframes siteIntroFacet { to { opacity: 1; } }
-        @keyframes siteIntroLens { from { opacity: 0; transform: scale(.55); } to { opacity: 1; transform: scale(1); } }
         @keyframes siteIntroLetter { to { opacity: 1; transform: translateY(0); filter: blur(0); } }
         @keyframes siteIntroText { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes siteIntroRule { to { transform: scaleX(1); } }
@@ -471,25 +466,8 @@
         <div class="site-intro-content">
             <p class="site-intro-kicker">Thuê đồ đẹp · Lưu khoảnh khắc</p>
             <div class="site-intro-mark" aria-hidden="true"><svg viewBox="0 0 240 190" role="presentation">
-                <defs>
-                    <linearGradient id="tiduba-rose" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fffaf5"/><stop offset=".36" stop-color="#e9c9b9"/><stop offset=".72" stop-color="#bc8469"/><stop offset="1" stop-color="#9e6b55"/></linearGradient>
-                    <radialGradient id="tiduba-lens" cx="35%" cy="28%"><stop stop-color="#f8ffff"/><stop offset=".42" stop-color="#a9dcda"/><stop offset="1" stop-color="#567f7d"/></radialGradient>
-                </defs>
-                <!-- A small hanger hook ties the monogram to the clothing collection. -->
-                <path class="logo-face" fill="none" stroke="#9f705a" stroke-width="5" stroke-linecap="round" d="M120 34V25c0-8 13-8 13 0 0 4-3 6-7 8"/>
-                <path class="logo-depth" d="M44 43Q44 37 50 37H190Q196 37 196 43V69Q196 75 190 75H140V143L120 171 100 143V75H50Q44 75 44 69Z" transform="translate(8 9)"/>
-                <path class="logo-outline" d="M40 39Q40 33 46 33H194Q200 33 200 39V67Q200 73 194 73H140V141L120 169 100 141V73H46Q40 73 40 67Z"/>
-                <path class="logo-face" fill="#fffaf5" d="M48 41H192V65H48Z"/>
-                <path class="logo-face" fill="#d3a28c" d="M47 42H55V65H47ZM185 42H193V65H185Z"/>
-                <path class="logo-face" fill="none" d="M51 38H189"/>
-                <circle class="logo-lens" cx="120" cy="54" r="15"/>
-                <circle class="logo-lens-ring" cx="120" cy="54" r="10"/>
-                <circle class="logo-lens-ring" cx="120" cy="54" r="4"/>
-                <path class="logo-spark" d="M174 45l2.3 5.7L182 53l-5.7 2.3L174 61l-2.3-5.7L166 53l5.7-2.3Z"/>
-                <path class="logo-face" fill="#fffaf5" d="M106 74H134V139L120 158 106 139Z"/>
-                <path class="logo-face" fill="#e4bdab" d="M110 80H116V143L110 136Z"/>
-                <path class="logo-face" fill="#bd866e" d="M130 80H134V139L128 147Z"/>
-                <path class="logo-face" fill="none" d="M109 82V135M131 82V135"/>
+                <path class="logo-outline" d="M42 36H198V78H141V148L120 174L99 148V78H42Z"/>
+                <path class="logo-face" fill="none" d="M53 47H187M111 88V143"/>
             </svg></div>
             <h1 class="site-intro-brand" aria-label="Tiduba Store"><span class="site-intro-main-word"><span style="--letter-index:0">T</span><span style="--letter-index:1">I</span><span style="--letter-index:2">D</span><span style="--letter-index:3">U</span><span style="--letter-index:4">B</span><span style="--letter-index:5">A</span></span><span class="site-intro-store">STORE</span></h1>
             <p class="site-intro-caption">Phong cách của bạn, khoảnh khắc của bạn</p>
@@ -4573,16 +4551,17 @@
             if (!currentUser && localStorage.getItem('tiduba_token')) {
                 await checkAuthSession();
             }
-            const validAdminSession = await ensureAdminPosSession();
-            if (validAdminSession !== true) {
-                if (!currentUser) {
-                    openAuthModal();
-                    toggleAuthTab('login');
-                }
-                showToast("Chức năng POS KiotViet chỉ dành cho Admin!");
+            // Admin already signed into the dashboard; switching to POS is not
+            // a new login. The checkout API validates the saved token on payment.
+            if (currentUser && currentUser.role === 'admin') {
+                showSection('kiotviet-pos');
                 return;
             }
-            showSection('kiotviet-pos');
+            if (!currentUser) {
+                openAuthModal();
+                toggleAuthTab('login');
+            }
+            showToast("Chức năng POS KiotViet chỉ dành cho Admin!");
         }
 
         // TOP ANNOUNCEMENT BAR TICKER (PHONG CÁCH SHERENT HÌNH 1 & 2)
