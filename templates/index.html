@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
@@ -2196,6 +2196,22 @@
         </div>
     </div>
 
+    <style>
+        /* Booking confirmation uses Tiduba's warm ivory and cream palette. */
+        #booking-modal > div { background: #fffdf9 !important; border-color: #e8d8c5 !important; color: #29231f; }
+        #booking-modal h3, #booking-modal h4 { color: #29231f !important; }
+        #booking-modal .border-gray-800, #booking-modal .border-gray-700 { border-color: #e8dfd4 !important; }
+        #booking-modal .bg-gray-950, #booking-modal .bg-gray-900, #booking-modal .bg-gray-800 { background-color: #f5efe6 !important; }
+        #booking-modal .text-white, #booking-modal .text-gray-300, #booking-modal .text-gray-400 { color: #51483f !important; }
+        #booking-modal input, #booking-modal select { background-color: #fff !important; color: #29231f !important; border-color: #dfd2c2 !important; }
+        #booking-modal input::placeholder { color: #9b8f82 !important; }
+        #booking-modal .bg-amber-950\/40 { background-color: #fbf2e5 !important; }
+        #booking-modal .bg-rose-950\/40 { background-color: #fff3ef !important; }
+        #booking-modal .text-amber-300, #booking-modal .text-amber-400 { color: #a66d2c !important; }
+        #booking-modal .bg-gradient-to-r { background-image: linear-gradient(to right, #d9b989, #ead8b7) !important; color: #30261c !important; }
+        #booking-modal button:hover { filter: brightness(.97); }
+    </style>
+
     <!-- BOOKING MODAL (ĐẶT THUÊ, CHỌN NGÀY GIỜ & DÙNG ĐIỂM VIP) -->
     <div id="booking-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto" style="display: none;">
         <div class="bg-gray-900 border border-amber-500/50 rounded-3xl max-w-xl w-full p-4 sm:p-6 my-auto shadow-2xl max-h-[92vh] flex flex-col overflow-hidden font-sans">
@@ -2366,6 +2382,10 @@
                     <div class="flex justify-between text-gray-400">
                         <span>Tiền thuê thiết bị:</span>
                         <strong class="text-white" id="calc-rental-price">0đ</strong>
+                    </div>
+                    <div id="calc-night-surcharge-row" class="hidden flex justify-between text-gray-400">
+                        <span>Phụ thu đêm (máy ảnh):</span>
+                        <strong class="text-amber-700 font-bold" id="calc-night-surcharge">30.000đ</strong>
                     </div>
                     <div id="calc-deposit-row" class="hidden flex justify-between text-gray-400">
                         <span>Phí cọc (hoàn lại khi trả):</span>
@@ -2755,45 +2775,43 @@
     </div>
 
     <!-- AUTH MODAL (FLUTTER UI DESIGN - LUXURY CREAM & WHITE THEME) -->
-    <div id="auth-modal" class="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 transition-all duration-300 opacity-0 pointer-events-none" style="display: none;" onclick="handleAuthBackdropClick(event)">
-        <div id="auth-modal-card" class="relative w-full max-w-[430px] rounded-[32px] overflow-hidden shadow-2xl transition-all duration-300 transform translate-y-6 scale-95 flex flex-col max-h-[92vh] border border-[#2e2a27]/60" style="background: #18181b;" onclick="event.stopPropagation()">
+    <div id="auth-modal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 transition-all duration-300 opacity-0 pointer-events-none" style="display: none;" onclick="handleAuthBackdropClick(event)">
+        <div id="auth-modal-card" class="relative w-full max-w-[430px] rounded-[36px] overflow-hidden shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] transition-all duration-300 transform translate-y-6 scale-95 flex flex-col max-h-[94vh] border border-[#E8DFD5] bg-[#FAF7F2]" onclick="event.stopPropagation()">
             
             <!-- Close Button (Flutter/iOS style circle button) -->
-            <button onclick="closeAuthModal()" type="button" class="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-white/80 hover:text-white flex items-center justify-center backdrop-blur-md transition" aria-label="Đóng">
+            <button onclick="closeAuthModal()" type="button" class="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-white hover:bg-[#F2EDE4] active:scale-90 text-[#57534E] hover:text-[#1C1917] flex items-center justify-center border border-[#E5DDD1] shadow-sm transition" aria-label="Đóng">
                 <i class="fa-solid fa-xmark text-sm"></i>
             </button>
 
-            <!-- Top Header (Flutter Hero Header) -->
-            <div class="pt-6 pb-4 px-6 text-center select-none relative overflow-hidden bg-gradient-to-b from-[#1f1d1b] to-[#18181b]">
-                <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-48 h-20 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
-
+            <!-- Top Header (Flutter Hero Header - Luxury Cream & White) -->
+            <div class="pt-7 pb-4 px-6 text-center select-none relative overflow-hidden bg-gradient-to-b from-[#FAF7F2] to-[#F5EFEB] border-b border-[#E8DFD5]">
                 <!-- Brand Logo Icon with Flutter Intro Pulse -->
-                <div class="flutter-hero-icon inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-[#2a2622] to-[#18181b] border border-amber-500/35 text-amber-300 shadow-xl shadow-black/50 mb-2">
-                    <i class="fa-solid fa-camera-retro text-xl text-amber-300"></i>
+                <div class="flutter-hero-icon inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white border border-[#E5DDD1] text-[#B37054] shadow-md mb-2.5 mx-auto">
+                    <i class="fa-solid fa-camera-retro text-2xl text-[#B37054]"></i>
                 </div>
 
-                <div class="flutter-hero-text text-[10px] font-bold tracking-widest uppercase text-amber-400 font-mono">TIDUBA STORE</div>
-                <h2 id="auth-header-title" class="flutter-hero-text text-2xl font-serif font-black text-white tracking-tight mt-0.5 transition-all duration-200" style="font-family: 'Playfair Display', Cormorant Garamond, Georgia, serif;">
+                <div class="flutter-hero-text text-[11px] font-bold tracking-[2.5px] uppercase text-[#B37054] font-mono">TIDUBA STORE</div>
+                <h2 id="auth-header-title" class="flutter-hero-text text-2xl sm:text-3xl font-serif font-black text-[#1C1917] tracking-tight mt-1 transition-all duration-200" style="font-family: 'Playfair Display', Cormorant Garamond, Georgia, serif;">
                     Welcome back.
                 </h2>
-                <p id="auth-header-subtitle" class="flutter-hero-text text-xs text-stone-300 font-sans mt-0.5 max-w-[280px] mx-auto transition-all duration-200">
+                <p id="auth-header-subtitle" class="flutter-hero-text text-xs text-[#57534E] font-sans mt-1 max-w-[300px] mx-auto transition-all duration-200">
                     Pick up where you left off — your kits are waiting.
                 </p>
             </div>
 
-            <!-- Bottom Sheet Card (Tone Trắng, Kem Siêu Xịn) -->
-            <div class="flex-1 bg-[#FAF7F2] px-5 sm:px-6 pt-4 pb-5 rounded-t-[28px] shadow-[0_-10px_30px_rgba(0,0,0,0.18)] overflow-y-auto custom-scroll space-y-3.5 text-stone-800">
+            <!-- Bottom Sheet Card (Tone Trắng, Kem Tương Phản Cao) -->
+            <div class="flex-1 bg-white px-5 sm:px-7 pt-4 pb-6 overflow-y-auto custom-scroll space-y-3.5 text-[#1C1917]">
                 
                 <!-- Flutter Cupertino Segmented Control (Pill Switch) -->
-                <div class="stagger-1 relative bg-[#E8E2D8] p-1 rounded-2xl flex items-center select-none shadow-inner">
+                <div class="stagger-1 relative bg-[#EAE3D6] p-1 rounded-2xl flex items-center select-none shadow-inner border border-[#DFD6C9]">
                     <!-- Sliding active pill indicator -->
                     <div id="auth-segmented-pill" class="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-[#1C1917] rounded-xl shadow-md transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-none"></div>
                     
-                    <button type="button" onclick="toggleAuthTab('login')" id="auth-tab-login" class="relative z-10 w-1/2 py-2 text-xs font-bold transition-colors duration-200 text-white flex items-center justify-center gap-1.5 rounded-xl cursor-pointer">
+                    <button type="button" onclick="toggleAuthTab('login')" id="auth-tab-login" class="relative z-10 w-1/2 py-2.5 text-xs font-bold transition-colors duration-200 text-white flex items-center justify-center gap-1.5 rounded-xl cursor-pointer">
                         <i class="fa-solid fa-arrow-right-to-bracket text-[11px]"></i>
                         <span>Đăng Nhập</span>
                     </button>
-                    <button type="button" onclick="toggleAuthTab('register')" id="auth-tab-register" class="relative z-10 w-1/2 py-2 text-xs font-bold transition-colors duration-200 text-[#57534E] hover:text-[#1C1917] flex items-center justify-center gap-1.5 rounded-xl cursor-pointer">
+                    <button type="button" onclick="toggleAuthTab('register')" id="auth-tab-register" class="relative z-10 w-1/2 py-2.5 text-xs font-bold transition-colors duration-200 text-[#57534E] hover:text-[#1C1917] flex items-center justify-center gap-1.5 rounded-xl cursor-pointer">
                         <i class="fa-solid fa-user-plus text-[11px]"></i>
                         <span>Đăng Ký</span>
                     </button>
@@ -2802,29 +2820,29 @@
                 <!-- LOGIN FORM -->
                 <div id="auth-form-login" class="space-y-3 transition-all duration-200">
                     <div class="stagger-2">
-                        <label class="block text-xs font-bold text-[#292524] mb-1 flex items-center gap-1.5">
+                        <label class="block text-xs font-bold text-[#1C1917] mb-1 flex items-center gap-1.5 font-sans">
                             <i class="fa-regular fa-envelope text-[#78716C]"></i>
                             <span>Tên đăng nhập hoặc Email:</span>
                         </label>
-                        <div class="relative flex items-center rounded-2xl bg-[#F2EDE4] border border-[#DFD7CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/10 transition-all duration-200 shadow-sm">
-                            <span class="pl-3.5 pr-1.5 text-[#78716C]">
+                        <div class="relative flex items-center rounded-2xl bg-[#F8F4EE] border border-[#E2D8CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/15 transition-all duration-200 shadow-sm">
+                            <span class="pl-4 pr-1.5 text-[#78716C]">
                                 <i class="fa-solid fa-at text-xs"></i>
                             </span>
-                            <input type="text" id="login-user" placeholder="Tên đăng nhập hoặc Email" onkeydown="if(event.key==='Enter') submitLogin()" class="w-full bg-transparent py-2.5 pr-3 text-sm text-[#1C1917] font-semibold placeholder:text-[#78716C] placeholder:font-normal focus:outline-none">
+                            <input type="text" id="login-user" placeholder="Tên đăng nhập hoặc Email" onkeydown="if(event.key==='Enter') submitLogin()" class="w-full bg-transparent py-3 pr-3 text-sm text-[#1C1917] font-semibold placeholder:text-[#8C827A] placeholder:font-normal focus:outline-none">
                         </div>
                     </div>
 
                     <div class="stagger-3">
-                        <label class="block text-xs font-bold text-[#292524] mb-1 flex items-center gap-1.5">
+                        <label class="block text-xs font-bold text-[#1C1917] mb-1 flex items-center gap-1.5 font-sans">
                             <i class="fa-solid fa-lock text-[#78716C]"></i>
                             <span>Mật khẩu:</span>
                         </label>
-                        <div class="relative flex items-center rounded-2xl bg-[#F2EDE4] border border-[#DFD7CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/10 transition-all duration-200 shadow-sm">
-                            <span class="pl-3.5 pr-1.5 text-[#78716C]">
+                        <div class="relative flex items-center rounded-2xl bg-[#F8F4EE] border border-[#E2D8CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/15 transition-all duration-200 shadow-sm">
+                            <span class="pl-4 pr-1.5 text-[#78716C]">
                                 <i class="fa-solid fa-key text-xs"></i>
                             </span>
-                            <input type="password" id="login-pass" placeholder="Mật khẩu" onkeydown="if(event.key==='Enter') submitLogin()" class="w-full bg-transparent py-2.5 pr-10 text-sm text-[#1C1917] font-semibold placeholder:text-[#78716C] placeholder:font-normal focus:outline-none">
-                            <button type="button" onclick="togglePasswordVisibility('login-pass', this)" class="absolute right-3 text-[#78716C] hover:text-[#1C1917] p-1 transition" title="Ẩn/Hiện mật khẩu">
+                            <input type="password" id="login-pass" placeholder="Mật khẩu" onkeydown="if(event.key==='Enter') submitLogin()" class="w-full bg-transparent py-3 pr-10 text-sm text-[#1C1917] font-semibold placeholder:text-[#8C827A] placeholder:font-normal focus:outline-none">
+                            <button type="button" onclick="togglePasswordVisibility('login-pass', this)" class="absolute right-3.5 text-[#78716C] hover:text-[#1C1917] p-1 transition" title="Ẩn/Hiện mật khẩu">
                                 <i class="fa-regular fa-eye text-xs"></i>
                             </button>
                         </div>
@@ -2842,41 +2860,15 @@
                     </div>
 
                     <!-- Submit Button (Flutter High-Contrast Royal Blue) -->
-                    <div class="stagger-5">
-                        <button type="button" onclick="submitLogin()" id="btn-submit-login" class="w-full bg-[#2563EB] hover:bg-[#1D4ED8] active:scale-[0.98] text-white font-bold py-3 rounded-2xl text-sm transition-all duration-200 shadow-md shadow-blue-600/25 flex items-center justify-center gap-2">
+                    <div class="stagger-5 pt-1">
+                        <button type="button" onclick="submitLogin()" id="btn-submit-login" class="w-full bg-[#2563EB] hover:bg-[#1D4ED8] active:scale-[0.98] text-white font-bold py-3.5 rounded-2xl text-sm transition-all duration-200 shadow-md shadow-blue-500/25 flex items-center justify-center gap-2 cursor-pointer">
                             <span>Đăng Nhập Ngay</span>
                             <i class="fa-solid fa-arrow-right text-xs"></i>
                         </button>
                     </div>
 
-                    <!-- Divider "OR CONTINUE WITH" -->
-                    <div class="stagger-6 relative flex items-center justify-center my-2.5">
-                        <div class="flex-grow border-t border-[#DFD7CC]"></div>
-                        <span class="flex-shrink mx-3 text-[10px] uppercase font-bold tracking-widest text-[#78716C] bg-[#FAF7F2] px-1">
-                            HOẶC TIẾP TỤC VỚI
-                        </span>
-                        <div class="flex-grow border-t border-[#DFD7CC]"></div>
-                    </div>
-
-                    <!-- Social Buttons (Google & Apple) -->
-                    <div class="stagger-7 grid grid-cols-2 gap-2.5">
-                        <button type="button" onclick="handleSocialAuth('Google')" class="flex items-center justify-center gap-2 py-2 px-3 rounded-2xl bg-white border border-[#DFD7CC] hover:bg-[#F2EDE4] hover:border-[#CFC5B6] text-xs font-bold text-[#1C1917] shadow-sm transition active:scale-[0.98]">
-                            <svg class="w-4 h-4" viewBox="0 0 24 24">
-                                <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
-                                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/>
-                                <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.97 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
-                                <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
-                            </svg>
-                            <span>Google</span>
-                        </button>
-                        <button type="button" onclick="handleSocialAuth('Apple')" class="flex items-center justify-center gap-2 py-2 px-3 rounded-2xl bg-white border border-[#DFD7CC] hover:bg-[#F2EDE4] hover:border-[#CFC5B6] text-xs font-bold text-[#1C1917] shadow-sm transition active:scale-[0.98]">
-                            <i class="fa-brands fa-apple text-base text-[#1C1917]"></i>
-                            <span>Apple</span>
-                        </button>
-                    </div>
-
                     <!-- Bottom switch -->
-                    <div class="stagger-8 text-center pt-1 text-xs text-[#57534E]">
+                    <div class="stagger-6 text-center pt-2 text-xs text-[#57534E]">
                         <span>Chưa có tài khoản Tiduba?</span>
                         <button type="button" onclick="toggleAuthTab('register')" class="text-[#2563EB] hover:text-[#1D4ED8] font-bold hover:underline ml-1">
                             Đăng ký ngay
@@ -2887,27 +2879,27 @@
                 <!-- REGISTER FORM -->
                 <div id="auth-form-register" class="hidden space-y-3 transition-all duration-200">
                     <div class="stagger-1">
-                        <label class="block text-xs font-bold text-[#292524] mb-1 flex items-center gap-1.5">
+                        <label class="block text-xs font-bold text-[#1C1917] mb-1 flex items-center gap-1.5 font-sans">
                             <i class="fa-solid fa-at text-[#78716C]"></i>
                             <span>Tên đăng nhập (*):</span>
                         </label>
-                        <div class="relative flex items-center rounded-2xl bg-[#F2EDE4] border border-[#DFD7CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/10 transition-all duration-200 shadow-sm">
-                            <input type="text" id="reg-user" placeholder="nguyenvan_a" class="w-full bg-transparent py-2.5 px-3.5 text-sm text-[#1C1917] font-semibold placeholder:text-[#78716C] placeholder:font-normal focus:outline-none">
+                        <div class="relative flex items-center rounded-2xl bg-[#F8F4EE] border border-[#E2D8CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/15 transition-all duration-200 shadow-sm">
+                            <input type="text" id="reg-user" placeholder="nguyenvan_a" class="w-full bg-transparent py-3 px-4 text-sm text-[#1C1917] font-semibold placeholder:text-[#8C827A] placeholder:font-normal focus:outline-none">
                         </div>
                     </div>
 
                     <div class="stagger-2">
-                        <label class="block text-xs font-bold text-[#292524] mb-1 flex items-center gap-1.5">
+                        <label class="block text-xs font-bold text-[#1C1917] mb-1 flex items-center gap-1.5 font-sans">
                             <i class="fa-regular fa-user text-[#78716C]"></i>
                             <span>Họ và tên đầy đủ (*):</span>
                         </label>
-                        <div class="relative flex items-center rounded-2xl bg-[#F2EDE4] border border-[#DFD7CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/10 transition-all duration-200 shadow-sm">
-                            <input type="text" id="reg-name" placeholder="Nguyễn Văn A" class="w-full bg-transparent py-2.5 px-3.5 text-sm text-[#1C1917] font-semibold placeholder:text-[#78716C] placeholder:font-normal focus:outline-none">
+                        <div class="relative flex items-center rounded-2xl bg-[#F8F4EE] border border-[#E2D8CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/15 transition-all duration-200 shadow-sm">
+                            <input type="text" id="reg-name" placeholder="Nguyễn Văn A" class="w-full bg-transparent py-3 px-4 text-sm text-[#1C1917] font-semibold placeholder:text-[#8C827A] placeholder:font-normal focus:outline-none">
                         </div>
                     </div>
 
                     <div class="stagger-3">
-                        <label class="block text-xs font-bold text-[#292524] mb-1 flex items-center justify-between">
+                        <label class="block text-xs font-bold text-[#1C1917] mb-1 flex items-center justify-between font-sans">
                             <span class="flex items-center gap-1.5">
                                 <i class="fa-regular fa-envelope text-[#78716C]"></i>
                                 <span>Email nhận OTP (*):</span>
@@ -2915,10 +2907,10 @@
                             <span class="text-[10px] text-[#B45309] font-medium font-sans">Gửi OTP Gmail</span>
                         </label>
                         <div class="flex gap-2">
-                            <div class="flex-1 relative flex items-center rounded-2xl bg-[#F2EDE4] border border-[#DFD7CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/10 transition-all duration-200 shadow-sm">
-                                <input type="email" id="reg-email" placeholder="yourname@gmail.com" class="w-full bg-transparent py-2.5 px-3.5 text-sm text-[#1C1917] font-semibold placeholder:text-[#78716C] placeholder:font-normal focus:outline-none">
+                            <div class="flex-1 relative flex items-center rounded-2xl bg-[#F8F4EE] border border-[#E2D8CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/15 transition-all duration-200 shadow-sm">
+                                <input type="email" id="reg-email" placeholder="yourname@gmail.com" class="w-full bg-transparent py-3 px-4 text-sm text-[#1C1917] font-semibold placeholder:text-[#8C827A] placeholder:font-normal focus:outline-none">
                             </div>
-                            <button type="button" onclick="sendRegisterOtp('email')" id="btn-send-reg-otp-email" class="bg-[#1C1917] hover:bg-[#292524] text-white px-3.5 py-2 rounded-2xl font-bold text-xs whitespace-nowrap transition active:scale-95 shadow flex items-center gap-1.5">
+                            <button type="button" onclick="sendRegisterOtp('email')" id="btn-send-reg-otp-email" class="bg-[#1C1917] hover:bg-[#292524] text-white px-4 py-2 rounded-2xl font-bold text-xs whitespace-nowrap transition active:scale-95 shadow flex items-center gap-1.5">
                                 <i class="fa-solid fa-paper-plane text-[10px] text-amber-400"></i>
                                 <span>Gửi OTP</span>
                             </button>
@@ -2926,7 +2918,7 @@
                     </div>
 
                     <div class="stagger-4">
-                        <label class="block text-xs font-bold text-[#292524] mb-1 flex items-center justify-between">
+                        <label class="block text-xs font-bold text-[#1C1917] mb-1 flex items-center justify-between font-sans">
                             <span class="flex items-center gap-1.5">
                                 <i class="fa-solid fa-mobile-screen text-[#78716C]"></i>
                                 <span>Số điện thoại (*):</span>
@@ -2934,10 +2926,10 @@
                             <span class="text-[10px] text-[#0369A1] font-medium font-sans">10 số VN</span>
                         </label>
                         <div class="flex gap-2">
-                            <div class="flex-1 relative flex items-center rounded-2xl bg-[#F2EDE4] border border-[#DFD7CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/10 transition-all duration-200 shadow-sm">
-                                <input type="tel" id="reg-phone" placeholder="0977078981" class="w-full bg-transparent py-2.5 px-3.5 text-sm text-[#1C1917] font-semibold placeholder:text-[#78716C] placeholder:font-normal focus:outline-none">
+                            <div class="flex-1 relative flex items-center rounded-2xl bg-[#F8F4EE] border border-[#E2D8CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/15 transition-all duration-200 shadow-sm">
+                                <input type="tel" id="reg-phone" placeholder="0977078981" class="w-full bg-transparent py-3 px-4 text-sm text-[#1C1917] font-semibold placeholder:text-[#8C827A] placeholder:font-normal focus:outline-none">
                             </div>
-                            <button type="button" onclick="sendRegisterOtp('phone')" id="btn-send-reg-otp-phone" class="bg-[#334155] hover:bg-[#1E293B] text-white px-3.5 py-2 rounded-2xl font-bold text-xs whitespace-nowrap transition active:scale-95 shadow flex items-center gap-1.5">
+                            <button type="button" onclick="sendRegisterOtp('phone')" id="btn-send-reg-otp-phone" class="bg-[#334155] hover:bg-[#1E293B] text-white px-4 py-2 rounded-2xl font-bold text-xs whitespace-nowrap transition active:scale-95 shadow flex items-center gap-1.5">
                                 <i class="fa-solid fa-comment-dots text-[10px] text-cyan-300"></i>
                                 <span>OTP SĐT</span>
                             </button>
@@ -2945,15 +2937,15 @@
                     </div>
 
                     <!-- Box nhập mã OTP khi đã bấm gửi -->
-                    <div id="reg-otp-box" class="hidden p-3.5 bg-[#EDE6DC] rounded-2xl border border-[#D8CDBF] space-y-2">
+                    <div id="reg-otp-box" class="hidden p-3.5 bg-[#F5EFEB] rounded-2xl border border-[#D8CDBF] space-y-2">
                         <div class="flex items-center justify-between text-xs">
-                            <span class="text-[#1C1917] font-bold flex items-center gap-1.5">
+                            <span class="text-[#1C1917] font-bold flex items-center gap-1.5 font-sans">
                                 <i class="fa-solid fa-shield-halved text-[#16A34A]"></i> Nhập mã OTP 6 số:
                             </span>
                             <span class="text-[#DC2626] font-mono font-bold" id="reg-otp-countdown">05:00</span>
                         </div>
                         <div class="flex gap-2">
-                            <input type="text" id="reg-otp-code" maxlength="6" placeholder="123456" class="flex-1 bg-white border border-[#2563EB] rounded-xl p-2 text-center text-[#1C1917] font-mono font-black text-lg tracking-widest focus:outline-none shadow-sm">
+                            <input type="text" id="reg-otp-code" maxlength="6" placeholder="123456" class="flex-1 bg-white border border-[#2563EB] rounded-xl p-2.5 text-center text-[#1C1917] font-mono font-black text-lg tracking-widest focus:outline-none shadow-sm">
                             <button type="button" onclick="verifyRegisterOtp()" id="btn-verify-reg-otp" class="bg-[#16A34A] hover:bg-[#15803D] text-white font-bold px-4 py-2 rounded-xl text-xs transition active:scale-95 shadow">
                                 Xác Thực
                             </button>
@@ -2964,29 +2956,33 @@
                     </div>
 
                     <div class="stagger-5">
-                        <label class="block text-xs font-bold text-[#292524] mb-1 flex items-center gap-1.5">
+                        <label class="block text-xs font-bold text-[#1C1917] mb-1 flex items-center gap-1.5 font-sans">
                             <i class="fa-solid fa-lock text-[#78716C]"></i>
                             <span>Mật khẩu (*):</span>
                         </label>
-                        <div class="relative flex items-center rounded-2xl bg-[#F2EDE4] border border-[#DFD7CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/10 transition-all duration-200 shadow-sm">
-                            <input type="password" id="reg-pass" placeholder="•••••••• (tối thiểu 6 ký tự)" class="w-full bg-transparent py-2.5 px-3.5 pr-10 text-sm text-[#1C1917] font-semibold placeholder:text-[#78716C] placeholder:font-normal focus:outline-none">
-                            <button type="button" onclick="togglePasswordVisibility('reg-pass', this)" class="absolute right-3 text-[#78716C] hover:text-[#1C1917] p-1 transition" title="Ẩn/Hiện mật khẩu">
+                        <div class="relative flex items-center rounded-2xl bg-[#F8F4EE] border border-[#E2D8CC] focus-within:border-[#2563EB] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#2563EB]/15 transition-all duration-200 shadow-sm">
+                            <input type="password" id="reg-pass" placeholder="•••••••• (tối thiểu 6 ký tự)" class="w-full bg-transparent py-3 px-4 pr-10 text-sm text-[#1C1917] font-semibold placeholder:text-[#8C827A] placeholder:font-normal focus:outline-none">
+                            <button type="button" onclick="togglePasswordVisibility('reg-pass', this)" class="absolute right-3.5 text-[#78716C] hover:text-[#1C1917] p-1 transition" title="Ẩn/Hiện mật khẩu">
                                 <i class="fa-regular fa-eye text-xs"></i>
                             </button>
                         </div>
                     </div>
 
-                    <div class="stagger-6">
-                        <button type="button" onclick="submitRegister()" id="btn-submit-reg" class="w-full bg-[#2563EB] hover:bg-[#1D4ED8] active:scale-[0.98] text-white font-bold py-3 rounded-2xl text-sm transition-all duration-200 shadow-md shadow-blue-600/25 flex items-center justify-center gap-2">
+                    <div class="stagger-6 pt-1">
+                        <button type="button" onclick="submitRegister()" id="btn-submit-reg" class="w-full bg-[#2563EB] hover:bg-[#1D4ED8] active:scale-[0.98] text-white font-bold py-3.5 rounded-2xl text-sm transition-all duration-200 shadow-md shadow-blue-500/25 flex items-center justify-center gap-2 cursor-pointer">
                             <span>Đăng Ký Tài Khoản</span>
                             <i class="fa-solid fa-check text-xs"></i>
                         </button>
                     </div>
 
                     <!-- Bottom switch -->
-                    <div class="stagger-7 text-center pt-1 text-xs text-[#57534E]">
+                    <div class="stagger-7 text-center pt-2 text-xs text-[#57534E]">
                         <span>Đã có tài khoản Tiduba?</span>
                         <button type="button" onclick="toggleAuthTab('login')" class="text-[#2563EB] hover:text-[#1D4ED8] font-bold hover:underline ml-1">
+                            Đăng nhập ngay
+                        </button>
+                    </div>
+                </div>
                             Đăng nhập ngay
                         </button>
                     </div>
@@ -6714,6 +6710,11 @@
                 rentalPrice = Math.round(days * target.price_24h);
             }
             
+            const nightSurcharge = isCam && dtEnd.toDateString() !== dtStart.toDateString() ? 30000 : 0;
+            rentalPrice += nightSurcharge;
+            const nightRow = document.getElementById('calc-night-surcharge-row');
+            if (nightRow) nightRow.classList.toggle('hidden', nightSurcharge === 0);
+
             // ADMIN ĐỒNG BỘ CHỈNH GIÁ THUÊ TÙY CHỌN:
             const adminOverrideInput = document.getElementById('admin-override-rental-price');
             if (currentUser && currentUser.role === 'admin' && adminOverrideInput && adminOverrideInput.value.trim() !== '') {
@@ -10585,19 +10586,20 @@
                     startAdminRealtimeAutoRefresh();
                 }
             } else {
-                if (roleBadge) roleBadge.classList.add('hidden');
+                if (adminNavWrap) adminNavWrap.classList.add('hidden');
+                if (myRentalsNavBtn) myRentalsNavBtn.classList.remove('hidden');
                 const alertWidget = document.getElementById('live-alert-admin-widget');
                 if (alertWidget) alertWidget.classList.add('hidden');
                 if (authBox) {
                     authBox.innerHTML = `
-                        <button onclick="openAuthModal()" class="bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-gray-950 font-black px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition">
-                            <i class="fa-solid fa-user"></i> Đăng Nhập / Đăng Ký
+                        <button onclick="openAuthModal()" class="w-9 h-9 sm:w-auto sm:px-3.5 sm:py-1.5 rounded-full sm:rounded-xl bg-white hover:bg-[#ede3d6] text-[#1c1917] border border-[#e5dcd3] font-semibold flex items-center justify-center gap-1.5 shadow-sm transition whitespace-nowrap text-xs">
+                            <i class="fa-regular fa-user text-[#b37054]"></i>
+                            <span class="hidden sm:inline">Tài Khoản</span>
                         </button>
                     `;
                 }
-                if (mobUser) mobUser.innerText = "Đăng Nhập";
+                if (mobUser) mobUser.innerText = "Tài Khoản";
                 if (loyaltyBox) loyaltyBox.classList.add('hidden');
-                if (adminBtn) adminBtn.classList.add('hidden');
                 if (ekycBtn) ekycBtn.classList.remove('hidden');
             }
 
