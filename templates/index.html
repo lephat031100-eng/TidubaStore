@@ -203,8 +203,7 @@
         .site-intro-content { position: relative; z-index: 1; width: min(100%, 470px); padding: clamp(26px, 5vw, 46px) 24px 30px; text-align: center; border: 1px solid rgba(255,255,255,.86); border-radius: 30px; background: rgba(255,253,249,.62); box-shadow: 0 24px 80px rgba(94,68,48,.09), inset 0 1px 0 white; backdrop-filter: blur(12px); }
         .site-intro-mark { width: min(164px, 42vw); height: auto; aspect-ratio: 240 / 190; margin: 0 auto 12px; color: #9d705a; filter: drop-shadow(0 9px 13px rgba(134,93,70,.16)); }
         .site-intro-mark svg { display: block; width: 100%; height: 100%; overflow: visible; }
-        .site-intro-mark .logo-outline { fill: #b8795e; stroke: #a66d54; stroke-width: 2; stroke-linejoin: bevel; stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: siteIntroDraw 1s cubic-bezier(.6,0,.3,1) .08s forwards; }
-        .site-intro-mark .logo-face { stroke: rgba(255,250,245,.9); stroke-width: 2; stroke-linejoin: bevel; opacity: 0; animation: siteIntroFacet .5s .82s ease forwards; }
+        .site-intro-mark .logo-outline { fill: #b8795e; opacity: 0; animation: siteIntroText .8s cubic-bezier(.2,.75,.25,1) .2s forwards; }
         .site-intro-brand { margin: 0; color: #4b4d50; font-family: 'Plus Jakarta Sans', Arial, sans-serif; }
         .site-intro-main-word { display: flex; justify-content: center; gap: .025em; font-size: clamp(28px, 7.8vw, 42px); font-weight: 700; letter-spacing: .12em; padding-left: .12em; }
         .site-intro-main-word span { display: inline-block; opacity: 0; transform: translateY(13px); filter: blur(5px); animation: siteIntroLetter .42s cubic-bezier(.2,.75,.25,1) calc(1.15s + var(--letter-index) * 75ms) forwards; }
@@ -221,7 +220,6 @@
             min-height: 44px; padding: 0 15px; border: 1px solid rgba(117,91,62,.2); border-radius: 999px;
             color: #66523e; background: rgba(255,255,255,.55); font: inherit; font-size: 12px; font-weight: 600; backdrop-filter: blur(8px);
         }
-        @keyframes siteIntroDraw { to { stroke-dashoffset: 0; } }
         @keyframes siteIntroFill { to { fill-opacity: 1; } }
         @keyframes siteIntroFacet { to { opacity: 1; } }
         @keyframes siteIntroLetter { to { opacity: 1; transform: translateY(0); filter: blur(0); } }
@@ -466,8 +464,7 @@
         <div class="site-intro-content">
             <p class="site-intro-kicker">Thuê đồ đẹp · Lưu khoảnh khắc</p>
             <div class="site-intro-mark" aria-hidden="true"><svg viewBox="0 0 240 190" role="presentation">
-                <path class="logo-outline" d="M42 36H198V78H141V148L120 174L99 148V78H42Z"/>
-                <path class="logo-face" fill="none" d="M53 47H187M111 88V143"/>
+                <text class="logo-outline" x="120" y="154" text-anchor="middle" font-family="'Cormorant Garamond', Georgia, serif" font-size="158" font-style="italic" font-weight="600">T</text>
             </svg></div>
             <h1 class="site-intro-brand" aria-label="Tiduba Store"><span class="site-intro-main-word"><span style="--letter-index:0">T</span><span style="--letter-index:1">I</span><span style="--letter-index:2">D</span><span style="--letter-index:3">U</span><span style="--letter-index:4">B</span><span style="--letter-index:5">A</span></span><span class="site-intro-store">STORE</span></h1>
             <p class="site-intro-caption">Phong cách của bạn, khoảnh khắc của bạn</p>

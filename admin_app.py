@@ -279,7 +279,12 @@ def main():
         safe_print("App Admin tu dong ket noi & dong bo du lieu thoi gian thuc.")
         safe_print("======================================================================")
 
-        webview.start(private_mode=False)
+        # Use an app-owned WebView profile so the auth token in localStorage
+        # survives closing and reopening the desktop app.
+        storage_root = Path(os.environ.get("LOCALAPPDATA") or (Path.home() / "AppData" / "Local"))
+        webview_storage = storage_root / "TidubaStore" / "WebView"
+        webview_storage.mkdir(parents=True, exist_ok=True)
+        webview.start(private_mode=False, storage_path=str(webview_storage))
 
     except ImportError:
         safe_print("[ADMIN APP] pywebview chua cai dat. Mo giao dien Admin qua trinh duyet...")

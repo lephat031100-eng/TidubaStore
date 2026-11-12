@@ -1079,7 +1079,7 @@ def generate_vietqr_url(amount_vnd: int, rental_code: str) -> str:
 
 
 TOKEN_SECRET = os.environ.get("TIDUBA_TOKEN_SECRET", "Tiduba_HMAC_Secret_2026_MBBank_0123006101998_CHANGE_IN_PROD")
-TOKEN_EXPIRY_SECONDS = 86400 * 30  # 30 ngày
+# Keep signed tokens valid until the browser/app explicitly signs out.
 PRINTER_SECRET = os.environ.get("TIDUBA_PRINTER_SECRET", "PRINTER_LOCAL_SECRET_TIDUBA_2026")
 WEBHOOK_SECRET = os.environ.get("TIDUBA_WEBHOOK_SECRET", "")  # Set trong production để verify payment webhook
 
@@ -1103,10 +1103,9 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> Optional[Di
             expected_sig = hmac.new(TOKEN_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
             if not hmac.compare_digest(sig, expected_sig):
                 return None
-            # Token expiry check (30 ngày)
-            ts = int(ts_str)
-            if time.time() - ts > TOKEN_EXPIRY_SECONDS:
-                return None
+            # Keep parsing the signed timestamp for compatibility with tokens
+            # issued before sessions were made persistent.
+            int(ts_str)
             user_id = int(user_id_str)
         elif "-" in token and len(token) > 40:
             # Token cũ (backward compat): sha256hash-userid  
