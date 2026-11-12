@@ -197,13 +197,16 @@
         }
         #site-intro.site-intro-dismissed { opacity: 0; visibility: hidden; pointer-events: none; }
         .site-intro-content { width: min(100%, 430px); text-align: center; }
-        .site-intro-mark { width: 92px; height: 104px; margin: 0 auto 18px; color: #8d6843; filter: drop-shadow(0 8px 14px rgba(141,104,67,.13)); }
+        .site-intro-mark { width: min(160px, 42vw); height: auto; aspect-ratio: 240 / 190; margin: 0 auto 16px; color: #9d705a; filter: drop-shadow(0 9px 13px rgba(134,93,70,.16)); }
         .site-intro-mark svg { display: block; width: 100%; height: 100%; overflow: visible; }
-        .site-intro-mark path { fill: none; stroke: currentColor; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 220; stroke-dashoffset: 220; animation: siteIntroDraw 1.05s cubic-bezier(.6,0,.3,1) .12s forwards; }
-        .site-intro-brand { display: flex; justify-content: center; gap: .005em; margin: 0; color: #392d21; font-family: 'Playfair Display', Georgia, serif; font-size: clamp(34px, 9vw, 48px); font-weight: 600; letter-spacing: -.055em; }
-        .site-intro-brand span { display: inline-block; opacity: 0; transform: translateY(13px); filter: blur(5px); animation: siteIntroLetter .42s cubic-bezier(.2,.75,.25,1) calc(1s + var(--letter-index) * 65ms) forwards; }
-        .site-intro-brand span:nth-child(7) { margin-left: .12em; }
-        .site-intro-caption { margin: 16px 0 0; color: #8a7866; font-size: 11px; font-weight: 600; letter-spacing: .24em; text-transform: uppercase; opacity: 0; animation: siteIntroText .65s 2s ease forwards; }
+        .site-intro-mark .logo-outline { fill: url(#tiduba-rose); stroke: #a87863; stroke-width: 2; stroke-linejoin: bevel; stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: siteIntroDraw 1.1s cubic-bezier(.6,0,.3,1) .1s forwards, siteIntroFill .55s 1s ease forwards; }
+        .site-intro-mark .logo-face { stroke: rgba(255,255,255,.88); stroke-width: 1.5; stroke-linejoin: bevel; opacity: 0; animation: siteIntroFacet .5s 1.02s ease forwards; }
+        .site-intro-mark .logo-glow { fill: url(#tiduba-aqua); stroke: rgba(107,215,222,.52); stroke-width: 1; opacity: 0; animation: siteIntroFacet .6s 1.22s ease forwards; }
+        .site-intro-brand { margin: 0; color: #4b4d50; font-family: 'Plus Jakarta Sans', Arial, sans-serif; }
+        .site-intro-main-word { display: flex; justify-content: center; gap: .025em; font-size: clamp(28px, 7.8vw, 42px); font-weight: 700; letter-spacing: .12em; padding-left: .12em; }
+        .site-intro-main-word span { display: inline-block; opacity: 0; transform: translateY(13px); filter: blur(5px); animation: siteIntroLetter .42s cubic-bezier(.2,.75,.25,1) calc(1.15s + var(--letter-index) * 75ms) forwards; }
+        .site-intro-store { display: block; margin-top: 1px; color: #7d7d7b; font-size: 12px; font-weight: 400; letter-spacing: .58em; padding-left: .58em; opacity: 0; animation: siteIntroText .55s 1.9s ease forwards; }
+        .site-intro-caption { margin: 14px 0 0; color: #898783; font-size: 10px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; opacity: 0; animation: siteIntroText .65s 2.1s ease forwards; }
         .site-intro-rule { width: 38px; height: 1px; margin: 24px auto 0; background: #c7a77f; transform: scaleX(0); animation: siteIntroRule .5s 2.25s ease forwards; }
         .site-intro-progress { width: 68px; height: 2px; margin: 25px auto 0; overflow: hidden; border-radius: 99px; background: rgba(141,104,67,.17); }
         .site-intro-progress::after { content: ''; display: block; width: 42%; height: 100%; border-radius: inherit; background: #a78055; animation: siteIntroProgress 2.5s ease-in-out both; }
@@ -213,6 +216,8 @@
             color: #66523e; background: rgba(255,255,255,.55); font: inherit; font-size: 12px; font-weight: 600; backdrop-filter: blur(8px);
         }
         @keyframes siteIntroDraw { to { stroke-dashoffset: 0; } }
+        @keyframes siteIntroFill { to { fill-opacity: 1; } }
+        @keyframes siteIntroFacet { to { opacity: 1; } }
         @keyframes siteIntroLetter { to { opacity: 1; transform: translateY(0); filter: blur(0); } }
         @keyframes siteIntroText { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes siteIntroRule { to { transform: scaleX(1); } }
@@ -379,9 +384,22 @@
 
     <div id="site-intro" role="status" aria-live="polite" aria-label="Tiduba Store">
         <div class="site-intro-content">
-            <div class="site-intro-mark" aria-hidden="true"><svg viewBox="0 0 100 110" role="presentation"><path d="M20 27 H80 M50 27 V88" /></svg></div>
-            <h1 class="site-intro-brand" aria-label="TidubaStore"><span style="--letter-index:0">T</span><span style="--letter-index:1">i</span><span style="--letter-index:2">d</span><span style="--letter-index:3">u</span><span style="--letter-index:4">b</span><span style="--letter-index:5">a</span><span style="--letter-index:6">S</span><span style="--letter-index:7">t</span><span style="--letter-index:8">o</span><span style="--letter-index:9">r</span><span style="--letter-index:10">e</span></h1>
-            <p class="site-intro-caption">Thiết kế • Khoảnh khắc • Tiduba</p>
+            <div class="site-intro-mark" aria-hidden="true"><svg viewBox="0 0 240 190" role="presentation">
+                <defs>
+                    <linearGradient id="tiduba-rose" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fffdfb"/><stop offset=".34" stop-color="#e8c9bd"/><stop offset=".62" stop-color="#b98570"/><stop offset=".82" stop-color="#fff8f3"/><stop offset="1" stop-color="#c69682"/></linearGradient>
+                    <linearGradient id="tiduba-aqua" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#f1ffff"/><stop offset=".5" stop-color="#7ce3e8"/><stop offset="1" stop-color="#b5f4ed"/></linearGradient>
+                </defs>
+                <path class="logo-outline" fill-opacity="0" d="M120 10 158 48 224 34 182 91 205 112 145 119 120 181 95 119 35 112 58 91 16 34 82 48Z"/>
+                <path class="logo-face" fill="#fffdfa" d="m82 48 38-38 38 38-19 18-19-10-19 10Z"/>
+                <path class="logo-glow" d="m101 64 19-8 19 8-19 15Z"/>
+                <path class="logo-face" fill="#f8eee8" d="m58 91 43-27 19 15v41l-25-1-37-28Z"/>
+                <path class="logo-glow" d="m67 91 32-18 12 9v28l-15-1Z"/>
+                <path class="logo-face" fill="#fffdfa" d="m182 91-43-27-19 15v41l25-1 37-28Z"/>
+                <path class="logo-glow" d="m173 91-32-18-12 9v28l15-1Z"/>
+                <path class="logo-face" fill="#fffdfa" d="m95 119 25 1 25-1-25 62Z"/>
+            </svg></div>
+            <h1 class="site-intro-brand" aria-label="Tiduba Store"><span class="site-intro-main-word"><span style="--letter-index:0">T</span><span style="--letter-index:1">I</span><span style="--letter-index:2">D</span><span style="--letter-index:3">U</span><span style="--letter-index:4">B</span><span style="--letter-index:5">A</span></span><span class="site-intro-store">STORE</span></h1>
+            <p class="site-intro-caption">QUALITY | SERVICE | INNOVATION</p>
             <div class="site-intro-rule" aria-hidden="true"></div>
             <div class="site-intro-progress" aria-hidden="true"></div>
         </div>
