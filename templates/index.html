@@ -281,6 +281,7 @@
         #sec-kiotviet-pos #pos-cust-name-input,
         #sec-kiotviet-pos #pos-cust-phone-input { padding: 10px 12px; }
         #sec-kiotviet-pos #pos-customer-badge { min-height: 44px; padding: 8px 12px; }
+        #sec-kiotviet-pos .pos-time-sync-note { grid-column: 1 / -1; padding: 8px 11px; border-radius: 10px; color: #476353; background: #eff7f0; font: 500 11px/1.4 'Plus Jakarta Sans', sans-serif; }
         #sec-kiotviet-pos #pos-invoice-items-area { max-height: min(38vh, 400px); padding: 12px 2px; }
         #sec-kiotviet-pos #pos-invoice-items-area > div:not(.h-full) {
             border-color: #e1e9e2; background: #fafcf9; border-radius: 16px; padding: 14px;
@@ -2069,15 +2070,16 @@
                                         <span class="flex items-center gap-1"><i class="fa-solid fa-calendar-check text-cyan-600"></i> Ngày Nhận (POS):</span>
                                         <span class="text-[9px] text-gray-500">08:00-20:00</span>
                                     </label>
-                                    <input type="datetime-local" id="pos-start-time" onchange="posTimingChanged()" class="w-full bg-cyan-50/50 border border-cyan-300 rounded-lg p-1.5 text-xs text-gray-900 font-bold font-mono focus:outline-none focus:border-cyan-500">
+                                        <input type="datetime-local" id="pos-start-time" onchange="posTimingChanged('start')" class="w-full bg-cyan-50/50 border border-cyan-300 rounded-lg p-1.5 text-xs text-gray-900 font-bold font-mono focus:outline-none focus:border-cyan-500">
                                 </div>
                                 <div class="bg-white p-2 rounded-xl border border-amber-400 shadow-sm">
                                     <label class="block text-[10px] font-bold text-amber-900 mb-0.5 flex items-center justify-between">
                                         <span class="flex items-center gap-1"><i class="fa-solid fa-calendar-xmark text-amber-600"></i> Ngày Trả (POS):</span>
                                         <span class="text-[9px] text-amber-600">Trước 20:00</span>
                                     </label>
-                                    <input type="datetime-local" id="pos-end-time" onchange="posTimingChanged()" class="w-full bg-amber-50/50 border border-amber-300 rounded-lg p-1.5 text-xs text-gray-900 font-bold font-mono focus:outline-none focus:border-amber-500">
+                                        <input type="datetime-local" id="pos-end-time" onchange="posTimingChanged('end')" class="w-full bg-amber-50/50 border border-amber-300 rounded-lg p-1.5 text-xs text-gray-900 font-bold font-mono focus:outline-none focus:border-amber-500">
                                 </div>
+                                <p class="pos-time-sync-note"><i class="fa-solid fa-arrows-rotate mr-1"></i> Chọn gói sẽ tự cập nhật giờ trả; đổi giờ nhận sẽ giữ nguyên thời lượng.</p>
                             </div>
 
                             <!-- HÌNH THỨC CỌC & TIỀN CỌC POS (DÀNH RIÊNG CHO ADMIN) -->
@@ -7850,69 +7852,106 @@
         function posSetItemDuration(itemIdx, pkg, customDays = null) {
             const activeInv = posInvoices[activePosTabIdx];
             if (!activeInv || !activeInv.items[itemIdx]) return;
-            const it = activeInv.items[itemIdx];
-            it.rental_type = pkg;
-
-            if (pkg === '4h') {
-                it.days = 0.5;
-                it.price = it.price_4h;
-            } else if (pkg === '8h') {
-                it.days = 0.5;
-                it.price = it.price_8h;
-            } else if (pkg === '1_day') {
-                it.days = 1.0;
-                it.price = it.price_24h;
-            } else if (pkg === 'multi_days') {
-                const d = customDays ? parseFloat(customDays) : (it.days > 1 ? it.days : 2.0);
-                it.days = Math.max(1.0, d);
-                const isCam = isCameraItem(it);
-                if (!isCam) {
-                    const extraRate = (it.price_24h >= 1000000) ? 30000 : 10000;
-                    it.price = it.price_24h + Math.round((it.days - 1) * extraRate);
-                } else {
-                    it.price = Math.round(it.days * it.price_24h);
-                }
-            }
-
+            const item = activeInv.items[itemIdx];
+            const days = pkg === 'multi_days'
+                ? Math.max(2, parseFloat(customDays) || (item.days > 1 ? item.days : 2))
+                : (pkg === '4h' || pkg === '8h' ? 0.5 : 1);
+            const hours = pkg === '4h' ? 4 : pkg === '8h' ? 8 : days * 24;
+            posApplyInvoiceDuration(activeInv, pkg, days, hours);
             renderActivePosInvoice();
         }
 
-        function posTimingChanged() {
+        function posApplyInvoiceDuration(activeInv, pkg, days, hours) {
+            if (!activeInv) return;
+            const startInp = document.getElementById('pos-start-time');
+            const endInp = document.getElementById('pos-end-time');
+            let startValue = (startInp && startInp.value) || activeInv.startTime;
+            let start = startValue ? new Date(startValue) : new Date();
+            if (Number.isNaN(start.getTime())) start = new Date();
+            const durationHours = Math.max(0.25, Number(hours) || 24);
+            const end = new Date(start.getTime() + durationHours * 60 * 60 * 1000);
+
+            activeInv.startTime = formatDtInput(start);
+            activeInv.endTime = formatDtInput(end);
+            activeInv.rentalDurationHours = durationHours;
+            activeInv.durationPackage = pkg;
+            activeInv.durationDays = days;
+            activeInv.durationLabel = pkg === '4h' ? '4 giờ'
+                : pkg === '8h' ? '8 giờ'
+                : pkg === 'multi_days' ? `${days} ngày`
+                : '1 ngày';
+
+            if (startInp) startInp.value = activeInv.startTime;
+            if (endInp) {
+                endInp.value = activeInv.endTime;
+                endInp.min = activeInv.startTime;
+            }
+
+            activeInv.items.forEach(it => {
+                if (isCameraItem(it)) {
+                    it.rental_type = pkg;
+                    it.days = days;
+                    if (pkg === '4h') it.price = Number(it.price_4h ?? Math.round((Number(it.price_24h) || 0) * 0.5));
+                    else if (pkg === '8h') it.price = Number(it.price_8h ?? Math.round((Number(it.price_24h) || 0) * 0.7));
+                    else if (pkg === '1_day') it.price = Number(it.price_24h) || 0;
+                    else it.price = Math.round(days * (Number(it.price_24h) || 0));
+                    return;
+                }
+
+                const billedDays = Math.max(1, Math.ceil(durationHours / 24));
+                it.days = billedDays;
+                const isAoDai = isAoDaiItem(it);
+                const extraRate = isAoDai ? 20000 : ((Number(it.price_24h) >= 1000000) ? 30000 : 10000);
+                it.price = (Number(it.price_24h) || 0) + Math.round((billedDays - 1) * extraRate);
+            });
+        }
+
+        function posTimingChanged(changedField = 'end') {
             const activeInv = posInvoices[activePosTabIdx];
             if (!activeInv) return;
             const startInp = document.getElementById('pos-start-time');
             const endInp = document.getElementById('pos-end-time');
             if (!startInp || !endInp) return;
+            let start = startInp.value ? new Date(startInp.value) : new Date();
+            if (Number.isNaN(start.getTime())) return;
 
-            activeInv.startTime = startInp.value;
-            activeInv.endTime = endInp.value;
-
-            // Tính số ngày thuê
-            let days = 1.0;
-            if (activeInv.startTime && activeInv.endTime) {
-                const dtS = new Date(activeInv.startTime);
-                const dtE = new Date(activeInv.endTime);
-                const diffSec = (dtE - dtS) / 1000;
-                if (diffSec > 0) {
-                    const calendarDays = Math.round((new Date(activeInv.endTime).setHours(0,0,0,0) - new Date(activeInv.startTime).setHours(0,0,0,0)) / 86400000);
-                    days = Math.max(1.0, calendarDays <= 1 ? 1.0 : calendarDays);
+            if (changedField === 'start') {
+                const keepHours = Number(activeInv.rentalDurationHours) || 24;
+                activeInv.startTime = formatDtInput(start);
+                activeInv.endTime = formatDtInput(new Date(start.getTime() + keepHours * 60 * 60 * 1000));
+                endInp.value = activeInv.endTime;
+                endInp.min = activeInv.startTime;
+            } else {
+                const end = endInp.value ? new Date(endInp.value) : null;
+                if (!end || Number.isNaN(end.getTime()) || end <= start) {
+                    showToast('Giờ trả phải sau giờ nhận.');
+                    endInp.value = activeInv.endTime || formatDtInput(new Date(start.getTime() + 24 * 60 * 60 * 1000));
+                    return;
                 }
+                const durationHours = (end.getTime() - start.getTime()) / (60 * 60 * 1000);
+                const billDays = Math.max(1, Math.ceil(durationHours / 24));
+                const pkg = durationHours <= 4 ? '4h'
+                    : durationHours <= 8 ? '8h'
+                    : durationHours <= 24 ? '1_day'
+                    : 'multi_days';
+                const packageDays = pkg === '4h' || pkg === '8h' ? 0.5 : (pkg === '1_day' ? 1 : billDays);
+                activeInv.startTime = formatDtInput(start);
+                activeInv.endTime = formatDtInput(end);
+                activeInv.rentalDurationHours = durationHours;
+                posApplyInvoiceDuration(activeInv, pkg, packageDays, durationHours);
+                // Preserve the manually selected return time after syncing item prices and package states.
+                activeInv.endTime = formatDtInput(end);
+                endInp.value = activeInv.endTime;
             }
 
-            // Cập nhật lại giá từng món theo ngày thuê mới (thêm 1 ngày = +10k, riêng áo dài = +20k, máy ảnh tính theo ngày)
-            activeInv.items.forEach(it => {
-                const isCam = isCameraItem(it);
-                it.days = days;
-                if (!isCam) {
-                    const isAoDai = isAoDaiItem(it);
-                    const extraRate = isAoDai ? 20000 : ((it.price_24h >= 1000000) ? 30000 : 10000);
-                    it.price = it.price_24h + Math.round((days - 1) * extraRate);
-                } else {
-                    it.price = Math.round(days * it.price_24h);
-                }
-            });
-
-            posRecalculateActiveInvoice();
+            const hours = Number(activeInv.rentalDurationHours) || 24;
+            if (hours <= 24) {
+                const shown = Math.round(hours * 10) / 10;
+                activeInv.durationLabel = hours === 24 ? '1 ngày' : `${shown} giờ`;
+            } else {
+                activeInv.durationLabel = `${Math.max(2, Math.ceil(hours / 24))} ngày`;
+            }
+            renderActivePosInvoice();
         }
 
         function posUpdateItemCustomPrice(itemIdx, newPrice) {
@@ -7940,14 +7979,18 @@
             if (startInp && startInp.value) activeInv.startTime = startInp.value;
             if (endInp && endInp.value) activeInv.endTime = endInp.value;
 
-            let durationText = "1 ngày";
+            let durationText = activeInv.durationLabel || "1 ngày";
             if (activeInv.startTime && activeInv.endTime) {
                 const dtS = new Date(activeInv.startTime);
                 const dtE = new Date(activeInv.endTime);
                 const diffSec = (dtE - dtS) / 1000;
                 if (diffSec > 0) {
-                    const dDiff = Math.round((new Date(activeInv.endTime).setHours(0,0,0,0) - new Date(activeInv.startTime).setHours(0,0,0,0)) / 86400000);
-                    durationText = `${Math.max(1, dDiff)} ngày`;
+                    if (!activeInv.durationLabel) {
+                        const durationHours = diffSec / 3600;
+                        durationText = durationHours < 24
+                            ? `${Math.round(durationHours * 10) / 10} giờ`
+                            : `${Math.max(1, Math.ceil(durationHours / 24))} ngày`;
+                    }
                 }
             }
             const durDisp = document.getElementById('pos-duration-disp');
@@ -8005,12 +8048,18 @@
             }
             if (posEndInp) {
                 if (!activeInv.endTime) {
-                    const tom = new Date(new Date().getTime() + 86400000);
-                    tom.setHours(20, 0, 0, 0);
-                    activeInv.endTime = formatDtInput(tom);
+                    const start = new Date(activeInv.startTime);
+                    activeInv.endTime = formatDtInput(new Date(start.getTime() + 24 * 60 * 60 * 1000));
                 }
                 posEndInp.value = activeInv.endTime;
                 posEndInp.min = activeInv.startTime;
+            }
+            if (!activeInv.rentalDurationHours) {
+                const start = new Date(activeInv.startTime);
+                const end = new Date(activeInv.endTime);
+                activeInv.rentalDurationHours = !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end > start
+                    ? (end.getTime() - start.getTime()) / 3600000
+                    : 24;
             }
 
             // Đồng bộ ô cọc
