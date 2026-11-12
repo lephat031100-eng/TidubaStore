@@ -238,6 +238,78 @@
             .auth-invalid-shake { animation-duration: .01ms !important; }
         }
 
+        /* KiotViet POS: clear panels, generous touch targets and an always-reachable checkout bar. */
+        #sec-kiotviet-pos.pos-shell {
+            border: 1px solid #d8e5dc !important;
+            background: #f3f6f3 !important;
+            color: #17241c;
+        }
+        #sec-kiotviet-pos .pos-topbar {
+            position: sticky; top: 0; z-index: 30; padding: 10px 2px 14px;
+            background: rgba(243,246,243,.96); backdrop-filter: blur(12px);
+            border-color: #dbe5dc;
+        }
+        #sec-kiotviet-pos .pos-topbar input,
+        #sec-kiotviet-pos #pos-item-search,
+        #sec-kiotviet-pos input:not([type="checkbox"]),
+        #sec-kiotviet-pos select {
+            min-height: 44px; font-size: 14px; border-radius: 12px;
+        }
+        #sec-kiotviet-pos #pos-item-search { padding-left: 42px; padding-right: 44px; background: #fff; border-color: #c8d8cd; }
+        #sec-kiotviet-pos .pos-panel {
+            background: #fff; border: 1px solid #e0e8e1; border-radius: 20px;
+            box-shadow: 0 8px 24px rgba(30,56,39,.055);
+        }
+        #sec-kiotviet-pos .pos-products-panel { padding: 16px; }
+        #sec-kiotviet-pos .pos-invoice-panel { min-height: 680px; overflow: visible; }
+        #sec-kiotviet-pos .pos-cat-pill { min-height: 40px; padding: 0 16px; font-size: 13px; border-radius: 999px; }
+        #sec-kiotviet-pos #pos-subcat-title { color: #526258; font-size: 12px; padding: 5px 2px; }
+        #sec-kiotviet-pos #pos-catalog-items { max-height: min(72vh, 760px); padding: 2px 5px 6px 1px; }
+        #sec-kiotviet-pos .pos-product-row {
+            min-height: 72px; width: 100%; padding: 10px 12px; border: 1px solid #e7ece7;
+            border-radius: 15px; color: #17241c; background: #fff; text-align: left;
+            appearance: none; font: inherit;
+            transition: border-color .16s ease, background .16s ease, transform .16s ease, box-shadow .16s ease;
+        }
+        #sec-kiotviet-pos .pos-product-row:hover,
+        #sec-kiotviet-pos .pos-product-row:focus-visible {
+            border-color: #68b58b; background: #f5fbf6; box-shadow: 0 5px 14px rgba(25,115,67,.1);
+            outline: none; transform: translateY(-1px);
+        }
+        #sec-kiotviet-pos .pos-product-row:active { transform: scale(.99); }
+        #sec-kiotviet-pos .pos-product-row img { width: 52px; height: 52px; border-radius: 12px; }
+        #sec-kiotviet-pos #pos-cust-name-input,
+        #sec-kiotviet-pos #pos-cust-phone-input { padding: 10px 12px; }
+        #sec-kiotviet-pos #pos-customer-badge { min-height: 44px; padding: 8px 12px; }
+        #sec-kiotviet-pos #pos-invoice-items-area { max-height: min(38vh, 400px); padding: 12px 2px; }
+        #sec-kiotviet-pos #pos-invoice-items-area > div:not(.h-full) {
+            border-color: #e1e9e2; background: #fafcf9; border-radius: 16px; padding: 14px;
+        }
+        #sec-kiotviet-pos #pos-invoice-items-area button { min-height: 38px; padding: 0 12px; }
+        #sec-kiotviet-pos .pos-checkout-footer {
+            position: sticky; bottom: 8px; z-index: 20; padding: 12px;
+            margin: 12px -8px -8px; border: 1px solid #dce6dd; border-radius: 18px;
+            background: rgba(255,255,255,.97); box-shadow: 0 -6px 24px rgba(30,56,39,.1);
+            backdrop-filter: blur(12px);
+        }
+        #sec-kiotviet-pos .pos-checkout-footer > button,
+        #sec-kiotviet-pos .pos-checkout-footer [role="button"] { min-height: 50px; }
+        #sec-kiotviet-pos #pos-btn-checkout { min-height: 54px; justify-content: space-between; border-radius: 14px; }
+        @media (max-width: 1023px) {
+            #sec-kiotviet-pos .pos-topbar { position: relative; }
+            #sec-kiotviet-pos #pos-catalog-items { max-height: 58vh; }
+            #sec-kiotviet-pos #pos-invoice-items-area { max-height: 34vh; }
+        }
+        @media (max-width: 640px) {
+            #sec-kiotviet-pos.pos-shell { border-radius: 18px; padding: 10px !important; }
+            #sec-kiotviet-pos .pos-products-panel { padding: 12px; }
+            #sec-kiotviet-pos .pos-topbar { gap: 10px; }
+            #sec-kiotviet-pos .pos-invoice-panel { min-height: 0; }
+            #sec-kiotviet-pos .pos-checkout-footer { bottom: 6px; margin: 10px -5px -5px; padding: 9px; }
+            #sec-kiotviet-pos .pos-checkout-footer > div { flex-wrap: wrap; }
+            #sec-kiotviet-pos #pos-btn-checkout { flex-basis: 100%; }
+        }
+
         /* Ẩn hoàn toàn nút liên hệ nổi khi đang ở trong Admin hoặc POS KiotViet */
         #sec-admin:not(.hidden) ~ #global-floating-contact,
         #sec-kiotviet-pos:not(.hidden) ~ #global-floating-contact,
@@ -1831,10 +1903,10 @@
         <!-- Chuẩn 100% bố cục KiotViet: Đa tab hóa đơn, chọn nhiều món,    -->
         <!-- tính tiền 1 lần, tìm kiếm hàng hóa, gộp bill in K80 & QR MBBank-->
         <!-- ============================================================== -->
-        <section id="sec-kiotviet-pos" class="hidden rounded-3xl p-3 md:p-5 shadow-2xl border border-pink-200/60 font-sans" style="background: linear-gradient(135deg, #fcecef 0%, #f4effa 50%, #eff6ff 100%);">
+        <section id="sec-kiotviet-pos" class="hidden pos-shell rounded-3xl p-3 md:p-5 shadow-2xl font-sans">
             
             <!-- KiotViet Top Bar -->
-            <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-pink-200/80">
+            <div class="pos-topbar flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-pink-200/80">
                 <div class="flex flex-wrap items-center gap-2">
                     <!-- KiotViet Brand Mark -->
                     <div class="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full shadow-sm border border-emerald-500/30">
@@ -1874,11 +1946,11 @@
             </div>
 
             <!-- KiotViet Main Two-Column Layout -->
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 mt-3">
+            <div class="pos-layout grid grid-cols-1 lg:grid-cols-12 gap-4 mt-3">
                 
                 <!-- CỘT TRÁI: DANH MỤC HÀNG HÓA & TRANG PHỤC (WIDTH: 5 COLS) -->
                 <div class="lg:col-span-5 flex flex-col gap-3">
-                    <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-gray-200/80 space-y-3 flex-1 flex flex-col">
+                    <div class="pos-panel pos-products-panel bg-white rounded-2xl p-3.5 shadow-sm border border-gray-200/80 space-y-3 flex-1 flex flex-col">
                         
                         <!-- Search Bar Left -->
                         <div class="relative flex items-center">
@@ -1919,7 +1991,7 @@
 
                 <!-- CỘT PHẢI: PHIẾU HÓA ĐƠN TÍNH TIỀN (WIDTH: 7 COLS) -->
                 <div class="lg:col-span-7 flex flex-col">
-                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-200/80 flex flex-col justify-between flex-1 min-h-[680px]">
+                    <div class="pos-panel pos-invoice-panel bg-white rounded-2xl p-4 shadow-sm border border-gray-200/80 flex flex-col justify-between flex-1 min-h-[680px]">
                         
                         <!-- Top Customer Search Box & Direct Input Form in Invoice -->
                         <div class="space-y-2.5 pb-3 border-b border-gray-100">
@@ -2036,7 +2108,7 @@
                             </div>
 
                             <!-- Action Bar: Xóa, Chọn Chuyển khoản / Tiền mặt (Yêu cầu 2), Nút Thanh Toán -->
-                            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                            <div class="pos-checkout-footer flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
                                 <button type="button" onclick="posClearActiveInvoice()" class="px-3.5 py-3 rounded-2xl bg-white hover:bg-rose-50 text-gray-500 hover:text-rose-600 border border-gray-200 font-bold text-xs transition flex items-center justify-center gap-1" title="Xóa toàn bộ món trong hóa đơn này">
                                     <i class="fa-regular fa-trash-can"></i> Xóa
                                 </button>
@@ -7689,21 +7761,21 @@
             listEl.innerHTML = itemsToShow.map(it => {
                 const isAvail = it.availability === 'AVAILABLE';
                 return `
-                    <div onclick="posAddItemToActiveInvoice(${it.id}, ${it.is_combo})" class="cursor-pointer p-2.5 rounded-xl border border-gray-100 hover:border-emerald-500 bg-white hover:bg-emerald-50/40 transition flex items-center justify-between gap-3 shadow-sm group">
-                        <div class="flex items-center gap-3">
+                    <button type="button" onclick="posAddItemToActiveInvoice(${it.id}, ${it.is_combo})" aria-label="Chọn sản phẩm" class="pos-product-row cursor-pointer p-2.5 rounded-xl border border-gray-100 hover:border-emerald-500 bg-white hover:bg-emerald-50/40 transition flex items-center justify-between gap-3 shadow-sm group">
+                        <span class="flex items-center gap-3 min-w-0">
                             <img src="${it.image_url}" class="w-12 h-12 rounded-xl object-cover border border-gray-100 flex-shrink-0 group-hover:scale-105 transition">
-                            <div>
-                                <h4 class="font-bold text-gray-900 text-xs line-clamp-1 group-hover:text-emerald-700 transition">${it.name}</h4>
-                                <div class="text-gray-400 text-[10px] font-mono mt-0.5">${it.brand} • ${it.serial}</div>
-                            </div>
-                        </div>
-                        <div class="text-right flex-shrink-0">
-                            <div class="text-gray-900 font-black text-xs font-mono">${it.price.toLocaleString()}đ</div>
+                            <span class="block min-w-0">
+                                <span class="block font-bold text-gray-900 text-sm line-clamp-1 group-hover:text-emerald-700 transition">${it.name}</span>
+                                <span class="block text-gray-500 text-[11px] font-mono mt-1 truncate">${it.brand} • ${it.serial}</span>
+                            </span>
+                        </span>
+                        <span class="text-right flex-shrink-0">
+                            <span class="block text-gray-900 font-black text-sm font-mono">${it.price.toLocaleString()}đ</span>
                             <span class="text-[9px] font-bold px-1.5 py-0.2 rounded-full ${isAvail ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
                                 ${isAvail ? '+ Chọn' : 'Đang thuê'}
                             </span>
-                        </div>
-                    </div>
+                        </span>
+                    </button>
                 `;
             }).join('');
         }
