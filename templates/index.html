@@ -10347,6 +10347,10 @@
         }
 
         async function submitNewItem() {
+            if (!(await refreshAdminAuthState())) {
+                showToast('Phiên quản trị chưa được xác nhận. Hãy kiểm tra kết nối hoặc đăng nhập lại tài khoản Admin.');
+                return;
+            }
             const targetId = document.getElementById('edit-item-target-id').value;
             const name = document.getElementById('add-item-name').value.trim();
             const cat = document.getElementById('add-item-cat').value;
@@ -10411,19 +10415,20 @@
             }
 
             try {
-                let res;
-                if (targetId) {
-                    res = await fetch(`/api/admin/items/${targetId}`, {
+                const saveItemRequest = () => targetId
+                    ? fetch(`/api/admin/items/${targetId}`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                         body: JSON.stringify(payload)
-                    });
-                } else {
-                    res = await fetch('/api/admin/items', {
+                    })
+                    : fetch('/api/admin/items', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                         body: JSON.stringify(payload)
                     });
+                let res = await saveItemRequest();
+                if (res.status === 403 && await refreshAdminAuthState()) {
+                    res = await saveItemRequest();
                 }
 
                 const text = await res.text();
@@ -11079,6 +11084,35 @@
                 }
             }
             await autoLoginAdminIfNeeded();
+        }
+
+        async function refreshAdminAuthState() {
+            const token = localStorage.getItem('tiduba_token');
+            if (!token) {
+                commitAuthSession(null);
+                return false;
+            }
+            try {
+                const res = await fetch('/api/auth/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (!res.ok || !data.authenticated || !data.user) {
+                    commitAuthSession(null);
+                    return false;
+                }
+                const user = {
+                    ...data.user,
+                    role: String(data.user.role || 'customer').trim().toLowerCase()
+                };
+                if (!currentUser || currentUser.id !== user.id || currentUser.role !== user.role) {
+                    commitAuthSession(user);
+                }
+                return user.role === 'admin';
+            } catch (error) {
+                console.error('Unable to refresh admin session:', error);
+                return false;
+            }
         }
 
         function toggleAdminNavDropdown() {

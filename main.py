@@ -933,6 +933,13 @@ def init_db():
         """, (now,))
         conn.commit()
 
+    # Normalize legacy role values and preserve the canonical seeded admin account.
+    # This repairs databases created by older app versions where role casing or
+    # whitespace could make the UI show an admin session while API guards denied it.
+    cur.execute("UPDATE users SET role = lower(trim(role)) WHERE role != lower(trim(role))")
+    cur.execute("UPDATE users SET role = 'admin' WHERE lower(trim(username)) = 'admin'")
+    conn.commit()
+
     # Pre-seed Items với đầy đủ giá 4h, 8h, 24h & ngàm/shot/size
     cur.execute("SELECT count(*) as c FROM items")
     if cur.fetchone()["c"] == 0:
@@ -1090,6 +1097,13 @@ def create_token(user_id: int, username: str, role: str) -> str:
     return f"{payload}:{sig}"
 
 
+def normalize_user_role(user: Dict[str, Any]) -> Dict[str, Any]:
+    """Use one canonical role value for legacy databases and every API guard."""
+    normalized = dict(user)
+    normalized["role"] = str(normalized.get("role") or "customer").strip().lower()
+    return normalized
+
+
 def get_current_user(authorization: Optional[str] = Header(None)) -> Optional[Dict[str, Any]]:
     if not authorization:
         return None
@@ -1120,7 +1134,7 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> Optional[Di
         ).fetchone()
         conn.close()
         if user:
-            return dict(user)
+            return normalize_user_role(dict(user))
     except Exception:
         pass
     return None
@@ -1836,7 +1850,7 @@ def login(req: LoginRequest):
     if not user:
         raise HTTPException(status_code=401, detail="Sai tên đăng nhập hoặc mật khẩu!")
 
-    user_dict = dict(user)
+    user_dict = normalize_user_role(dict(user))
     token = create_token(user_dict["id"], user_dict["username"], user_dict["role"])
     return {
         "success": True,
