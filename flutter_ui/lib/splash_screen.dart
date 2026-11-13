@@ -1,8 +1,8 @@
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:vector_math/vector_math_64.dart' show Matrix4;
 
 /// Animated Tiduba intro. Supply [nextScreen] to replace this route after the
 /// animation, or [onAnimationComplete] when navigation is managed by the app.
@@ -20,40 +20,72 @@ class TidubaSplashScreen extends StatefulWidget {
   State<TidubaSplashScreen> createState() => _TidubaSplashScreenState();
 }
 
+/// Short alias for apps that prefer the generic widget name.
+typedef SplashScreen = TidubaSplashScreen;
+
 class _TidubaSplashScreenState extends State<TidubaSplashScreen>
-    with SingleTickerProviderStateMixin {
-  static const _animationDuration = Duration(milliseconds: 4000);
+    with TickerProviderStateMixin {
+  static const _duration = Duration(milliseconds: 3600);
 
   late final AnimationController _controller;
+  late final AnimationController _breathController;
+  late final Animation<double> _logoOpacity;
+  late final Animation<double> _logoScale;
+  late final Animation<double> _logoTilt;
   late final Animation<double> _titleOpacity;
   late final Animation<Offset> _titleSlide;
+  late final Animation<double> _storeOpacity;
+  late final Animation<Offset> _storeSlide;
   late final Animation<double> _taglineOpacity;
+  late final Animation<Offset> _taglineSlide;
   bool _didComplete = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _controller = AnimationController(vsync: this, duration: _duration);
+    _breathController = AnimationController(
       vsync: this,
-      duration: _animationDuration,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+
+    _logoOpacity = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(.22, .32, curve: Curves.easeOut),
     );
+    _logoScale = Tween<double>(begin: 1.62, end: 1).animate(CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(.22, .56, curve: Curves.easeOutBack),
+    ));
+    _logoTilt = Tween<double>(begin: -.14, end: 0).animate(CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(.22, .56, curve: Curves.easeOutExpo),
+    ));
     _titleOpacity = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(2.82 / 4, 3.42 / 4, curve: Curves.easeOut),
+      curve: const Interval(.56, .72, curve: Curves.easeOut),
     );
-    _titleSlide = Tween<Offset>(
-      begin: const Offset(0, .18),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
+    _titleSlide = _slide(.56, .72);
+    _storeOpacity = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(2.82 / 4, 3.42 / 4, curve: Curves.easeOutBack),
-    ));
+      curve: const Interval(.62, .77, curve: Curves.easeOut),
+    );
+    _storeSlide = _slide(.62, .77);
     _taglineOpacity = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(3.05 / 4, 3.5 / 4, curve: Curves.easeIn),
+      curve: const Interval(.69, .84, curve: Curves.easeOut),
     );
+    _taglineSlide = _slide(.69, .84);
     _playIntro();
   }
+
+  Animation<Offset> _slide(double start, double end) => Tween<Offset>(
+        begin: const Offset(0, .22),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(
+        parent: _controller,
+        curve: Interval(start, end, curve: Curves.easeOutCubic),
+      ));
 
   Future<void> _playIntro() async {
     await _controller.forward();
@@ -79,102 +111,258 @@ class _TidubaSplashScreenState extends State<TidubaSplashScreen>
     }
   }
 
+  double _impactShake(double progress) {
+    const impactAt = .445;
+    final distance = (progress - impactAt).abs();
+    if (distance > .035) return 0;
+    final strength = 1 - distance / .035;
+    return math.sin((progress - impactAt) * 850) * 3 * strength;
+  }
+
   @override
   void dispose() {
     _controller.dispose();
+    _breathController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
+      value: SystemUiOverlayStyle.dark,
       child: Scaffold(
-        backgroundColor: const Color(0xFF0E1117),
+        backgroundColor: const Color(0xFFF8FAFC),
         body: DecoratedBox(
           decoration: const BoxDecoration(
             gradient: RadialGradient(
-              center: Alignment(0, -.12),
-              radius: 1.05,
-              colors: [Color(0xFF171B22), Color(0xFF0E1117), Color(0xFF0A0C10)],
-              stops: [0, .58, 1],
+              center: Alignment(0, -.08),
+              radius: 1.12,
+              colors: [Color(0xFFFFFFFF), Color(0xFFF8FAFC), Color(0xFFE2E8F0)],
+              stops: [0, .56, 1],
             ),
           ),
           child: SafeArea(
             child: Stack(
               children: [
                 Positioned.fill(
+                  child: AnimatedBuilder(
+                    animation: _controller,
+                    builder: (context, _) => CustomPaint(
+                      painter: _CornerMeshPainter(progress: _controller.value),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      final compact = constraints.maxHeight < 560;
+                      final compact = constraints.maxHeight < 600;
+                      final crestSize = math.min(
+                        compact ? 188.0 : 224.0,
+                        constraints.maxWidth * .56,
+                      );
                       return SingleChildScrollView(
                         child: ConstrainedBox(
-                          constraints:
-                              BoxConstraints(minHeight: constraints.maxHeight),
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight,
+                          ),
                           child: Center(
                             child: Padding(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 24),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  AnimatedBuilder(
-                                    animation: _controller,
-                                    builder: (context, _) => CustomPaint(
-                                      size: Size(
-                                        math
-                                            .min(constraints.maxWidth - 48, 236)
-                                            .toDouble(),
-                                        compact ? 174 : 196,
-                                      ),
-                                      painter: _TidubaTLogoPainter(
-                                        progress: _controller.value,
-                                      ),
-                                    ),
-                                  ),
-                                  SizedBox(height: compact ? 8 : 18),
-                                  FadeTransition(
-                                    opacity: _titleOpacity,
-                                    child: SlideTransition(
-                                      position: _titleSlide,
-                                      child: RichText(
-                                        textAlign: TextAlign.center,
-                                        text: const TextSpan(
-                                          style: TextStyle(
-                                            fontSize: 28,
-                                            fontWeight: FontWeight.w700,
-                                            letterSpacing: -.6,
+                              child: AnimatedBuilder(
+                                animation: _controller,
+                                builder: (context, child) =>
+                                    Transform.translate(
+                                  offset: Offset(
+                                      _impactShake(_controller.value), 0),
+                                  child: child,
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    AnimatedBuilder(
+                                      animation: Listenable.merge(
+                                          [_controller, _breathController]),
+                                      builder: (context, _) {
+                                        final glow =
+                                            .2 + _breathController.value * .27;
+                                        final shineProgress =
+                                            Curves.easeInOutCubic.transform(
+                                                ((_controller.value - .56) /
+                                                        .22)
+                                                    .clamp(0.0, 1.0));
+                                        return Opacity(
+                                          opacity: _logoOpacity.value,
+                                          child: Transform(
+                                            alignment: Alignment.center,
+                                            transform: Matrix4.identity()
+                                              ..setEntry(3, 2, .0012)
+                                              ..rotateX(_logoTilt.value),
+                                            child: ScaleTransition(
+                                              scale: _logoScale,
+                                              child: SizedBox(
+                                                width: crestSize,
+                                                height: crestSize * .86,
+                                                child: Stack(
+                                                  alignment: Alignment.center,
+                                                  children: [
+                                                    Container(
+                                                      width: crestSize * .62,
+                                                      height: crestSize * .52,
+                                                      decoration: BoxDecoration(
+                                                        shape: BoxShape.circle,
+                                                        gradient:
+                                                            RadialGradient(
+                                                          colors: [
+                                                            const Color(
+                                                                    0xFF22D3EE)
+                                                                .withOpacity(
+                                                                    glow),
+                                                            const Color(
+                                                                    0xFF38BDF8)
+                                                                .withOpacity(
+                                                                    glow * .5),
+                                                            Colors.transparent,
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    Image.asset(
+                                                      'assets/images/tiduba_crest.png',
+                                                      width: crestSize,
+                                                      height: crestSize * .86,
+                                                      fit: BoxFit.contain,
+                                                      filterQuality:
+                                                          FilterQuality.high,
+                                                      errorBuilder:
+                                                          (_, __, ___) =>
+                                                              const Icon(
+                                                        Icons.diamond_outlined,
+                                                        size: 120,
+                                                        color:
+                                                            Color(0xFFB88975),
+                                                      ),
+                                                    ),
+                                                    if (_controller.value >=
+                                                            .56 &&
+                                                        _controller.value <=
+                                                            .78)
+                                                      Positioned.fill(
+                                                        child: ShaderMask(
+                                                          blendMode:
+                                                              BlendMode.screen,
+                                                          shaderCallback:
+                                                              (bounds) =>
+                                                                  LinearGradient(
+                                                            begin: Alignment(
+                                                                -1.5 +
+                                                                    3 * shineProgress,
+                                                                -1),
+                                                            end: Alignment(
+                                                                -.5 +
+                                                                    3 * shineProgress,
+                                                                1),
+                                                            colors: [
+                                                              Colors
+                                                                  .transparent,
+                                                              Colors.white
+                                                                  .withOpacity(
+                                                                      .78),
+                                                              Colors
+                                                                  .transparent,
+                                                            ],
+                                                            stops: const [
+                                                              0,
+                                                              .5,
+                                                              1,
+                                                            ],
+                                                          ).createShader(
+                                                                      bounds),
+                                                          child: Image.asset(
+                                                            'assets/images/tiduba_crest.png',
+                                                            width: crestSize,
+                                                            height:
+                                                                crestSize * .86,
+                                                            fit: BoxFit.contain,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
                                           ),
-                                          children: [
-                                            TextSpan(
-                                              text: 'Tiduba',
-                                              style: TextStyle(
-                                                  color: Colors.white),
+                                        );
+                                      },
+                                    ),
+                                    SizedBox(height: compact ? 8 : 17),
+                                    FadeTransition(
+                                      opacity: _titleOpacity,
+                                      child: SlideTransition(
+                                        position: _titleSlide,
+                                        child: ShaderMask(
+                                          blendMode: BlendMode.srcIn,
+                                          shaderCallback: (bounds) =>
+                                              const LinearGradient(
+                                            colors: [
+                                              Color(0xFF64748B),
+                                              Color(0xFF94A3B8),
+                                              Color(0xFF64748B),
+                                            ],
+                                          ).createShader(bounds),
+                                          child: const Text(
+                                            'TIDUBA',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 34,
+                                              height: 1.04,
+                                              fontWeight: FontWeight.w900,
+                                              letterSpacing: 3.5,
                                             ),
-                                            TextSpan(
-                                              text: 'Store',
-                                              style: TextStyle(
-                                                  color: Color(0xFFEAD8B1)),
-                                            ),
-                                          ],
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 9),
-                                  FadeTransition(
-                                    opacity: _taglineOpacity,
-                                    child: const Text(
-                                      'Camera, Equipment & Outfit Rental',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: Color(0xFFA8A29E),
-                                        fontSize: 13,
-                                        letterSpacing: .25,
+                                    FadeTransition(
+                                      opacity: _storeOpacity,
+                                      child: SlideTransition(
+                                        position: _storeSlide,
+                                        child: const Text(
+                                          'STORE',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color: Color(0xFF64748B),
+                                            fontSize: 18,
+                                            height: 1.3,
+                                            fontWeight: FontWeight.w500,
+                                            letterSpacing: 6.5,
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                    SizedBox(height: compact ? 10 : 16),
+                                    FadeTransition(
+                                      opacity: _taglineOpacity,
+                                      child: SlideTransition(
+                                        position: _taglineSlide,
+                                        child: const FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            'QUALITY | SERVICE | INNOVATION',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              color: Color(0xFF94A3B8),
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.w600,
+                                              letterSpacing: 2.2,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -184,19 +372,23 @@ class _TidubaSplashScreenState extends State<TidubaSplashScreen>
                   ),
                 ),
                 Positioned(
-                  right: 12,
-                  bottom: 12,
+                  right: 16,
+                  bottom: 14,
                   child: TextButton(
                     onPressed: _complete,
                     style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFFFAF3E0),
-                      backgroundColor: const Color(0xFF2C2A26),
+                      foregroundColor: const Color(0xFF334155),
+                      backgroundColor: const Color(0xFFE2E8F0).withOpacity(.88),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 18, vertical: 11),
+                        horizontal: 19,
+                        vertical: 11,
+                      ),
                       minimumSize: const Size(0, 44),
                       shape: const StadiumBorder(),
                       textStyle: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w600),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     child: const Text('Bỏ qua'),
                   ),
@@ -210,260 +402,132 @@ class _TidubaSplashScreenState extends State<TidubaSplashScreen>
   }
 }
 
-class _TidubaTLogoPainter extends CustomPainter {
-  const _TidubaTLogoPainter({required this.progress});
+class _CornerMeshPainter extends CustomPainter {
+  const _CornerMeshPainter({required this.progress});
 
   final double progress;
 
-  static const _designSize = 200.0;
-  static const _hudEnd = .25;
-  static const _assemblyStart = .25;
-  static const _assemblyEnd = .575;
-  static const _shineStart = .575;
-  static const _shineEnd = .825;
-
-  static final Path _leftWing = Path()
-    ..moveTo(28, 24)
-    ..lineTo(105, 24)
-    ..lineTo(113, 39)
-    ..lineTo(100, 68)
-    ..lineTo(20, 68)
-    ..close();
-
-  static final Path _rightWing = Path()
-    ..moveTo(105, 24)
-    ..lineTo(190, 24)
-    ..lineTo(182, 68)
-    ..lineTo(100, 68)
-    ..lineTo(113, 39)
-    ..close();
-
-  static final Path _keystone = Path()
-    ..moveTo(94, 31)
-    ..lineTo(112, 31)
-    ..lineTo(124, 47)
-    ..lineTo(112, 64)
-    ..lineTo(94, 64)
-    ..lineTo(82, 47)
-    ..close();
-
-  static final Path _pillar = Path()
-    ..moveTo(78, 63)
-    ..lineTo(126, 63)
-    ..lineTo(113, 176)
-    ..lineTo(93, 176)
-    ..close();
-
-  static final Path _outerPath = Path()
-    ..moveTo(28, 24)
-    ..lineTo(190, 24)
-    ..lineTo(182, 68)
-    ..lineTo(126, 68)
-    ..lineTo(111, 176)
-    ..lineTo(93, 176)
-    ..lineTo(56, 68)
-    ..lineTo(20, 68)
-    ..close();
-
-  static const List<Offset> _anchors = [
-    Offset(28, 24),
-    Offset(190, 24),
-    Offset(182, 68),
-    Offset(20, 68),
-    Offset(95, 176),
-    Offset(111, 176),
-    Offset(82, 47),
-    Offset(124, 47),
-  ];
-
   @override
   void paint(Canvas canvas, Size size) {
-    final scale = math
-        .min(size.width / _designSize, size.height / _designSize)
-        .toDouble();
-    final dx = (size.width - _designSize * scale) / 2;
-    final dy = (size.height - _designSize * scale) / 2;
-    canvas.save();
-    canvas.translate(dx, dy);
-    canvas.scale(scale);
-
-    final hudProgress = (progress / _hudEnd).clamp(0.0, 1.0).toDouble();
-    final hudOpacity = progress < _assemblyEnd
-        ? (1 - ((progress - _assemblyStart) / (_assemblyEnd - _assemblyStart)))
-            .clamp(0.0, 1.0)
-            .toDouble()
-        : 0.0;
-    if (hudOpacity > 0) _drawHud(canvas, hudProgress, hudOpacity);
-
-    final assemble = Curves.easeOutExpo.transform(
-      ((progress - _assemblyStart) / (_assemblyEnd - _assemblyStart))
-          .clamp(0.0, 1.0)
-          .toDouble(),
-    );
-    if (assemble > 0) _drawAssembly(canvas, assemble);
-
-    final impact = ((progress - .525) / .085).clamp(0.0, 1.0).toDouble();
-    if (impact > 0 && impact < 1) _drawImpact(canvas, impact);
-
-    final shine = ((progress - _shineStart) / (_shineEnd - _shineStart))
+    final fade = (1 - ((progress - .55) / .2).clamp(0.0, 1.0))
         .clamp(0.0, 1.0)
         .toDouble();
-    if (shine > 0 && shine < 1) _drawShine(canvas, shine);
-
-    canvas.restore();
-  }
-
-  void _drawHud(Canvas canvas, double progress, double opacity) {
-    final hud = Paint()
-      ..color = const Color(0xFFFAF3E0).withOpacity(.25 * opacity)
+    final line = Paint()
+      ..color = const Color(0xFF94A3B8).withOpacity(.30 * fade)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.1
-      ..strokeCap = StrokeCap.square;
-    final center = Offset(105, 98);
-    final reveal = Curves.easeOutCubic.transform(progress);
-    canvas.drawLine(Offset(8, 98), Offset(42 + 25 * reveal, 98), hud);
-    canvas.drawLine(Offset(158, 98), Offset(198, 98), hud);
-    canvas.drawLine(Offset(104, 7), Offset(104, 19 + 12 * reveal), hud);
-    canvas.drawLine(Offset(104, 181), Offset(104, 194), hud);
-    canvas.drawCircle(center, 43 * reveal, hud);
-    _drawBracket(canvas, const Rect.fromLTWH(12, 10, 176, 178), 15, hud);
+      ..strokeWidth = 1
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
-    final wire = Paint()
-      ..color = const Color(0xFFFAF3E0).withOpacity(.72 * opacity)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8
-      ..strokeJoin = StrokeJoin.miter
-      ..strokeCap = StrokeCap.square;
-    final metrics = _outerPath.computeMetrics().toList();
-    if (metrics.isNotEmpty) {
-      canvas.drawPath(
-          metrics.first.extractPath(0, metrics.first.length * progress), wire);
-    }
-    final node = Paint()
-      ..color = const Color(0xFFFAF3E0).withOpacity(.8 * opacity)
-      ..style = PaintingStyle.fill;
-    for (var i = 0; i < _anchors.length; i++) {
-      if (progress >= i / (_anchors.length - 1))
-        canvas.drawCircle(_anchors[i], 2, node);
-    }
-  }
+    final meshPaths = <Path>[
+      Path()
+        ..moveTo(0, 0)
+        ..lineTo(size.width * .27, 0)
+        ..lineTo(size.width * .19, size.height * .14)
+        ..lineTo(size.width * .06, size.height * .22)
+        ..lineTo(0, size.height * .17)
+        ..moveTo(size.width * .19, size.height * .14)
+        ..lineTo(size.width * .31, size.height * .21)
+        ..lineTo(size.width * .06, size.height * .22)
+        ..moveTo(size.width * .06, size.height * .22)
+        ..lineTo(size.width * .14, size.height * .34)
+        ..lineTo(size.width * .19, size.height * .14),
+      Path()
+        ..moveTo(size.width, 0)
+        ..lineTo(size.width * .74, 0)
+        ..lineTo(size.width * .83, size.height * .13)
+        ..lineTo(size.width * .96, size.height * .20)
+        ..lineTo(size.width, size.height * .16)
+        ..moveTo(size.width * .83, size.height * .13)
+        ..lineTo(size.width * .68, size.height * .22)
+        ..lineTo(size.width * .96, size.height * .20)
+        ..moveTo(size.width * .96, size.height * .20)
+        ..lineTo(size.width * .89, size.height * .34)
+        ..lineTo(size.width * .83, size.height * .13),
+      Path()
+        ..moveTo(0, size.height)
+        ..lineTo(size.width * .25, size.height)
+        ..lineTo(size.width * .17, size.height * .85)
+        ..lineTo(size.width * .05, size.height * .78)
+        ..lineTo(0, size.height * .83)
+        ..moveTo(size.width * .17, size.height * .85)
+        ..lineTo(size.width * .31, size.height * .78)
+        ..lineTo(size.width * .05, size.height * .78)
+        ..moveTo(size.width * .05, size.height * .78)
+        ..lineTo(size.width * .13, size.height * .65)
+        ..lineTo(size.width * .17, size.height * .85),
+      Path()
+        ..moveTo(size.width, size.height)
+        ..lineTo(size.width * .75, size.height)
+        ..lineTo(size.width * .83, size.height * .85)
+        ..lineTo(size.width * .96, size.height * .78)
+        ..lineTo(size.width, size.height * .83)
+        ..moveTo(size.width * .83, size.height * .85)
+        ..lineTo(size.width * .68, size.height * .78)
+        ..lineTo(size.width * .96, size.height * .78)
+        ..moveTo(size.width * .96, size.height * .78)
+        ..lineTo(size.width * .89, size.height * .65)
+        ..lineTo(size.width * .83, size.height * .85),
+    ];
 
-  void _drawBracket(Canvas canvas, Rect rect, double corner, Paint paint) {
-    for (final signX in [-1.0, 1.0]) {
-      for (final signY in [-1.0, 1.0]) {
-        final x = signX < 0 ? rect.left : rect.right;
-        final y = signY < 0 ? rect.top : rect.bottom;
-        canvas.drawLine(Offset(x, y + signY * corner), Offset(x, y), paint);
-        canvas.drawLine(Offset(x, y), Offset(x + signX * corner, y), paint);
+    final drawProgress = Curves.easeOutCubic
+        .transform((progress / .25).clamp(0.0, 1.0).toDouble());
+    for (var i = 0; i < meshPaths.length; i++) {
+      final metrics = meshPaths[i].computeMetrics();
+      for (final metric in metrics) {
+        final local = ((drawProgress * 4) - i).clamp(0.0, 1.0);
+        if (local > 0) {
+          canvas.drawPath(metric.extractPath(0, metric.length * local), line);
+        }
       }
     }
-    canvas.drawLine(const Offset(24, 164), const Offset(48, 140), paint);
-    canvas.drawLine(const Offset(162, 58), const Offset(184, 36), paint);
-  }
 
-  void _drawAssembly(Canvas canvas, double t) {
-    final leftT = Curves.easeOutBack.transform(t);
-    final rightT = Curves.easeOutBack.transform(t);
-    final pillarT = Curves.easeOutExpo.transform(t);
-    final lockT =
-        Curves.easeOutBack.transform(((t - .58) / .42).clamp(0.0, 1.0));
-    _drawPiece(
-        canvas, _leftWing, Offset(-72 * (1 - leftT), -12 * (1 - leftT)), t);
-    _drawPiece(
-        canvas, _rightWing, Offset(72 * (1 - rightT), -12 * (1 - rightT)), t);
-    _drawPiece(
-      canvas,
-      _pillar,
-      Offset(0, 112 * (1 - pillarT)),
-      t,
-      white: true,
-    );
-    _drawPiece(canvas, _keystone, Offset(0, 26 * (1 - lockT)), lockT);
-  }
-
-  void _drawPiece(
-    Canvas canvas,
-    Path path,
-    Offset offset,
-    double opacity, {
-    bool white = false,
-  }) {
-    canvas.save();
-    canvas.translate(offset.dx, offset.dy);
-    final alpha = opacity.clamp(0.0, 1.0).toDouble();
-    final shadow = Paint()
-      ..color = const Color(0xFF000000).withOpacity(.38 * alpha)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
-    canvas.save();
-    canvas.translate(0, 5);
-    canvas.drawPath(path, shadow);
-    canvas.restore();
-
-    final fill = Paint()
-      ..style = PaintingStyle.fill
-      ..shader = ui.Gradient.linear(
-        const Offset(36, 20),
-        const Offset(170, 180),
-        white
-            ? const [Colors.white, Color(0xFFFAF3E0)]
-            : const [Color(0xFFFAF3E0), Color(0xFFE6D5B8)],
-        [0.0, 1.0],
-        TileMode.clamp,
-      )
-      ..colorFilter = ColorFilter.mode(
-        Colors.white.withOpacity(alpha),
-        BlendMode.modulate,
-      );
-    canvas.drawPath(path, fill);
-
-    final edge = Paint()
-      ..color = Colors.white.withOpacity(.92 * alpha)
+    final center = Offset(size.width * .5, size.height * .40);
+    final lock = Curves.easeOutCubic
+        .transform((progress / .24).clamp(0.0, 1.0).toDouble());
+    final reticle = Paint()
+      ..color = const Color(0xFF38BDF8).withOpacity(.52 * fade)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.35
-      ..strokeJoin = StrokeJoin.miter;
-    canvas.drawPath(path, edge);
-    final bevel = Paint()
-      ..color = const Color(0xFFB99D72).withOpacity(.75 * alpha)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
-      ..strokeJoin = StrokeJoin.miter;
-    canvas.drawPath(path, bevel);
-    canvas.restore();
-  }
+      ..strokeWidth = 1.2;
+    final radius = 54 * (1 - lock) + 5;
+    final diamond = Path()
+      ..moveTo(center.dx, center.dy - radius)
+      ..lineTo(center.dx + radius * .9, center.dy)
+      ..lineTo(center.dx, center.dy + radius)
+      ..lineTo(center.dx - radius * .9, center.dy)
+      ..close();
+    final diamondMetric = diamond.computeMetrics().first;
+    canvas.drawPath(
+        diamondMetric.extractPath(0, diamondMetric.length * lock), reticle);
 
-  void _drawImpact(Canvas canvas, double t) {
-    final eased = Curves.easeOutCubic.transform(t);
-    final paint = Paint()
-      ..color = const Color(0xFFFAF3E0).withOpacity((1 - t) * .8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5 * (1 - t) + .5;
-    canvas.drawCircle(const Offset(104, 48), 5 + eased * 37, paint);
-    final flash = Paint()
-      ..color = Colors.white.withOpacity((1 - t) * .72)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
-    canvas.drawCircle(const Offset(104, 48), 12 * (1 - t), flash);
-  }
+    final impactT = ((progress - .445) / .12).clamp(0.0, 1.0).toDouble();
+    if (impactT > 0 && impactT < 1) {
+      final ringPaint = Paint()
+        ..color = const Color(0xFF22D3EE).withOpacity((1 - impactT) * .65)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.2 * (1 - impactT) + .3;
+      canvas.drawCircle(
+          center, 12 + 92 * Curves.easeOutCubic.transform(impactT), ringPaint);
+    }
 
-  void _drawShine(Canvas canvas, double t) {
-    canvas.save();
-    canvas.clipPath(_outerPath);
-    final x = -120 + 420 * Curves.easeInOutCubic.transform(t);
-    final shine = Paint()
-      ..shader = ui.Gradient.linear(
-        Offset(x - 34, 10),
-        Offset(x + 34, 186),
-        [
-          Colors.white.withOpacity(0),
-          Colors.white.withOpacity(.58),
-          const Color(0xFFFAF3E0).withOpacity(0),
-        ],
-        const [0, .5, 1],
-      );
-    canvas.drawRect(const Rect.fromLTWH(0, 0, 200, 200), shine);
-    canvas.restore();
+    final starCenter = Offset(size.width * .91, size.height * .87);
+    final star = Paint()
+      ..color = const Color(0xFF94A3B8).withOpacity(.28 * fade)
+      ..style = PaintingStyle.fill;
+    final starPath = Path()
+      ..moveTo(starCenter.dx, starCenter.dy - 9)
+      ..lineTo(starCenter.dx + 2, starCenter.dy - 2)
+      ..lineTo(starCenter.dx + 9, starCenter.dy)
+      ..lineTo(starCenter.dx + 2, starCenter.dy + 2)
+      ..lineTo(starCenter.dx, starCenter.dy + 9)
+      ..lineTo(starCenter.dx - 2, starCenter.dy + 2)
+      ..lineTo(starCenter.dx - 9, starCenter.dy)
+      ..lineTo(starCenter.dx - 2, starCenter.dy - 2)
+      ..close();
+    canvas.drawPath(starPath, star);
   }
 
   @override
-  bool shouldRepaint(covariant _TidubaTLogoPainter oldDelegate) =>
+  bool shouldRepaint(covariant _CornerMeshPainter oldDelegate) =>
       oldDelegate.progress != progress;
 }
