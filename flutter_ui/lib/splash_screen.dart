@@ -1,8 +1,8 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:vector_math/vector_math_64.dart' show Matrix4;
 
 /// Animated Tiduba intro. Supply [nextScreen] to replace this route after the
 /// animation, or [onAnimationComplete] when navigation is managed by the app.
@@ -20,57 +20,71 @@ class TidubaSplashScreen extends StatefulWidget {
   State<TidubaSplashScreen> createState() => _TidubaSplashScreenState();
 }
 
-/// Short alias for apps that prefer the generic widget name.
 typedef SplashScreen = TidubaSplashScreen;
 
 class _TidubaSplashScreenState extends State<TidubaSplashScreen>
-    with TickerProviderStateMixin {
-  static const _duration = Duration(milliseconds: 4200);
+    with SingleTickerProviderStateMixin {
+  static const _duration = Duration(milliseconds: 3200);
+  static const _crestAsset = 'assets/images/tiduba_crest.png';
 
   late final AnimationController _controller;
-  late final AnimationController _breathController;
+  late final _BlueprintGeometry _blueprint;
+  late final Animation<double> _crestOpacity;
+  late final Animation<double> _crestScale;
   late final Animation<double> _titleOpacity;
   late final Animation<Offset> _titleSlide;
   late final Animation<double> _storeOpacity;
   late final Animation<Offset> _storeSlide;
   late final Animation<double> _taglineOpacity;
   late final Animation<Offset> _taglineSlide;
+  bool _didPrecache = false;
   bool _didComplete = false;
 
   @override
   void initState() {
     super.initState();
+    _blueprint = _BlueprintGeometry();
     _controller = AnimationController(vsync: this, duration: _duration);
-    _breathController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
-
-    _titleOpacity = CurvedAnimation(
+    _crestOpacity = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(.69, .83, curve: Curves.easeOut),
+      curve: const Interval(.375, .65625, curve: Curves.easeOutCubic),
     );
-    _titleSlide = _slide(.69, .83);
-    _storeOpacity = CurvedAnimation(
+    _crestScale = Tween<double>(begin: .94, end: 1).animate(CurvedAnimation(
       parent: _controller,
-      curve: const Interval(.74, .87, curve: Curves.easeOut),
-    );
-    _storeSlide = _slide(.74, .87);
-    _taglineOpacity = CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(.80, .92, curve: Curves.easeOut),
-    );
-    _taglineSlide = _slide(.80, .92);
+      curve: const Interval(.375, .65625, curve: Curves.easeOutCubic),
+    ));
+    _titleOpacity = _fade(.625, .79);
+    _titleSlide = _slide(.625, .79);
+    _storeOpacity = _fade(.67, .84);
+    _storeSlide = _slide(.67, .84);
+    _taglineOpacity = _fade(.72, .91);
+    _taglineSlide = _slide(.72, .91);
     _playIntro();
   }
 
+  Animation<double> _fade(double start, double end) => CurvedAnimation(
+        parent: _controller,
+        curve: Interval(start, end, curve: Curves.easeOutCubic),
+      );
+
   Animation<Offset> _slide(double start, double end) => Tween<Offset>(
-        begin: const Offset(0, .22),
+        begin: const Offset(0, .25),
         end: Offset.zero,
       ).animate(CurvedAnimation(
         parent: _controller,
         curve: Interval(start, end, curve: Curves.easeOutCubic),
       ));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didPrecache) return;
+    _didPrecache = true;
+    precacheImage(
+      ResizeImage(const AssetImage(_crestAsset), width: 600),
+      context,
+    );
+  }
 
   Future<void> _playIntro() async {
     await _controller.forward();
@@ -96,63 +110,9 @@ class _TidubaSplashScreenState extends State<TidubaSplashScreen>
     }
   }
 
-  double _impactShake(double progress) {
-    const impactAt = .619;
-    final distance = (progress - impactAt).abs();
-    if (distance > .026) return 0;
-    final strength = 1 - distance / .026;
-    return math.sin((progress - impactAt) * 1050) * 2.5 * strength;
-  }
-
-  double _phase(double start, double end, {Curve curve = Curves.linear}) =>
-      curve.transform(
-        ((_controller.value - start) / (end - start))
-            .clamp(0.0, 1.0)
-            .toDouble(),
-      );
-
-  Widget _crestPiece({
-    required _CrestPiece piece,
-    required double start,
-    required double end,
-    required Offset origin,
-    required Curve curve,
-    required double size,
-  }) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final raw = ((_controller.value - start) / (end - start))
-            .clamp(0.0, 1.0)
-            .toDouble();
-        final t = curve.transform(raw);
-        return Opacity(
-          opacity: raw,
-          child: Transform.translate(
-            offset: Offset.lerp(origin, Offset.zero, t)!,
-            child: Transform.scale(
-              scale: .90 + .10 * t,
-              child: ClipPath(
-                clipper: _CrestPieceClipper(piece),
-                child: Image.asset(
-                  'assets/images/tiduba_crest.png',
-                  width: size,
-                  height: size * .86,
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   @override
   void dispose() {
     _controller.dispose();
-    _breathController.dispose();
     super.dispose();
   }
 
@@ -174,22 +134,20 @@ class _TidubaSplashScreenState extends State<TidubaSplashScreen>
           child: SafeArea(
             child: Stack(
               children: [
-                Positioned.fill(
-                  child: AnimatedBuilder(
-                    animation: _controller,
-                    builder: (context, _) => CustomPaint(
-                      painter: _CornerMeshPainter(progress: _controller.value),
-                    ),
+                const Positioned.fill(
+                  child: RepaintBoundary(
+                    child: CustomPaint(painter: _CornerMeshPainter()),
                   ),
                 ),
                 Positioned.fill(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      final compact = constraints.maxHeight < 600;
-                      final crestSize = math.min(
-                        compact ? 188.0 : 224.0,
-                        constraints.maxWidth * .56,
+                      final compact = constraints.maxHeight < 560;
+                      final crestWidth = math.min(
+                        170.0,
+                        constraints.maxWidth * .54,
                       );
+                      final crestHeight = crestWidth * .86;
                       return SingleChildScrollView(
                         child: ConstrainedBox(
                           constraints: BoxConstraints(
@@ -199,213 +157,100 @@ class _TidubaSplashScreenState extends State<TidubaSplashScreen>
                             child: Padding(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 24),
-                              child: AnimatedBuilder(
-                                animation: _controller,
-                                builder: (context, child) =>
-                                    Transform.translate(
-                                  offset: Offset(
-                                      _impactShake(_controller.value), 0),
-                                  child: child,
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    AnimatedBuilder(
-                                      animation: Listenable.merge(
-                                          [_controller, _breathController]),
-                                      builder: (context, _) {
-                                        final glow =
-                                            .2 + _breathController.value * .27;
-                                        final shineProgress = _phase(
-                                          .64,
-                                          .86,
-                                          curve: Curves.easeInOutCubic,
-                                        );
-                                        final assemble = _phase(
-                                          .33,
-                                          .67,
-                                          curve: Curves.easeOutExpo,
-                                        );
-                                        final shineActive =
-                                            _controller.value >= .64 &&
-                                                _controller.value <= .86;
-                                        return Transform(
-                                          alignment: Alignment.center,
-                                          transform: Matrix4.identity()
-                                            ..setEntry(3, 2, .0012)
-                                            ..rotateX((1 - assemble) * -.035),
-                                          child: SizedBox(
-                                            width: crestSize,
-                                            height: crestSize * .86,
-                                            child: Stack(
-                                              alignment: Alignment.center,
-                                              children: [
-                                                Container(
-                                                  width: crestSize * .68,
-                                                  height: crestSize * .58,
-                                                  decoration: BoxDecoration(
-                                                    shape: BoxShape.circle,
-                                                    gradient: RadialGradient(
-                                                      colors: [
-                                                        const Color(0xFF22D3EE)
-                                                            .withOpacity(glow *
-                                                                assemble),
-                                                        const Color(0xFF38BDF8)
-                                                            .withOpacity(glow *
-                                                                assemble *
-                                                                .48),
-                                                        Colors.transparent,
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                                _crestPiece(
-                                                  piece: _CrestPiece.upper,
-                                                  start: 1.40 / 4.2,
-                                                  end: 2.12 / 4.2,
-                                                  origin: const Offset(0, -60),
-                                                  curve: Curves.easeOutBack,
-                                                  size: crestSize,
-                                                ),
-                                                _crestPiece(
-                                                  piece: _CrestPiece.lower,
-                                                  start: 1.58 / 4.2,
-                                                  end: 2.34 / 4.2,
-                                                  origin: const Offset(0, 60),
-                                                  curve: Curves.easeOutExpo,
-                                                  size: crestSize,
-                                                ),
-                                                _crestPiece(
-                                                  piece: _CrestPiece.wing,
-                                                  start: 1.82 / 4.2,
-                                                  end: 2.52 / 4.2,
-                                                  origin: const Offset(70, -20),
-                                                  curve: Curves.easeOutBack,
-                                                  size: crestSize,
-                                                ),
-                                                _crestPiece(
-                                                  piece: _CrestPiece.stem,
-                                                  start: 2.04 / 4.2,
-                                                  end: 2.80 / 4.2,
-                                                  origin: const Offset(-40, 60),
-                                                  curve: Curves.easeOutExpo,
-                                                  size: crestSize,
-                                                ),
-                                                Positioned.fill(
-                                                  child: CustomPaint(
-                                                    painter:
-                                                        _CrestBlueprintPainter(
-                                                      progress:
-                                                          _controller.value,
-                                                    ),
-                                                  ),
-                                                ),
-                                                if (shineActive)
-                                                  Positioned.fill(
-                                                    child: ShaderMask(
-                                                      blendMode:
-                                                          BlendMode.screen,
-                                                      shaderCallback:
-                                                          (bounds) =>
-                                                              LinearGradient(
-                                                        begin: Alignment(
-                                                            -1.5 +
-                                                                3 * shineProgress,
-                                                            -1),
-                                                        end: Alignment(
-                                                            -.5 +
-                                                                3 * shineProgress,
-                                                            1),
-                                                        colors: [
-                                                          Colors.transparent,
-                                                          Colors.white
-                                                              .withOpacity(.78),
-                                                          Colors.transparent,
-                                                        ],
-                                                        stops: const [0, .5, 1],
-                                                      ).createShader(bounds),
-                                                      child: Image.asset(
-                                                        'assets/images/tiduba_crest.png',
-                                                        width: crestSize,
-                                                        height: crestSize * .86,
-                                                        fit: BoxFit.contain,
-                                                      ),
-                                                    ),
-                                                  ),
-                                              ],
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  RepaintBoundary(
+                                    child: SizedBox(
+                                      width: crestWidth,
+                                      height: crestHeight,
+                                      child: Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                          CustomPaint(
+                                            size: Size(crestWidth, crestHeight),
+                                            painter: _BlueprintPainter(
+                                              progress: _controller,
+                                              geometry: _blueprint,
                                             ),
                                           ),
-                                        );
-                                      },
+                                          FadeTransition(
+                                            opacity: _crestOpacity,
+                                            child: ScaleTransition(
+                                              scale: _crestScale,
+                                              child: RepaintBoundary(
+                                                child: Image.asset(
+                                                  _crestAsset,
+                                                  width: crestWidth,
+                                                  height: crestHeight,
+                                                  cacheWidth: 600,
+                                                  fit: BoxFit.contain,
+                                                  filterQuality:
+                                                      FilterQuality.medium,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                    SizedBox(height: compact ? 8 : 17),
-                                    FadeTransition(
-                                      opacity: _titleOpacity,
-                                      child: SlideTransition(
-                                        position: _titleSlide,
-                                        child: ShaderMask(
-                                          blendMode: BlendMode.srcIn,
-                                          shaderCallback: (bounds) =>
-                                              const LinearGradient(
-                                            colors: [
-                                              Color(0xFF64748B),
-                                              Color(0xFF94A3B8),
-                                              Color(0xFF64748B),
-                                            ],
-                                          ).createShader(bounds),
-                                          child: const Text(
-                                            'TIDUBA',
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 34,
-                                              height: 1.04,
-                                              fontWeight: FontWeight.w900,
-                                              letterSpacing: 3.5,
-                                            ),
-                                          ),
+                                  ),
+                                  SizedBox(height: compact ? 8 : 14),
+                                  FadeTransition(
+                                    opacity: _titleOpacity,
+                                    child: SlideTransition(
+                                      position: _titleSlide,
+                                      child: const Text(
+                                        'TIDUBA',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: Color(0xFF475569),
+                                          fontSize: 32,
+                                          height: 1.04,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 3.5,
                                         ),
                                       ),
                                     ),
-                                    FadeTransition(
-                                      opacity: _storeOpacity,
-                                      child: SlideTransition(
-                                        position: _storeSlide,
-                                        child: const Text(
-                                          'STORE',
+                                  ),
+                                  FadeTransition(
+                                    opacity: _storeOpacity,
+                                    child: SlideTransition(
+                                      position: _storeSlide,
+                                      child: const Text(
+                                        'STORE',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: Color(0xFF64748B),
+                                          fontSize: 17,
+                                          height: 1.3,
+                                          fontWeight: FontWeight.w500,
+                                          letterSpacing: 6,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(height: compact ? 8 : 13),
+                                  FadeTransition(
+                                    opacity: _taglineOpacity,
+                                    child: SlideTransition(
+                                      position: _taglineSlide,
+                                      child: const FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          'QUALITY | SERVICE | INNOVATION',
                                           textAlign: TextAlign.center,
                                           style: TextStyle(
-                                            color: Color(0xFF64748B),
-                                            fontSize: 18,
-                                            height: 1.3,
-                                            fontWeight: FontWeight.w500,
-                                            letterSpacing: 6.5,
+                                            color: Color(0xFF94A3B8),
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 2,
                                           ),
                                         ),
                                       ),
                                     ),
-                                    SizedBox(height: compact ? 10 : 16),
-                                    FadeTransition(
-                                      opacity: _taglineOpacity,
-                                      child: SlideTransition(
-                                        position: _taglineSlide,
-                                        child: const FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          child: Text(
-                                            'QUALITY | SERVICE | INNOVATION',
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              color: Color(0xFF94A3B8),
-                                              fontSize: 10.5,
-                                              fontWeight: FontWeight.w600,
-                                              letterSpacing: 2.2,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -445,296 +290,261 @@ class _TidubaSplashScreenState extends State<TidubaSplashScreen>
   }
 }
 
-enum _CrestPiece { upper, lower, wing, stem }
-
-class _CrestPieceClipper extends CustomClipper<Path> {
-  const _CrestPieceClipper(this.piece);
-
-  final _CrestPiece piece;
-
-  @override
-  Path getClip(Size size) {
-    Offset p(double x, double y) => Offset(size.width * x, size.height * y);
-    final path = Path();
-    switch (piece) {
-      case _CrestPiece.upper:
-        path
-          ..moveTo(p(.03, .42).dx, p(.03, .42).dy)
-          ..lineTo(p(.14, .20).dx, p(.14, .20).dy)
-          ..lineTo(p(.50, .05).dx, p(.50, .05).dy)
-          ..lineTo(p(.68, .22).dx, p(.68, .22).dy)
-          ..lineTo(p(.98, .18).dx, p(.98, .18).dy)
-          ..lineTo(p(.86, .42).dx, p(.86, .42).dy)
-          ..lineTo(p(.95, .52).dx, p(.95, .52).dy)
-          ..lineTo(p(.78, .61).dx, p(.78, .61).dy)
-          ..lineTo(p(.50, .45).dx, p(.50, .45).dy)
-          ..lineTo(p(.24, .61).dx, p(.24, .61).dy)
-          ..lineTo(p(.06, .54).dx, p(.06, .54).dy)
-          ..close();
-      case _CrestPiece.lower:
-        path
-          ..moveTo(p(.10, .50).dx, p(.10, .50).dy)
-          ..lineTo(p(.28, .55).dx, p(.28, .55).dy)
-          ..lineTo(p(.50, .43).dx, p(.50, .43).dy)
-          ..lineTo(p(.73, .55).dx, p(.73, .55).dy)
-          ..lineTo(p(.90, .50).dx, p(.90, .50).dy)
-          ..lineTo(p(.80, .73).dx, p(.80, .73).dy)
-          ..lineTo(p(.50, .99).dx, p(.50, .99).dy)
-          ..lineTo(p(.20, .73).dx, p(.20, .73).dy)
-          ..close();
-      case _CrestPiece.wing:
-        path
-          ..moveTo(p(.12, .40).dx, p(.12, .40).dy)
-          ..lineTo(p(.87, .34).dx, p(.87, .34).dy)
-          ..lineTo(p(.99, .49).dx, p(.99, .49).dy)
-          ..lineTo(p(.78, .63).dx, p(.78, .63).dy)
-          ..lineTo(p(.60, .56).dx, p(.60, .56).dy)
-          ..lineTo(p(.50, .49).dx, p(.50, .49).dy)
-          ..lineTo(p(.39, .56).dx, p(.39, .56).dy)
-          ..lineTo(p(.20, .63).dx, p(.20, .63).dy)
-          ..lineTo(p(.04, .50).dx, p(.04, .50).dy)
-          ..close();
-      case _CrestPiece.stem:
-        path
-          ..moveTo(p(.39, .43).dx, p(.39, .43).dy)
-          ..lineTo(p(.62, .43).dx, p(.62, .43).dy)
-          ..lineTo(p(.62, .72).dx, p(.62, .72).dy)
-          ..lineTo(p(.50, .99).dx, p(.50, .99).dy)
-          ..lineTo(p(.38, .72).dx, p(.38, .72).dy)
-          ..close();
-    }
-    return path;
+class _BlueprintGeometry {
+  _BlueprintGeometry() {
+    strokes = [
+      _BlueprintStroke(
+          _closed([
+            const Offset(50, 2),
+            const Offset(67, 21),
+            const Offset(97, 17),
+            const Offset(83, 40),
+            const Offset(98, 52),
+            const Offset(76, 65),
+            const Offset(50, 85),
+            const Offset(24, 65),
+            const Offset(2, 52),
+            const Offset(17, 40),
+            const Offset(3, 17),
+            const Offset(33, 21),
+          ]),
+          const Color(0xFF64748B)),
+      _BlueprintStroke(
+          _closed([
+            const Offset(50, 12),
+            const Offset(85, 49),
+            const Offset(50, 81),
+            const Offset(15, 49),
+          ]),
+          const Color(0xFF0EA5E9)),
+      _BlueprintStroke(
+          _closed([
+            const Offset(12, 45),
+            const Offset(33, 36),
+            const Offset(69, 36),
+            const Offset(90, 45),
+            const Offset(76, 59),
+            const Offset(60, 53),
+            const Offset(50, 48),
+            const Offset(39, 53),
+            const Offset(23, 59),
+          ]),
+          const Color(0xFF64748B)),
+      _BlueprintStroke(
+          _closed([
+            const Offset(39, 45),
+            const Offset(61, 45),
+            const Offset(61, 72),
+            const Offset(50, 84),
+            const Offset(39, 72),
+          ]),
+          const Color(0xFF0EA5E9)),
+      _BlueprintStroke(
+          _open([
+            const Offset(20, 53),
+            const Offset(50, 70),
+            const Offset(80, 53),
+          ]),
+          const Color(0xFF0EA5E9)),
+    ];
+    anchors = const [
+      Offset(50, 2),
+      Offset(97, 17),
+      Offset(98, 52),
+      Offset(50, 85),
+      Offset(2, 52),
+      Offset(3, 17),
+      Offset(50, 12),
+      Offset(85, 49),
+      Offset(15, 49),
+      Offset(50, 48),
+      Offset(50, 84),
+    ];
   }
 
-  @override
-  bool shouldReclip(covariant _CrestPieceClipper oldClipper) =>
-      oldClipper.piece != piece;
+  late final List<_BlueprintStroke> strokes;
+  late final List<Offset> anchors;
+
+  static Path _closed(List<Offset> points) => Path()..addPolygon(points, true);
+
+  static Path _open(List<Offset> points) => Path()
+    ..moveTo(points.first.dx, points.first.dy)
+    ..lineTo(points[1].dx, points[1].dy)
+    ..lineTo(points.last.dx, points.last.dy);
 }
 
-class _CrestBlueprintPainter extends CustomPainter {
-  const _CrestBlueprintPainter({required this.progress});
+class _BlueprintStroke {
+  factory _BlueprintStroke(Path path, Color color) {
+    final metrics = path.computeMetrics().toList(growable: false);
+    final metric = metrics.first;
+    return _BlueprintStroke._(
+      path,
+      metric,
+      color,
+      _sampleEnds(metric),
+    );
+  }
 
-  final double progress;
+  const _BlueprintStroke._(this.path, this.metric, this.color, this.sampleEnds);
+
+  final Path path;
+  final ui.PathMetric metric;
+  final Color color;
+  final List<double> sampleEnds;
+
+  static List<double> _sampleEnds(ui.PathMetric metric) {
+    final count = math.max(1, (metric.length / 5).ceil());
+    return List<double>.generate(
+      count,
+      (index) => metric.length * (index + 1) / count,
+      growable: false,
+    );
+  }
+}
+
+class _BlueprintPainter extends CustomPainter {
+  _BlueprintPainter({required this.progress, required this.geometry})
+      : super(repaint: progress);
+
+  final Animation<double> progress;
+  final _BlueprintGeometry geometry;
+
+  static final Paint _linePaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.5
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round;
+  static final Paint _solidNodePaint = Paint()..style = PaintingStyle.fill;
+  static final Paint _ringNodePaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.2;
+  static final Paint _tickPaint = Paint()..strokeWidth = 1;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final fade = (1 - ((progress - .34) / .34).clamp(0.0, 1.0))
-        .clamp(0.0, 1.0)
-        .toDouble();
+    final value = progress.value;
+    final sketch = (value / (1.4 / 3.2)).clamp(0.0, 1.0).toDouble();
+    final fade =
+        (1 - ((value - .375) / (.65625 - .375))).clamp(0.0, 1.0).toDouble();
     if (fade <= 0) return;
-    Offset p(double x, double y) => Offset(size.width * x, size.height * y);
-    final paths = <(Path, Color)>[
-      (
-        Path()
-          ..moveTo(p(.50, .04).dx, p(.50, .04).dy)
-          ..lineTo(p(.68, .22).dx, p(.68, .22).dy)
-          ..lineTo(p(.98, .18).dx, p(.98, .18).dy)
-          ..lineTo(p(.84, .43).dx, p(.84, .43).dy)
-          ..lineTo(p(.96, .53).dx, p(.96, .53).dy)
-          ..lineTo(p(.75, .67).dx, p(.75, .67).dy)
-          ..lineTo(p(.50, .98).dx, p(.50, .98).dy)
-          ..lineTo(p(.25, .67).dx, p(.25, .67).dy)
-          ..lineTo(p(.04, .53).dx, p(.04, .53).dy)
-          ..lineTo(p(.16, .43).dx, p(.16, .43).dy)
-          ..lineTo(p(.02, .18).dx, p(.02, .18).dy)
-          ..lineTo(p(.32, .22).dx, p(.32, .22).dy)
-          ..close(),
-        const Color(0xFFC89F86),
-      ),
-      (
-        Path()
-          ..moveTo(p(.32, .22).dx, p(.32, .22).dy)
-          ..lineTo(p(.50, .10).dx, p(.50, .10).dy)
-          ..lineTo(p(.68, .22).dx, p(.68, .22).dy)
-          ..lineTo(p(.50, .40).dx, p(.50, .40).dy)
-          ..close(),
-        const Color(0xFF06B6D4),
-      ),
-      (
-        Path()
-          ..moveTo(p(.13, .47).dx, p(.13, .47).dy)
-          ..lineTo(p(.31, .38).dx, p(.31, .38).dy)
-          ..lineTo(p(.70, .38).dx, p(.70, .38).dy)
-          ..lineTo(p(.89, .47).dx, p(.89, .47).dy)
-          ..lineTo(p(.77, .61).dx, p(.77, .61).dy)
-          ..lineTo(p(.60, .54).dx, p(.60, .54).dy)
-          ..lineTo(p(.50, .48).dx, p(.50, .48).dy)
-          ..lineTo(p(.39, .54).dx, p(.39, .54).dy)
-          ..lineTo(p(.22, .61).dx, p(.22, .61).dy)
-          ..close(),
-        const Color(0xFFC89F86),
-      ),
-      (
-        Path()
-          ..moveTo(p(.39, .44).dx, p(.39, .44).dy)
-          ..lineTo(p(.61, .44).dx, p(.61, .44).dy)
-          ..lineTo(p(.61, .73).dx, p(.61, .73).dy)
-          ..lineTo(p(.50, .94).dx, p(.50, .94).dy)
-          ..lineTo(p(.39, .73).dx, p(.39, .73).dy)
-          ..close(),
-        const Color(0xFF06B6D4),
-      ),
-      (
-        Path()
-          ..moveTo(p(.20, .52).dx, p(.20, .52).dy)
-          ..lineTo(p(.50, .70).dx, p(.50, .70).dy)
-          ..lineTo(p(.80, .52).dx, p(.80, .52).dy),
-        const Color(0xFF06B6D4),
-      ),
-    ];
-    final sketch = Curves.easeOutCubic
-        .transform((progress / (1.5 / 4.2)).clamp(0.0, 1.0).toDouble());
 
-    for (var index = 0; index < paths.length; index++) {
-      final (path, color) = paths[index];
-      final metric = path.computeMetrics().first;
-      final t = ((sketch * paths.length) - index).clamp(0.0, 1.0).toDouble();
-      if (t <= 0) continue;
-      final trace = metric.extractPath(0, metric.length * t);
-      final glow = Paint()
-        ..color = color.withOpacity(.24 * fade)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 5
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-      final stroke = Paint()
-        ..color = color.withOpacity(.88 * fade)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.35
-        ..strokeJoin = StrokeJoin.round
-        ..strokeCap = StrokeCap.round;
-      canvas.drawPath(trace, glow);
-      canvas.drawPath(trace, stroke);
-      final tangent = metric.getTangentForOffset(metric.length * t);
-      if (tangent != null && t < 1) {
-        final tipGlow = Paint()
-          ..color = color.withOpacity(.65 * fade)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-        final tip = Paint()..color = Colors.white.withOpacity(.95 * fade);
-        canvas.drawCircle(tangent.position, 4, tipGlow);
-        canvas.drawCircle(tangent.position, 1.8, tip);
+    canvas.save();
+    canvas.scale(size.width / 100, size.height / 86);
+    final strokeCount = geometry.strokes.length;
+    for (var index = 0; index < strokeCount; index++) {
+      final stroke = geometry.strokes[index];
+      final local = ((sketch * strokeCount) - index).clamp(0.0, 1.0).toDouble();
+      if (local <= 0) continue;
+      final target = stroke.metric.length * local;
+      _linePaint.color = stroke.color.withOpacity(.92 * fade);
+      var from = 0.0;
+      for (final end in stroke.sampleEnds) {
+        if (from >= target) break;
+        final visibleEnd = math.min(end, target);
+        final a = stroke.metric.getTangentForOffset(from)?.position;
+        final b = stroke.metric.getTangentForOffset(visibleEnd)?.position;
+        if (a != null && b != null) canvas.drawLine(a, b, _linePaint);
+        from = end;
       }
     }
 
-    final ticks = Paint()
-      ..color = const Color(0xFFC89F86).withOpacity(.62 * fade)
-      ..strokeWidth = 1;
-    for (final point in [p(.15, .25), p(.85, .25), p(.18, .74), p(.82, .74)]) {
-      canvas.drawLine(
-          point - const Offset(3, 0), point + const Offset(3, 0), ticks);
-      canvas.drawLine(
-          point - const Offset(0, 3), point + const Offset(0, 3), ticks);
+    for (var index = 0; index < geometry.anchors.length; index++) {
+      final threshold = index / geometry.anchors.length;
+      if (sketch < threshold) continue;
+      final point = geometry.anchors[index];
+      _ringNodePaint.color = const Color(0xFF64748B).withOpacity(.9 * fade);
+      _solidNodePaint.color = const Color(0xFF0EA5E9).withOpacity(.9 * fade);
+      canvas.drawCircle(point, 2.5, _ringNodePaint);
+      if (index.isEven) canvas.drawCircle(point, 1.05, _solidNodePaint);
     }
 
-    final impact = ((progress - .619) / .15).clamp(0.0, 1.0).toDouble();
-    if (impact > 0 && impact < 1) {
-      final ring = Paint()
-        ..color = const Color(0xFF22D3EE).withOpacity((1 - impact) * .68)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.1 * (1 - impact) + .3;
-      canvas.drawCircle(p(.5, .48), size.width * (.04 + .46 * impact), ring);
+    _tickPaint.color = const Color(0xFF94A3B8).withOpacity(.68 * fade);
+    for (final tick in const [
+      Offset(11, 25),
+      Offset(89, 25),
+      Offset(16, 73),
+      Offset(84, 73)
+    ]) {
+      canvas.drawLine(
+          tick + const Offset(-2, 0), tick + const Offset(2, 0), _tickPaint);
+      canvas.drawLine(
+          tick + const Offset(0, -2), tick + const Offset(0, 2), _tickPaint);
     }
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant _CrestBlueprintPainter oldDelegate) =>
-      oldDelegate.progress != progress;
+  bool shouldRepaint(covariant _BlueprintPainter oldDelegate) => false;
 }
 
 class _CornerMeshPainter extends CustomPainter {
-  const _CornerMeshPainter({required this.progress});
+  const _CornerMeshPainter();
 
-  final double progress;
+  static final List<Path> _paths = [
+    Path()
+      ..moveTo(0, 0)
+      ..lineTo(25, 0)
+      ..lineTo(18, 13)
+      ..lineTo(4, 22)
+      ..lineTo(0, 17)
+      ..moveTo(18, 13)
+      ..lineTo(30, 21)
+      ..lineTo(4, 22),
+    Path()
+      ..moveTo(100, 0)
+      ..lineTo(75, 0)
+      ..lineTo(82, 13)
+      ..lineTo(96, 22)
+      ..lineTo(100, 17)
+      ..moveTo(82, 13)
+      ..lineTo(70, 21)
+      ..lineTo(96, 22),
+    Path()
+      ..moveTo(0, 100)
+      ..lineTo(25, 100)
+      ..lineTo(18, 87)
+      ..lineTo(4, 78)
+      ..lineTo(0, 83)
+      ..moveTo(18, 87)
+      ..lineTo(30, 79)
+      ..lineTo(4, 78),
+    Path()
+      ..moveTo(100, 100)
+      ..lineTo(75, 100)
+      ..lineTo(82, 87)
+      ..lineTo(96, 78)
+      ..lineTo(100, 83)
+      ..moveTo(82, 87)
+      ..lineTo(70, 79)
+      ..lineTo(96, 78),
+  ];
+  static final Path _starPath = Path()
+    ..moveTo(91, 79)
+    ..lineTo(93, 85)
+    ..lineTo(99, 87)
+    ..lineTo(93, 89)
+    ..lineTo(91, 95)
+    ..lineTo(89, 89)
+    ..lineTo(83, 87)
+    ..lineTo(89, 85)
+    ..close();
 
   @override
   void paint(Canvas canvas, Size size) {
-    final line = Paint()
-      ..color = const Color(0xFF94A3B8).withOpacity(.30)
+    final paint = Paint()
+      ..color = const Color(0xFF94A3B8).withOpacity(.25)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    final meshPaths = <Path>[
-      Path()
-        ..moveTo(0, 0)
-        ..lineTo(size.width * .27, 0)
-        ..lineTo(size.width * .19, size.height * .14)
-        ..lineTo(size.width * .06, size.height * .22)
-        ..lineTo(0, size.height * .17)
-        ..moveTo(size.width * .19, size.height * .14)
-        ..lineTo(size.width * .31, size.height * .21)
-        ..lineTo(size.width * .06, size.height * .22)
-        ..moveTo(size.width * .06, size.height * .22)
-        ..lineTo(size.width * .14, size.height * .34)
-        ..lineTo(size.width * .19, size.height * .14),
-      Path()
-        ..moveTo(size.width, 0)
-        ..lineTo(size.width * .74, 0)
-        ..lineTo(size.width * .83, size.height * .13)
-        ..lineTo(size.width * .96, size.height * .20)
-        ..lineTo(size.width, size.height * .16)
-        ..moveTo(size.width * .83, size.height * .13)
-        ..lineTo(size.width * .68, size.height * .22)
-        ..lineTo(size.width * .96, size.height * .20)
-        ..moveTo(size.width * .96, size.height * .20)
-        ..lineTo(size.width * .89, size.height * .34)
-        ..lineTo(size.width * .83, size.height * .13),
-      Path()
-        ..moveTo(0, size.height)
-        ..lineTo(size.width * .25, size.height)
-        ..lineTo(size.width * .17, size.height * .85)
-        ..lineTo(size.width * .05, size.height * .78)
-        ..lineTo(0, size.height * .83)
-        ..moveTo(size.width * .17, size.height * .85)
-        ..lineTo(size.width * .31, size.height * .78)
-        ..lineTo(size.width * .05, size.height * .78)
-        ..moveTo(size.width * .05, size.height * .78)
-        ..lineTo(size.width * .13, size.height * .65)
-        ..lineTo(size.width * .17, size.height * .85),
-      Path()
-        ..moveTo(size.width, size.height)
-        ..lineTo(size.width * .75, size.height)
-        ..lineTo(size.width * .83, size.height * .85)
-        ..lineTo(size.width * .96, size.height * .78)
-        ..lineTo(size.width, size.height * .83)
-        ..moveTo(size.width * .83, size.height * .85)
-        ..lineTo(size.width * .68, size.height * .78)
-        ..lineTo(size.width * .96, size.height * .78)
-        ..moveTo(size.width * .96, size.height * .78)
-        ..lineTo(size.width * .89, size.height * .65)
-        ..lineTo(size.width * .83, size.height * .85),
-    ];
-
-    final drawProgress = Curves.easeOutCubic
-        .transform((progress / .25).clamp(0.0, 1.0).toDouble());
-    for (var i = 0; i < meshPaths.length; i++) {
-      final metrics = meshPaths[i].computeMetrics();
-      for (final metric in metrics) {
-        final local = ((drawProgress * 4) - i).clamp(0.0, 1.0);
-        if (local > 0) {
-          canvas.drawPath(metric.extractPath(0, metric.length * local), line);
-        }
-      }
+      ..strokeCap = StrokeCap.round;
+    canvas.save();
+    canvas.scale(size.width / 100, size.height / 100);
+    for (final path in _paths) {
+      canvas.drawPath(path, paint);
     }
-
-    final starCenter = Offset(size.width * .91, size.height * .87);
-    final star = Paint()
-      ..color = const Color(0xFF94A3B8).withOpacity(.28)
-      ..style = PaintingStyle.fill;
-    final starPath = Path()
-      ..moveTo(starCenter.dx, starCenter.dy - 9)
-      ..lineTo(starCenter.dx + 2, starCenter.dy - 2)
-      ..lineTo(starCenter.dx + 9, starCenter.dy)
-      ..lineTo(starCenter.dx + 2, starCenter.dy + 2)
-      ..lineTo(starCenter.dx, starCenter.dy + 9)
-      ..lineTo(starCenter.dx - 2, starCenter.dy + 2)
-      ..lineTo(starCenter.dx - 9, starCenter.dy)
-      ..lineTo(starCenter.dx - 2, starCenter.dy - 2)
-      ..close();
-    canvas.drawPath(starPath, star);
+    canvas.drawPath(_starPath, paint..style = PaintingStyle.fill);
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant _CornerMeshPainter oldDelegate) =>
-      oldDelegate.progress != progress;
+  bool shouldRepaint(covariant _CornerMeshPainter oldDelegate) => false;
 }
