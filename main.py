@@ -290,6 +290,7 @@ def init_db():
         category TEXT NOT NULL, -- 'CAMERA_GEAR' hoặc 'COSTUME_FASHION'
         subcategory TEXT NOT NULL,
         brand TEXT NOT NULL,
+        size TEXT NOT NULL DEFAULT '',
         serial_or_size TEXT NOT NULL,
         mount_type TEXT,        -- 'Sony E-mount', 'Canon RF', 'Fuji X'...
         shutter_count INTEGER DEFAULT 0,
@@ -561,6 +562,12 @@ def init_db():
     # Tự động cập nhật cột branch_code cho items nếu chưa có
     try:
         cur.execute("ALTER TABLE items ADD COLUMN branch_code TEXT DEFAULT 'CN1';")
+        conn.commit()
+    except Exception:
+        pass
+
+    try:
+        cur.execute("ALTER TABLE items ADD COLUMN size TEXT NOT NULL DEFAULT '';")
         conn.commit()
     except Exception:
         pass
@@ -4542,6 +4549,7 @@ class CreateItemAdminRequest(BaseModel):
     category: Optional[str] = "CAMERA_GEAR"
     subcategory: Optional[str] = "Thiết bị"
     brand: Optional[str] = "Tiduba"
+    size: Optional[str] = ""
     serial_or_size: Optional[str] = "SN: TDB-001"
     price_4h: Optional[int] = 150000
     price_8h: Optional[int] = 250000
@@ -4644,13 +4652,14 @@ def create_item_admin(req: CreateItemAdminRequest, admin: Dict[str, Any] = Depen
                 """, (c_code, sub, sub, max_order + 1))
 
         cur.execute("""
-        INSERT INTO items (name, category, subcategory, brand, serial_or_size, price_4h, price_8h, price_24h, price_2d, price_3d, price_7d, deposit_amount, image_url, gallery_json, description, condition_status, availability, branch_code, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AVAILABLE', ?, ?)
+        INSERT INTO items (name, category, subcategory, brand, size, serial_or_size, price_4h, price_8h, price_24h, price_2d, price_3d, price_7d, deposit_amount, image_url, gallery_json, description, condition_status, availability, branch_code, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AVAILABLE', ?, ?)
         """, (
             req.name.strip(),
             req.category or "CAMERA_GEAR",
             req.subcategory or "Thiết bị",
             req.brand or "Tiduba",
+            req.size or "",
             req.serial_or_size or "SN: TDB-001",
             req.price_4h or 0,
             req.price_8h or 0,
@@ -4683,6 +4692,7 @@ class UpdateItemFullAdminRequest(BaseModel):
     category: Optional[str] = None
     subcategory: Optional[str] = None
     brand: Optional[str] = None
+    size: Optional[str] = None
     serial_or_size: Optional[str] = None
     price_4h: Optional[int] = None
     price_8h: Optional[int] = None
@@ -4706,7 +4716,7 @@ def update_item_admin_full(item_id: int, req: UpdateItemFullAdminRequest, admin:
 
     # Whitelist các cột được phép sửa để tránh SQL injection
     ALLOWED_ITEM_FIELDS = {
-        "name", "category", "subcategory", "brand", "serial_or_size",
+        "name", "category", "subcategory", "brand", "size", "serial_or_size",
         "price_4h", "price_8h", "price_24h", "price_2d", "price_3d", "price_7d", "deposit_amount",
         "image_url", "gallery_json", "description", "condition_status", "availability", "branch_code"
     }

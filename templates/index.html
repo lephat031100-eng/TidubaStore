@@ -4226,42 +4226,52 @@
 
                 <!-- 2. FORM 2 CỘT CHUẨN KIOTVIET (HÌNH 1) -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-sans">
-                    <!-- Hàng 1 - Trái: Loại hàng hóa -->
-                    <div>
-                        <label class="block text-gray-700 font-semibold mb-1">Loại hàng hóa</label>
-                        <select id="add-item-cat" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none cursor-pointer">
-                            <option value="CAMERA_GEAR">Máy ảnh & Thiết bị</option>
-                            <option value="COSTUME_FASHION">Trang phục sự kiện & Áo dài</option>
-                            <option value="SERVICE">Dịch vụ cho thuê</option>
-                            <option value="COMBO_BUNDLE">Gói Combo trọn gói</option>
-                        </select>
-                    </div>
-
-                    <!-- Hàng 1 - Phải: Mã hàng -->
                     <div>
                         <label class="block text-gray-700 font-semibold mb-1">Mã hàng</label>
                         <input type="text" id="add-item-serial" placeholder="Mã tự động (vd: SP000718)" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none font-mono">
                     </div>
 
-                    <!-- Hàng 2 - Trái: Tên hàng * -->
                     <div>
                         <label class="block text-gray-700 font-semibold mb-1">Tên hàng <span class="text-rose-500">*</span></label>
                         <input type="text" id="add-item-name" placeholder="Nhập tên hàng hóa" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none">
                     </div>
 
-                    <!-- Hàng 2 - Phải: Nhóm hàng * -->
-                    <div>
-                        <label class="block text-gray-700 font-semibold mb-1">Nhóm hàng <span class="text-rose-500">*</span></label>
-                        <input type="text" id="add-item-subcat" list="add-item-subcat-list" placeholder="Chọn hoặc nhập nhóm hàng" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none">
-                        <datalist id="add-item-subcat-list">
-                            <option value="Áo dài">
-                            <option value="Váy tiệc">
-                            <option value="Camera Body">
-                            <option value="Ống kính (Lens)">
-                            <option value="Gimbal / Flycam">
-                            <option value="Cổ phục">
-                            <option value="Phụ kiện">
-                        </datalist>
+                    <div class="sm:col-span-2 rounded-2xl border border-[#eadfd2] bg-[#faf7f2] p-3.5 space-y-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <span class="font-bold text-gray-800">Phân loại & mẫu mã</span>
+                            <span class="text-[10px] text-gray-500">Chọn loại, nhóm, thương hiệu và size trong cùng một mục</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                            <div>
+                                <label class="block text-gray-700 font-semibold mb-1">Loại hàng hóa</label>
+                                <select id="add-item-cat" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none cursor-pointer">
+                                    <option value="CAMERA_GEAR">Máy ảnh & Thiết bị</option>
+                                    <option value="COSTUME_FASHION">Trang phục & Áo dài</option>
+                                    <option value="SERVICE">Dịch vụ cho thuê</option>
+                                    <option value="COMBO_BUNDLE">Gói Combo trọn gói</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 font-semibold mb-1">Nhóm hàng <span class="text-rose-500">*</span></label>
+                                <input type="text" id="add-item-subcat" list="add-item-subcat-list" placeholder="Ví dụ: Áo dài, Camera Body" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none">
+                                <datalist id="add-item-subcat-list">
+                                    <option value="Áo dài"><option value="Váy tiệc"><option value="Camera Body">
+                                    <option value="Ống kính (Lens)"><option value="Gimbal / Flycam">
+                                    <option value="Cổ phục"><option value="Phụ kiện">
+                                </datalist>
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 font-semibold mb-1">Thương hiệu</label>
+                                <input type="text" id="add-item-brand" placeholder="Sony / Canon / Tiduba..." class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 font-semibold mb-1">Size</label>
+                                <input type="text" id="add-item-size" list="add-item-size-list" placeholder="S, M, L, XL hoặc Free size" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none">
+                                <datalist id="add-item-size-list">
+                                    <option value="S"><option value="M"><option value="L"><option value="XL"><option value="Free size">
+                                </datalist>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Hàng 3 - Trái: Phí cọc (đ) (Admin chỉnh giá cọc cho sản phẩm) -->
@@ -4326,11 +4336,7 @@
                             <input type="number" id="add-price-7d" placeholder="Tự động" class="w-full bg-white border border-purple-300 rounded-lg p-1.5 text-purple-700 font-bold">
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                        <div>
-                            <label class="block text-[11px] text-gray-600 mb-0.5 font-sans">Thương hiệu (Brand):</label>
-                            <input type="text" id="add-item-brand" placeholder="Sony / Canon / Fujifilm / Sò Vintage..." class="w-full bg-white border border-gray-300 rounded-xl p-2 text-xs text-gray-900">
-                        </div>
+                    <div class="grid grid-cols-1 gap-3 pt-1">
                         <div>
                             <label class="block text-[11px] text-gray-600 mb-0.5 font-sans">Tình trạng kiểm định:</label>
                             <input type="text" id="add-condition" value="Mới 99%, hoạt động hoàn hảo" class="w-full bg-white border border-gray-300 rounded-xl p-2 text-xs text-gray-900">
@@ -4676,8 +4682,8 @@
                     : '/api/items';
 
                 const [itemsRes, combosRes] = await Promise.all([
-                    fetch(itemsUrl),
-                    fetch('/api/combos')
+                    fetch(itemsUrl, { cache: 'no-store' }),
+                    fetch('/api/combos', { cache: 'no-store' })
                 ]);
                 const itemsData = await itemsRes.json();
                 const combosData = await combosRes.json();
@@ -4747,7 +4753,7 @@
             if (filterDropdownSize) {
                 const sz = normalizeSearchText(filterDropdownSize);
                 filtered = filtered.filter(i => {
-                    const so = normalizeSearchText(i.serial_or_size);
+                    const so = normalizeSearchText([i.size, i.serial_or_size].filter(Boolean).join(' '));
                     const nm = normalizeSearchText(i.name);
                     const sc = normalizeSearchText(i.subcategory);
                     if (sz === 's') return (/\bs\b/.test(so) || /\bsize s\b/.test(nm) || so === 's');
@@ -4799,7 +4805,7 @@
                     const nameNorm = normalizeSearchText(i.name);
                     const subNorm = normalizeSearchText(i.subcategory);
                     const brandNorm = normalizeSearchText(i.brand);
-                    const codeNorm = normalizeSearchText(i.serial_or_size);
+                    const codeNorm = normalizeSearchText([i.serial_or_size, i.size].filter(Boolean).join(' '));
                     return nameNorm.includes(searchVal) || subNorm.includes(searchVal) || brandNorm.includes(searchVal) || codeNorm.includes(searchVal);
                 });
             }
@@ -4879,7 +4885,7 @@
                                     ${item.name}
                                 </h4>
                                 <div class="text-xs text-[#78716c] font-sans flex items-center justify-between">
-                                    <span class="truncate">${item.brand || 'Tiduba'} • ${item.serial_or_size || 'Free Size'}</span>
+                                    <span class="truncate">${item.brand || 'Tiduba'} • ${item.size || item.serial_or_size || 'Free Size'}</span>
                                     <button onclick="openReviewsModal(${item.id}, '${encodeURIComponent(item.name)}')" class="text-[#b37054] hover:underline flex items-center gap-0.5 font-bold text-[11px] flex-shrink-0 ml-1">
                                         ⭐ 5.0
                                     </button>
@@ -5060,7 +5066,7 @@
 
             currentGalleryActiveIndex = 0;
             document.getElementById('gallery-modal-item-name').innerText = item.name;
-            document.getElementById('gallery-modal-item-sub').innerText = `${item.brand} • ${item.serial_or_size} (${item.condition_status})`;
+            document.getElementById('gallery-modal-item-sub').innerText = `${item.brand} • ${item.size ? `Size ${item.size}` : item.serial_or_size} (${item.condition_status})`;
             document.getElementById('gallery-modal-pricing').innerText = `Giá thuê: ${Number(item.price_24h).toLocaleString()}đ / ngày (4h: ${Number(item.price_4h).toLocaleString()}đ)`;
 
             renderGalleryModalView();
@@ -5123,7 +5129,7 @@
                     return;
                 }
                 showToast(data.message);
-                fetchCatalog();
+                await Promise.allSettled([fetchCatalog(), fetchAdminDashboard()]);
             } catch (err) {
                 alert("Lỗi kết nối: " + err);
             }
@@ -5829,8 +5835,7 @@
                 }
                 showToast(`✅ ${delData.message}`);
                 closeK80Modal();
-                fetchAdminDashboard();
-                fetchCatalog();
+                await Promise.allSettled([fetchAdminDashboard(), fetchCatalog()]);
             } catch (err) {
                 alert("Lỗi kết nối xóa đơn: " + err);
             }
@@ -6442,7 +6447,7 @@
             selectedComboForBooking = null;
 
             document.getElementById('modal-item-name').innerText = item.name;
-            document.getElementById('modal-item-serial').innerText = `${item.brand} • ${item.serial_or_size}`;
+            document.getElementById('modal-item-serial').innerText = `${item.brand} • ${item.size ? `Size ${item.size}` : item.serial_or_size}`;
             document.getElementById('modal-item-price').innerText = `${Number(item.price_24h).toLocaleString()}đ / ngày`;
             document.getElementById('modal-item-img').src = item.image_url;
 
@@ -7294,8 +7299,7 @@
                 const savedId = currentActiveRentalId;
                 currentActiveRentalId = null; // Xóa để khi đóng modal không bị gọi cancel_unpaid
                 document.getElementById('qr-modal').style.display = 'none';
-                fetchAdminDashboard();
-                fetchCatalog();
+                await Promise.allSettled([fetchAdminDashboard(), fetchCatalog()]);
             } catch (err) {
                 alert("Lỗi kết nối: " + err);
             }
@@ -7345,6 +7349,7 @@
                 name: item.name,
                 image_url: item.image_url,
                 brand: item.brand,
+                size: item.size || '',
                 serial_or_size: item.serial_or_size,
                 category: item.category,
                 price_4h: item.price_4h,
@@ -7526,7 +7531,7 @@
                                 <img src="${it.image_url}" class="w-12 h-12 rounded-xl object-cover border border-gray-800 flex-shrink-0">
                                 <div>
                                     <h4 class="font-bold text-white text-sm line-clamp-1">${it.name}</h4>
-                                    <div class="text-gray-400 text-[11px] font-mono">${it.brand} • ${it.serial_or_size}</div>
+                                    <div class="text-gray-400 text-[11px] font-mono">${it.brand} • ${it.size ? `Size ${it.size}` : it.serial_or_size}</div>
                                 </div>
                             </div>
                             <div class="text-right">
@@ -7795,6 +7800,7 @@
                     name: i.name,
                     image_url: i.image_url,
                     brand: i.brand,
+                    size: i.size || '',
                     serial: i.serial_or_size,
                     category: i.category,
                     price: i.price_24h,
@@ -7884,6 +7890,7 @@
                         name: it.name,
                         image_url: it.image_url,
                         brand: it.brand,
+                        size: it.size || '',
                         serial_or_size: it.serial_or_size,
                         category: it.category,
                         price_4h: it.price_4h,
@@ -8296,7 +8303,7 @@
                                 <img src="${it.image_url}" class="w-10 h-10 rounded-xl object-cover border border-gray-200 flex-shrink-0">
                                 <div>
                                     <div class="font-bold text-gray-900 line-clamp-1">${it.name}</div>
-                                    <div class="text-gray-400 text-[10px] font-mono">${it.brand} • ${it.serial_or_size}</div>
+                                    <div class="text-gray-400 text-[10px] font-mono">${it.brand} • ${it.size ? `Size ${it.size}` : it.serial_or_size}</div>
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
@@ -8571,8 +8578,7 @@
 
                 activeInv.items = [];
                 renderActivePosInvoice();
-                fetchCatalog();
-                fetchAdminDashboard();
+                await Promise.allSettled([fetchCatalog(), fetchAdminDashboard()]);
             } catch (err) {
                 alert("Lỗi kết nối POS: " + err);
             } finally {
@@ -8821,7 +8827,8 @@
             if (!currentUser) return;
             try {
                 const res = await fetch('/api/rentals/my', {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('tiduba_token')}` }
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('tiduba_token')}` },
+                    cache: 'no-store'
                 });
                 const data = await res.json();
                 renderMyRentals(data.rentals || []);
@@ -9218,7 +9225,7 @@
             const authHeaders = token ? { 'Authorization': `Bearer ${token}` } : {};
 
             // 1. Tải toàn bộ kho hàng độc lập ngay lập tức (không bao giờ bị nghẽn)
-            fetchAdminInventory();
+            const inventoryRefresh = fetchAdminInventory(true);
 
             // 2. Tải số liệu thống kê Dashboard
             fetch('/api/admin/dashboard_stats', { headers: authHeaders })
@@ -9265,11 +9272,14 @@
                         }
                     }
                 }).catch(() => {});
+
+            await inventoryRefresh;
         }
 
         let rawAdminInventoryItems = [];
         let adminInventoryCurrentLimit = 50;
         let isFetchingAdminInventory = false;
+        let forceAdminInventoryReloadQueued = false;
 
         function updateInventoryTabCount(count) {
             const num = Number(count) || 0;
@@ -9288,7 +9298,10 @@
                 return;
             }
 
-            if (isFetchingAdminInventory) return;
+            if (isFetchingAdminInventory) {
+                if (force) forceAdminInventoryReloadQueued = true;
+                return;
+            }
             isFetchingAdminInventory = true;
 
             const tbody = document.getElementById('adm-items-inventory-tbody');
@@ -9299,7 +9312,7 @@
             try {
                 const token = localStorage.getItem('tiduba_token');
                 const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-                const res = await fetch('/api/items?include_hidden=true', { headers });
+                const res = await fetch('/api/items?include_hidden=true', { headers, cache: 'no-store' });
                 if (res.ok) {
                     const data = await res.json();
                     if (data && Array.isArray(data.items)) {
@@ -9307,7 +9320,6 @@
                         allItems = data.items;
                         updateInventoryTabCount(data.items.length);
                         adminFilterInventoryTable();
-                        isFetchingAdminInventory = false;
                         return;
                     }
                 }
@@ -9315,6 +9327,10 @@
                 console.error("Lỗi nạp kho hàng Admin:", err);
             } finally {
                 isFetchingAdminInventory = false;
+                if (forceAdminInventoryReloadQueued) {
+                    forceAdminInventoryReloadQueued = false;
+                    await fetchAdminInventory(true);
+                }
             }
 
             // Fallback sang allItems nếu fetch lỗi
@@ -9349,7 +9365,7 @@
                     const nameNorm = normalizeSearchText(i.name);
                     const subNorm = normalizeSearchText(i.subcategory);
                     const brandNorm = normalizeSearchText(i.brand);
-                    const codeNorm = normalizeSearchText(i.serial_or_size);
+                    const codeNorm = normalizeSearchText([i.serial_or_size, i.size].filter(Boolean).join(' '));
                     const idNorm = String(i.id);
                     return nameNorm.includes(searchKw) || subNorm.includes(searchKw) || brandNorm.includes(searchKw) || codeNorm.includes(searchKw) || idNorm.includes(searchKw);
                 });
@@ -9418,7 +9434,7 @@
                         </td>
                         <td class="p-3">
                             <div class="font-bold text-[#1c1917] text-xs">${it.name}</div>
-                            <div class="text-[11px] text-[#78716c] font-mono">${it.serial_or_size}</div>
+                            <div class="text-[11px] text-[#78716c] font-mono">${it.serial_or_size}${it.size ? ` • Size ${it.size}` : ''}</div>
                         </td>
                         <td class="p-3">
                             <span class="px-2 py-0.5 rounded text-[10px] font-bold ${it.category === 'CAMERA_GEAR' ? 'bg-[#f0f9ff] text-[#0369a1] border border-[#bae6fd]' : 'bg-[#fdf2f8] text-[#be185d] border border-[#fbcfe8]'}">
@@ -10171,6 +10187,7 @@
             document.getElementById('add-item-name').value = '';
             document.getElementById('add-item-subcat').value = '';
             document.getElementById('add-item-brand').value = '';
+            document.getElementById('add-item-size').value = '';
             document.getElementById('add-item-serial').value = '';
             document.getElementById('add-item-cost').value = '0';
             document.getElementById('add-item-duration').value = '1 ngày (24h)';
@@ -10200,6 +10217,7 @@
             document.getElementById('add-item-cat').value = item.category || 'CAMERA_GEAR';
             document.getElementById('add-item-subcat').value = item.subcategory || '';
             document.getElementById('add-item-brand').value = item.brand || '';
+            document.getElementById('add-item-size').value = item.size || '';
             document.getElementById('add-item-serial').value = item.serial_or_size || '';
             document.getElementById('add-item-cost').value = item.deposit_amount || 0;
             document.getElementById('add-item-duration').value = '1 ngày (24h)';
@@ -10356,6 +10374,7 @@
             const cat = document.getElementById('add-item-cat').value;
             const subcat = document.getElementById('add-item-subcat').value.trim() || 'Thiết bị';
             const brand = document.getElementById('add-item-brand').value.trim() || 'Tiduba';
+            const size = document.getElementById('add-item-size').value.trim();
             const serial = document.getElementById('add-item-serial').value.trim() || 'SN: TDB-001';
             const cost = Number(document.getElementById('add-item-cost').value) || 0;
             const p4h = Number(document.getElementById('add-price-4h').value) || 0;
@@ -10392,6 +10411,7 @@
                 category: cat,
                 subcategory: subcat,
                 brand: brand,
+                size: size,
                 serial_or_size: serial,
                 price_4h: p4h,
                 price_8h: p8h,
@@ -12799,7 +12819,8 @@
 
             try {
                 const res = await fetch(`/api/admin/customers?search=${encodeURIComponent(kw)}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    cache: 'no-store'
                 });
                 if (!res.ok) return;
                 const data = await res.json();
@@ -12908,7 +12929,7 @@
                 if (res.ok && data.success) {
                     showToast("✅ " + data.message);
                     closeCustomerModal();
-                    fetchAdminCustomers();
+                    await fetchAdminCustomers();
                 } else {
                     alert(data.detail || data.message || "Lỗi lưu khách hàng!");
                 }
@@ -12928,7 +12949,7 @@
                 const data = await res.json();
                 if (res.ok && data.success) {
                     showToast("✅ " + data.message);
-                    fetchAdminCustomers();
+                    await fetchAdminCustomers();
                 } else {
                     alert(data.detail || "Lỗi xóa khách hàng!");
                 }
@@ -13355,6 +13376,47 @@
                 fetchSystemHealth();
             }
         }
+
+        // Keep open tabs in sync after successful edits; refresh the active view
+        // when the user returns. GET requests are left untouched.
+        const tidubaNativeFetch = window.fetch.bind(window);
+        let tidubaMutationRefreshTimer = null;
+        window.fetch = async function(input, init = {}) {
+            const response = await tidubaNativeFetch(input, init);
+            const method = String(init.method || (input && input.method) || 'GET').toUpperCase();
+            const requestUrl = typeof input === 'string' ? input : (input && input.url) || '';
+            let requestPath = '';
+            try { requestPath = new URL(requestUrl, window.location.href).pathname; } catch (_) {}
+            if (response.ok && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
+                && requestPath.startsWith('/api/') && !requestPath.startsWith('/api/auth/')) {
+                clearTimeout(tidubaMutationRefreshTimer);
+                tidubaMutationRefreshTimer = setTimeout(refreshVisibleTidubaData, 350);
+                try { localStorage.setItem('tiduba:data_refresh', String(Date.now())); } catch (_) {}
+            }
+            return response;
+        };
+
+        function refreshVisibleTidubaData() {
+            if (document.hidden) return;
+            if (!document.getElementById('sec-catalog')?.classList.contains('hidden')) fetchCatalog();
+            if (!document.getElementById('sec-my-rentals')?.classList.contains('hidden') && currentUser) fetchMyRentals();
+            if (!document.getElementById('sec-admin')?.classList.contains('hidden') && currentUser?.role === 'admin') {
+                fetchAdminDashboard();
+                if (!document.getElementById('adm-pane-crm')?.classList.contains('hidden')) fetchAdminCustomers();
+            }
+            if (!document.getElementById('sec-kiotviet-pos')?.classList.contains('hidden') && currentUser?.role === 'admin') {
+                fetchAdminInventory(true).then(() => posFilterCatalogList());
+            }
+        }
+
+        window.addEventListener('focus', refreshVisibleTidubaData);
+        window.addEventListener('storage', event => {
+            if (event.key === 'tiduba:data_refresh') refreshVisibleTidubaData();
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) refreshVisibleTidubaData();
+        });
+        window.setInterval(refreshVisibleTidubaData, 30000);
 
         fetchCatalog();
         checkAuthSession();
