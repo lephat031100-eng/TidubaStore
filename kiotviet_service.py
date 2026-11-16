@@ -315,6 +315,9 @@ def sync_kiotviet_to_database(db_conn: sqlite3.Connection, retailer: str, client
         is_active = p.get("isActive", True)
 
         category, subcategory, brand = classify_product_category(cat_name, name)
+        group_key = normalize_str(cat_name).strip()
+        if group_key and group_key not in {"dich vu", "hang hoa", "san pham", "khac", ""}:
+            subcategory = str(cat_name).strip()
 
         # Giữ nguyên giá KiotViet 100%, không kẹp giá tối thiểu 50k
         price_24h = base_price
@@ -560,6 +563,10 @@ def import_kiotviet_excel_or_csv(db_conn: sqlite3.Connection, file_content: byte
         desc = item_row["description"] or f"Sản phẩm từ kho KiotViet ({cat_name})"
 
         category, subcategory, brand = classify_product_category(cat_name, name)
+        # Giữ nguyên nhóm KiotViet làm nhóm hiển thị/lọc. Chỉ bỏ các nhãn loại hàng tổng quát.
+        group_key = normalize_str(cat_name).strip()
+        if group_key and group_key not in {"dich vu", "hang hoa", "san pham", "khac", ""}:
+            subcategory = cat_name.strip()
         # Giữ nguyên giá KiotViet 100%, không tự ý can thiệp giá
         price_24h = int(base_price)
         if category == "COSTUME_FASHION":

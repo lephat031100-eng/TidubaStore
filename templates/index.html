@@ -757,15 +757,9 @@
                     <input type="text" id="catalog-search" oninput="searchItems()" placeholder="Tìm tên mẫu hoặc thương hiệu..." class="w-full bg-[#faf7f2] border border-[#e5dcd3] rounded-2xl pl-11 pr-4 py-2.5 text-xs sm:text-sm text-[#1c1917] placeholder-[#a8a29e] focus:outline-none focus:border-[#b37054] shadow-inner font-sans">
                 </div>
 
-                <!-- Hàng Chip Danh Mục Chọn Lọc Kiểu Sherent (Hình 3) -->
-                <div class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar text-xs font-medium">
-                    <button type="button" onclick="filterSherentCategory('ALL')" id="sher-cat-ALL" class="sher-cat-btn px-4 py-2 rounded-xl bg-[#b37054] text-white font-bold transition whitespace-nowrap shadow-sm">Tất cả</button>
-                    <button type="button" onclick="filterSherentCategory('Đầm & Váy')" id="sher-cat-dam-vay" class="sher-cat-btn px-4 py-2 rounded-xl bg-[#faf7f2] hover:bg-[#ede3d6] text-[#44403c] border border-[#e5dcd3] transition whitespace-nowrap">Đầm & Váy</button>
-                    <button type="button" onclick="filterSherentCategory('Áo dài')" id="sher-cat-ao-dai" class="sher-cat-btn px-4 py-2 rounded-xl bg-[#faf7f2] hover:bg-[#ede3d6] text-[#44403c] border border-[#e5dcd3] transition whitespace-nowrap">Áo dài</button>
-                    <button type="button" onclick="filterSherentCategory('Pháp phục')" id="sher-cat-phap-phuc" class="sher-cat-btn px-4 py-2 rounded-xl bg-[#faf7f2] hover:bg-[#ede3d6] text-[#44403c] border border-[#e5dcd3] transition whitespace-nowrap">Pháp phục</button>
-                    <button type="button" onclick="filterSherentCategory('Gấm')" id="sher-cat-gam" class="sher-cat-btn px-4 py-2 rounded-xl bg-[#faf7f2] hover:bg-[#ede3d6] text-[#44403c] border border-[#e5dcd3] transition whitespace-nowrap">Gấm</button>
-                    <button type="button" onclick="filterSherentCategory('CAMERA_GEAR')" id="sher-cat-camera" class="sher-cat-btn px-4 py-2 rounded-xl bg-[#faf7f2] hover:bg-[#ede3d6] text-[#44403c] border border-[#e5dcd3] transition whitespace-nowrap">Máy ảnh & Lens</button>
-                    <button type="button" onclick="filterSherentCategory('Phụ kiện')" id="sher-cat-phu-kien" class="sher-cat-btn px-4 py-2 rounded-xl bg-[#faf7f2] hover:bg-[#ede3d6] text-[#44403c] border border-[#e5dcd3] transition whitespace-nowrap">Phụ kiện</button>
+                <!-- Chip nhóm hàng lấy từ sản phẩm thực tế để bộ lọc luôn khớp danh mục -->
+                <div id="sherent-category-chips" class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar text-xs font-medium">
+                    <button type="button" onclick="filterSherentCategory('ALL')" data-sher-category="ALL" class="sher-cat-btn px-4 py-2 rounded-xl bg-[#b37054] text-white font-bold transition whitespace-nowrap shadow-sm">Tất cả</button>
                 </div>
 
                 <!-- 4 Dropdown Lọc Phong Cách Sherent (Hình 3) -->
@@ -4233,36 +4227,31 @@
 
                     <div>
                         <label class="block text-gray-700 font-semibold mb-1">Tên hàng <span class="text-rose-500">*</span></label>
-                        <input type="text" id="add-item-name" placeholder="Nhập tên hàng hóa" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none">
+                        <input type="text" id="add-item-name" placeholder="Nhập tên hàng hóa" oninput="syncItemClassificationFromGroup()" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none">
                     </div>
 
                     <div class="sm:col-span-2 rounded-2xl border border-[#eadfd2] bg-[#faf7f2] p-3.5 space-y-3">
                         <div class="flex items-center justify-between gap-3">
-                            <span class="font-bold text-gray-800">Phân loại & mẫu mã</span>
-                            <span class="text-[10px] text-gray-500">Chọn loại, nhóm, thương hiệu và size trong cùng một mục</span>
+                            <span class="font-bold text-gray-800">Phân loại sản phẩm</span>
+                            <span class="text-[10px] text-gray-500">Chọn hoặc nhập nhóm hàng; loại hàng và thương hiệu tự nhận diện</span>
                         </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-gray-700 font-semibold mb-1">Loại hàng hóa</label>
-                                <select id="add-item-cat" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none cursor-pointer">
+                                <label class="block text-gray-700 font-semibold mb-1">Loại hàng hóa / Nhóm hàng <span class="text-rose-500">*</span></label>
+                                <input type="text" id="add-item-subcat" list="add-item-subcat-list" placeholder="Chọn hoặc nhập nhóm, ví dụ: Giày dép, Camera Body" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none" oninput="syncItemClassificationFromGroup()">
+                                <datalist id="add-item-subcat-list">
+                                    <option value="Áo dài"><option value="Váy tiệc"><option value="Camera Body">
+                                    <option value="Ống kính (Lens)"><option value="Gimbal / Flycam">
+                                    <option value="Cổ phục"><option value="Phụ kiện"><option value="Giày dép">
+                                </datalist>
+                                <p id="add-item-classification-hint" class="mt-1 text-[11px] text-gray-500">Loại và thương hiệu sẽ tự điền theo nhóm hàng/tên sản phẩm.</p>
+                                <select id="add-item-cat" class="hidden" aria-hidden="true" tabindex="-1">
                                     <option value="CAMERA_GEAR">Máy ảnh & Thiết bị</option>
                                     <option value="COSTUME_FASHION">Trang phục & Áo dài</option>
                                     <option value="SERVICE">Dịch vụ cho thuê</option>
                                     <option value="COMBO_BUNDLE">Gói Combo trọn gói</option>
                                 </select>
-                            </div>
-                            <div>
-                                <label class="block text-gray-700 font-semibold mb-1">Nhóm hàng <span class="text-rose-500">*</span></label>
-                                <input type="text" id="add-item-subcat" list="add-item-subcat-list" placeholder="Ví dụ: Áo dài, Camera Body" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none">
-                                <datalist id="add-item-subcat-list">
-                                    <option value="Áo dài"><option value="Váy tiệc"><option value="Camera Body">
-                                    <option value="Ống kính (Lens)"><option value="Gimbal / Flycam">
-                                    <option value="Cổ phục"><option value="Phụ kiện">
-                                </datalist>
-                            </div>
-                            <div>
-                                <label class="block text-gray-700 font-semibold mb-1">Thương hiệu</label>
-                                <input type="text" id="add-item-brand" placeholder="Sony / Canon / Tiduba..." class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none">
+                                <input type="hidden" id="add-item-brand" value="Tiduba">
                             </div>
                             <div>
                                 <label class="block text-gray-700 font-semibold mb-1">Size</label>
@@ -4612,19 +4601,38 @@
             document.querySelectorAll('.sher-cat-btn').forEach(btn => {
                 btn.className = "sher-cat-btn px-4 py-2 rounded-xl bg-[#faf7f2] hover:bg-[#ede3d6] text-[#44403c] border border-[#e5dcd3] transition whitespace-nowrap font-medium";
             });
-            const activeBtn = (cat === 'ALL') ? document.getElementById('sher-cat-ALL')
-                : (cat === 'Đầm & Váy') ? document.getElementById('sher-cat-dam-vay')
-                : (cat === 'Áo dài') ? document.getElementById('sher-cat-ao-dai')
-                : (cat === 'Pháp phục') ? document.getElementById('sher-cat-phap-phuc')
-                : (cat === 'Gấm') ? document.getElementById('sher-cat-gam')
-                : (cat === 'CAMERA_GEAR') ? document.getElementById('sher-cat-camera')
-                : (cat === 'Phụ kiện') ? document.getElementById('sher-cat-phu-kien')
-                : null;
+            const activeBtn = [...document.querySelectorAll('.sher-cat-btn')]
+                .find(btn => btn.dataset.sherCategory === cat);
             if (activeBtn) {
                 activeBtn.className = "sher-cat-btn px-4 py-2 rounded-xl bg-[#b37054] text-white font-bold transition whitespace-nowrap shadow-sm";
             }
 
             renderCatalog();
+        }
+
+        function renderSherentCategoryChips(items, categories = loadedCategoriesList) {
+            const bar = document.getElementById('sherent-category-chips');
+            if (!bar) return;
+            const itemGroups = (items || []).map(item => (item.subcategory || '').trim()).filter(Boolean);
+            const itemGroupKeys = new Set(itemGroups.map(normalizeSearchText));
+            const configuredGroups = (categories || [])
+                .filter(category => category.filter_type === 'CATEGORY')
+                .map(category => (category.filter_value || category.name || '').trim())
+                .filter(group => group && itemGroupKeys.has(normalizeSearchText(group)));
+            const uniqueGroups = new Map();
+            [...itemGroups, ...configuredGroups].forEach(group => {
+                const key = normalizeSearchText(group);
+                if (key && !uniqueGroups.has(key)) uniqueGroups.set(key, group);
+            });
+            const groups = [...uniqueGroups.values()].sort((a, b) => a.localeCompare(b, 'vi'));
+            const active = activeSherentCategory || 'ALL';
+            const button = (label, value, selected = false) => `
+                <button type="button" onclick="filterSherentCategory(decodeURIComponent('${encodeURIComponent(value).replace(/'/g, '%27')}'))"
+                    data-sher-category="${value.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"
+                    class="sher-cat-btn px-4 py-2 rounded-xl ${selected ? 'bg-[#b37054] text-white font-bold shadow-sm' : 'bg-[#faf7f2] hover:bg-[#ede3d6] text-[#44403c] border border-[#e5dcd3] font-medium'} transition whitespace-nowrap">
+                    ${label.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}
+                </button>`;
+            bar.innerHTML = button('Tất cả', 'ALL', active === 'ALL') + groups.map(group => button(group, group, active === group)).join('');
         }
 
         function onSherentDropdownFilterChanged() {
@@ -4681,14 +4689,19 @@
                     ? `/api/items?start_time=${encodeURIComponent(sDate)}&end_time=${encodeURIComponent(eDate)}` 
                     : '/api/items';
 
-                const [itemsRes, combosRes] = await Promise.all([
+                const [itemsRes, combosRes, categoriesRes] = await Promise.all([
                     fetch(itemsUrl, { cache: 'no-store' }),
-                    fetch('/api/combos', { cache: 'no-store' })
+                    fetch('/api/combos', { cache: 'no-store' }),
+                    fetch('/api/categories', { cache: 'no-store' })
                 ]);
                 const itemsData = await itemsRes.json();
                 const combosData = await combosRes.json();
+                const categoriesData = await categoriesRes.json();
                 allItems = itemsData.items || [];
                 allCombos = combosData.combos || [];
+                loadedCategoriesList = categoriesData.categories || loadedCategoriesList;
+                renderSherentCategoryChips(allItems, loadedCategoriesList);
+                refreshItemGroupSuggestions();
                 renderCatalog();
             } catch (err) {
                 console.error("Lỗi tải danh mục:", err);
@@ -4700,6 +4713,46 @@
             return s.toLowerCase().trim()
                 .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
                 .replace(/đ/g, "d").replace(/Đ/g, "d");
+        }
+
+        function syncItemClassificationFromGroup() {
+            const groupInput = document.getElementById('add-item-subcat');
+            const categorySelect = document.getElementById('add-item-cat');
+            const brandInput = document.getElementById('add-item-brand');
+            const hint = document.getElementById('add-item-classification-hint');
+            if (!groupInput || !categorySelect || !brandInput) return;
+
+            const group = groupInput.value.trim();
+            const name = document.getElementById('add-item-name')?.value.trim() || '';
+            const norm = normalizeSearchText(`${group} ${name}`);
+            const known = (allItems || []).find(item => normalizeSearchText(item.subcategory) === normalizeSearchText(group));
+            const camera = known ? known.category === 'CAMERA_GEAR' : /camera|may anh|body|lens|ong kinh|gimbal|flycam|drone|tripod|micro|flash|sony|canon|fuji|nikon|dji|blackmagic/.test(norm);
+            categorySelect.value = camera ? 'CAMERA_GEAR' : 'COSTUME_FASHION';
+
+            const brandMatch = norm.match(/\b(sony|canon|fujifilm|fuji|nikon|dji|godox|lumix|panasonic|blackmagic)\b/);
+            const brandNames = { fuji: 'Fujifilm', fujifilm: 'Fujifilm', panasonic: 'Lumix', lumix: 'Lumix', sony: 'Sony', canon: 'Canon', nikon: 'Nikon', dji: 'DJI', godox: 'Godox', blackmagic: 'Blackmagic' };
+            let brand = known?.brand || (brandMatch ? brandNames[brandMatch[0]] : 'Tiduba');
+            brandInput.value = brand;
+
+            if (hint) {
+                const typeLabel = camera ? 'Máy ảnh & Thiết bị' : 'Trang phục / phụ kiện';
+                hint.textContent = group ? `Tự phân loại: ${typeLabel} · Thương hiệu: ${brand}` : 'Loại và thương hiệu sẽ tự điền theo nhóm hàng/tên sản phẩm.';
+            }
+        }
+
+        function refreshItemGroupSuggestions() {
+            const list = document.getElementById('add-item-subcat-list');
+            if (!list) return;
+            const groups = new Set([
+                ...(allItems || []).map(item => (item.subcategory || '').trim()),
+                ...(loadedCategoriesList || []).filter(c => c.filter_type === 'CATEGORY').map(c => (c.filter_value || c.name || '').trim())
+            ].filter(Boolean));
+            while (list.firstChild) list.removeChild(list.firstChild);
+            [...groups].sort((a, b) => a.localeCompare(b, 'vi')).forEach(value => {
+                const option = document.createElement('option');
+                option.value = value;
+                list.appendChild(option);
+            });
         }
 
         let catalogCurrentLimit = 24;
@@ -4729,10 +4782,7 @@
                     const catNorm = normalizeSearchText(i.category);
                     const subNorm = normalizeSearchText(i.subcategory);
                     const brandNorm = normalizeSearchText(i.brand);
-                    const nameNorm = normalizeSearchText(i.name);
-                    return catNorm === cf || subNorm.includes(cf) || cf.includes(subNorm) ||
-                           brandNorm.includes(cf) || cf.includes(brandNorm) ||
-                           nameNorm.includes(cf);
+                    return catNorm === cf || subNorm === cf || brandNorm === cf;
                 });
             }
             if (activeBrandFilter) {
@@ -9688,6 +9738,7 @@
                 renderAdminCategoriesTable(loadedCategoriesList);
                 renderDynamicCategoryChips(loadedCategoriesList);
                 populateCategorySelectOptions(loadedCategoriesList);
+                refreshItemGroupSuggestions();
             } catch (e) {
                 console.error("Lỗi lấy danh mục:", e);
             }
@@ -9701,18 +9752,9 @@
             let html = `
                 <option value="CAMERA_GEAR">📷 Máy Ảnh & Thiết Bị (CAMERA_GEAR)</option>
                 <option value="COSTUME_FASHION">👗 Trang Phục Sự Kiện (COSTUME_FASHION)</option>
+                <option value="SERVICE">🧾 Dịch vụ</option>
+                <option value="COMBO_BUNDLE">🎁 Gói combo</option>
             `;
-
-            // Thêm các thư mục / bộ lọc mà admin đã tạo (loại trừ ALL và PRICE)
-            const customCats = categories.filter(c => c.filter_type === 'CATEGORY' || c.filter_type === 'BRAND');
-            if (customCats.length > 0) {
-                html += `<optgroup label="Thư mục & Thương hiệu đã tạo">`;
-                customCats.forEach(c => {
-                    const catVal = c.filter_value || c.name;
-                    html += `<option value="${catVal}">${c.name} (${c.filter_type})</option>`;
-                });
-                html += `</optgroup>`;
-            }
 
             sel.innerHTML = html;
             if (currentVal) sel.value = currentVal;
@@ -10188,8 +10230,10 @@
             document.getElementById('modal-item-editor-title').innerText = "Thêm hàng hóa";
             document.getElementById('edit-item-target-id').value = '';
             document.getElementById('add-item-name').value = '';
+            document.getElementById('add-item-cat').value = 'CAMERA_GEAR';
             document.getElementById('add-item-subcat').value = '';
             document.getElementById('add-item-brand').value = '';
+            syncItemClassificationFromGroup();
             document.getElementById('add-item-size').value = '';
             document.getElementById('add-item-serial').value = '';
             document.getElementById('add-item-cost').value = '0';
@@ -10220,6 +10264,7 @@
             document.getElementById('add-item-cat').value = item.category || 'CAMERA_GEAR';
             document.getElementById('add-item-subcat').value = item.subcategory || '';
             document.getElementById('add-item-brand').value = item.brand || '';
+            syncItemClassificationFromGroup();
             document.getElementById('add-item-size').value = item.size || '';
             document.getElementById('add-item-serial').value = item.serial_or_size || '';
             document.getElementById('add-item-cost').value = item.deposit_amount || 0;
