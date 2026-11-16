@@ -834,11 +834,11 @@
                         <button type="button" onclick="setCatalogQuickFilter('available_only')" id="qf-btn-available_only" class="px-2.5 py-1 rounded-full font-medium bg-[#faf7f2] text-[#44403c] border border-[#ded0bf] hover:border-[#b37054] transition whitespace-nowrap flex items-center gap-1">
                             <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Có Sẵn
                         </button>
-                        <button type="button" onclick="setCatalogQuickFilter('branch_CN1')" id="qf-btn-branch_CN1" class="px-2.5 py-1 rounded-full font-medium bg-[#faf7f2] text-[#44403c] border border-[#ded0bf] hover:border-[#b37054] transition whitespace-nowrap">
-                            📍 CN1 (120 Huỳnh Thúc Kháng)
+                        <button type="button" onclick="setCatalogQuickFilter('branch_CN1')" id="qf-btn-branch_CN1" title="Chi nhánh 1 · 120 Huỳnh Thúc Kháng" aria-label="Lọc sản phẩm tại chi nhánh 1" class="px-2.5 py-1 rounded-full font-medium bg-[#faf7f2] text-[#44403c] border border-[#ded0bf] hover:border-[#b37054] transition whitespace-nowrap">
+                            📍 CN1
                         </button>
-                        <button type="button" onclick="setCatalogQuickFilter('branch_CN2')" id="qf-btn-branch_CN2" class="px-2.5 py-1 rounded-full font-medium bg-[#faf7f2] text-[#44403c] border border-[#ded0bf] hover:border-[#b37054] transition whitespace-nowrap">
-                            📍 CN2 (801 Lê Duẩn)
+                        <button type="button" onclick="setCatalogQuickFilter('branch_CN2')" id="qf-btn-branch_CN2" title="Chi nhánh 2 · 801 Lê Duẩn" aria-label="Lọc sản phẩm tại chi nhánh 2" class="px-2.5 py-1 rounded-full font-medium bg-[#faf7f2] text-[#44403c] border border-[#ded0bf] hover:border-[#b37054] transition whitespace-nowrap">
+                            📍 CN2
                         </button>
                     </div>
 
@@ -4860,6 +4860,9 @@
                         <!-- Ảnh Khung Vòm Cung Nghệ Thuật (Arch Window Chuẩn Phong Cách Sherent Hình 4) -->
                         <div onclick="openProductGalleryModal(${item.id})" class="cursor-pointer relative overflow-hidden aspect-[3/4] rounded-t-[75px] sm:rounded-t-[90px] rounded-b-2xl bg-[#f5ede3] shadow-inner" title="Bấm để xem album ảnh phóng to">
                             <img src="${item.image_url}" alt="${item.name}" loading="lazy" decoding="async" class="w-full h-full object-cover group-hover:scale-105 transition duration-700">
+                            ${catalogQuickFilter === 'all' ? `
+                                <span class="absolute top-2.5 left-2.5 bg-white/90 text-[#57534e] text-[9px] font-bold px-2 py-1 rounded-full shadow-sm pointer-events-none">📍 ${item.branch_code === 'CN2' ? 'CN2' : 'CN1'}</span>
+                            ` : ''}
                             
                             <!-- Nhãn tình trạng & danh mục tinh tế phía dưới ảnh (Không che đỉnh vòm cong) -->
                             <div class="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none">
@@ -12598,10 +12601,12 @@
                 if (res.ok && data.success) {
                     showToast("🎉 " + data.message);
                     alert(data.message);
-                    fetchCatalog();
-                    fetchAdminDashboard();
-                    fetchAdminCategoriesList();
-                    fetchKiotvietConfigModal();
+                    await Promise.allSettled([
+                        fetchCatalog(),
+                        fetchAdminDashboard(),
+                        fetchAdminCategoriesList(),
+                        fetchKiotvietConfigModal()
+                    ]);
                     closeKiotvietHubModal();
                 } else {
                     alert(data.message || data.detail || "Nạp file KiotViet thất bại!");

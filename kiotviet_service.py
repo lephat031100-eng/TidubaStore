@@ -548,6 +548,7 @@ def import_kiotviet_excel_or_csv(db_conn: sqlite3.Connection, file_content: byte
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     created_count = 0
     updated_count = 0
+    created_groups: List[str] = []
 
     for item_row in rows_data:
         code = item_row["code"]
@@ -570,25 +571,46 @@ def import_kiotviet_excel_or_csv(db_conn: sqlite3.Connection, file_content: byte
         serial_or_size = code or f"SP-{int(datetime.datetime.now().timestamp()*1000)%1000000}"
         availability = "AVAILABLE" if on_hand > 0 else "UNAVAILABLE"
 
-        # Tự động tạo category chip nếu chưa có nhóm hàng này (ví dụ: Bikini, Đồ bơi...)
+        # Tự tạo nhóm hàng/chip từ đúng cột Nhóm hàng trong file KiotViet.
+        # Loại hàng tổng quát như "Dịch vụ" không được dùng thay cho nhóm cụ thể.
         if cat_name and cat_name.strip():
             clean_cat = cat_name.strip()
-            c_code = normalize_str(clean_cat).replace(" ", "_")
-            c_exists = cur.execute("SELECT id FROM categories_config WHERE LOWER(name) = ? OR LOWER(code) = ?", (clean_cat.lower(), c_code.lower())).fetchone()
+            normalized_group = normalize_str(clean_cat)
+            c_exists = cur.execute(
+                "SELECT id FROM categories_config WHERE LOWER(TRIM(name)) = ? OR LOWER(TRIM(filter_value)) = ?",
+                (clean_cat.lower(), clean_cat.lower()),
+            ).fetchone()
             if not c_exists:
-                max_order = cur.execute("SELECT MAX(display_order) as m FROM categories_config").fetchone()["m"] or 20
+                base_code = re.sub(r"[^a-z0-9]+", "_", normalized_group).strip("_") or "nhom_hang"
+                c_code = base_code
+                suffix = 2
+                while cur.execute(
+                    "SELECT id FROM categories_config WHERE LOWER(code) = ?",
+                    (c_code.lower(),),
+                ).fetchone():
+                    c_code = f"{base_code}_{suffix}"
+                    suffix += 1
+                max_order = cur.execute(
+                    "SELECT MAX(display_order) as m FROM categories_config"
+                ).fetchone()["m"] or 20
                 cur.execute("""
                 INSERT INTO categories_config (code, name, filter_type, filter_value, display_order, is_active)
                 VALUES (?, ?, 'CATEGORY', ?, ?, 1)
                 """, (c_code, clean_cat, clean_cat, max_order + 1))
+                created_groups.append(clean_cat)
 
         # Kiểm tra sản phẩm đã có chưa
         existing = cur.execute("""
             SELECT id, availability FROM items 
-            WHERE (kiotviet_code = ? AND kiotviet_code != '')
-               OR serial_or_size = ?
-               OR name = ?
-        """, (code, serial_or_size, name)).fetchone()
+            WHERE (
+                (kiotviet_code = ? AND kiotviet_code != '')
+                OR serial_or_size = ?
+                OR LOWER(TRIM(name)) = LOWER(TRIM(?))
+            )
+              AND UPPER(COALESCE(NULLIF(TRIM(branch_code), ''), 'CN1')) = ?
+            ORDER BY id DESC
+            LIMIT 1
+        """, (code, serial_or_size, name, target_branch)).fetchone()
 
         if existing:
             final_avail = existing["availability"] if existing["availability"] == "RENTED" else availability
@@ -618,14 +640,23 @@ def import_kiotviet_excel_or_csv(db_conn: sqlite3.Connection, file_content: byte
     cur.execute("""
         INSERT INTO kiotviet_sync_logs (sync_type, items_synced, status, detail, created_at)
         VALUES ('EXCEL_IMPORT', ?, 'SUCCESS', ?, ?)
-    """, (len(rows_data), f"File {filename}: Thêm mới {created_count}, Cập nhật {updated_count}", now_str))
+    """, (
+        len(rows_data),
+        f"File {filename}: Thêm mới {created_count}, Cập nhật {updated_count}, Nhóm hàng mới {len(created_groups)}",
+        now_str,
+    ))
 
     db_conn.commit()
 
     return {
         "success": True,
-        "message": f"🎉 Nạp kho KiotViet từ file thành công! Đã nạp {len(rows_data)} sản phẩm (Thêm mới: {created_count}, Cập nhật: {updated_count}).",
+        "message": (
+            f"🎉 Nạp kho KiotViet chi nhánh {target_branch} thành công! Đã nạp {len(rows_data)} sản phẩm "
+            f"(Thêm mới: {created_count}, Cập nhật tại chi nhánh này: {updated_count}, "
+            f"Tạo nhóm hàng mới: {len(created_groups)})."
+        ),
         "total": len(rows_data),
         "created_count": created_count,
-        "updated_count": updated_count
+        "updated_count": updated_count,
+        "created_groups": created_groups,
     }
