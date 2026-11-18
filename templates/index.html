@@ -359,7 +359,39 @@
             padding-bottom: env(safe-area-inset-bottom, 16px);
         }
 
-        /* CHUẨN IN HÓA ĐƠN NHIỆT K80 (SẮC NÉT, MỊN MÀNG, LOẠI BỎ 100% HIỆN TƯỢNG ĐỐM HẠT DITHERING) */
+        .catalog-product-card {
+            background: linear-gradient(155deg, #fffefa 0%, #fff 55%, #fbf6ed 100%);
+            border-color: #e8dcc7;
+            box-shadow: 0 8px 24px rgba(87, 65, 43, .09), 0 2px 5px rgba(87, 65, 43, .05);
+        }
+        .catalog-photo-arch {
+            border: 1px solid #cbb990;
+            box-shadow: inset 0 0 0 3px rgba(255, 252, 243, .88);
+        }
+        .catalog-photo-arch::before {
+            content: "";
+            position: absolute;
+            z-index: 2;
+            inset: 8px;
+            border: 1px solid rgba(255, 250, 235, .88);
+            border-radius: inherit;
+            pointer-events: none;
+        }
+        .catalog-photo-arch::after {
+            content: "✦";
+            position: absolute;
+            z-index: 3;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #dfc78d;
+            font-size: 18px;
+            line-height: 1;
+            text-shadow: 0 1px 4px rgba(45, 32, 19, .45);
+            pointer-events: none;
+        }
+
+        /* XP-80C: chữ đen trắng thuần, nét vừa và không dùng đường kẻ dạng chấm */
         @media print {
             @page {
                 size: 80mm auto;
@@ -419,7 +451,7 @@
                 background: #ffffff !important;
                 font-family: Arial, "Segoe UI", "Helvetica Neue", Helvetica, sans-serif !important;
                 font-size: 11px !important;
-                font-weight: 700 !important;
+                font-weight: 500 !important;
                 line-height: 1.35 !important;
                 box-sizing: border-box !important;
                 -webkit-print-color-adjust: exact !important;
@@ -431,8 +463,9 @@
             }
             #k80-printable-area strong, 
             #k80-printable-area th, 
-            #k80-printable-area .font-black {
-                font-weight: 900 !important;
+            #k80-printable-area .font-black,
+            #k80-printable-area [style*="font-weight: 900"] {
+                font-weight: 700 !important;
             }
             #k80-bill-qr-img {
                 width: 60px !important;
@@ -444,11 +477,12 @@
                 background: #ffffff !important;
                 border: none !important;
                 padding: 0 !important;
+                image-rendering: pixelated !important;
             }
             .border-dashed {
-                border-style: dashed !important;
+                border-style: solid !important;
                 border-color: #000000 !important;
-                border-width: 1px !important;
+                border-width: 0.5px !important;
             }
             .k80-no-print {
                 display: none !important;
@@ -847,7 +881,7 @@
             </div>
 
             <!-- Items & Combos Grid (Mobile 2 cột mượt mà, Tablet 3 cột, PC 4 cột) -->
-            <div id="catalog-grid" class="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 md:gap-5">
+            <div id="catalog-grid" class="grid grid-cols-1 min-[540px]:grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 md:gap-5">
                 <!-- Javascript renders product cards or combos here -->
             </div>
         </section>
@@ -4905,11 +4939,11 @@
                 const estTagPrice = Number(item.price_24h || 100000) * 5;
 
                 return `
-                    <div class="bg-white/95 rounded-3xl p-2.5 sm:p-3 border border-[#ede3d6] shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between group ${isUnavail ? 'opacity-60' : ''}">
+                    <div class="catalog-product-card rounded-[1.65rem] p-3 sm:p-3.5 border hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300 flex flex-col justify-between group">
                         
                         <!-- Ảnh Khung Vòm Cung Nghệ Thuật (Arch Window Chuẩn Phong Cách Sherent Hình 4) -->
-                        <div onclick="openProductGalleryModal(${item.id})" class="cursor-pointer relative overflow-hidden aspect-[3/4] rounded-t-[75px] sm:rounded-t-[90px] rounded-b-2xl bg-[#f5ede3] shadow-inner" title="Bấm để xem album ảnh phóng to">
-                            <img src="${item.image_url}" alt="${item.name}" loading="lazy" decoding="async" class="w-full h-full object-cover group-hover:scale-105 transition duration-700">
+                        <div onclick="openProductGalleryModal(${item.id})" class="catalog-photo-arch cursor-pointer relative overflow-hidden aspect-[4/5] rounded-t-[46%] rounded-b-2xl bg-[#f5ede3]" title="Bấm để xem album ảnh phóng to">
+                            <img src="${item.image_url}" alt="${item.name}" loading="lazy" decoding="async" class="w-full h-full object-cover group-hover:scale-105 transition duration-700 ${isUnavail ? 'brightness-[.88]' : ''}">
                             ${catalogQuickFilter === 'all' ? `
                                 <span class="absolute top-2.5 left-2.5 bg-white/90 text-[#57534e] text-[9px] font-bold px-2 py-1 rounded-full shadow-sm pointer-events-none">📍 ${item.branch_code === 'CN2' ? 'CN2' : 'CN1'}</span>
                             ` : ''}
@@ -5703,7 +5737,7 @@
                             color: #000000;
                             font-family: Arial, "Segoe UI", "Helvetica Neue", Helvetica, sans-serif;
                             font-size: 11px;
-                            font-weight: 700;
+                            font-weight: 500;
                             line-height: 1.35;
                             box-sizing: border-box;
                             -webkit-print-color-adjust: exact;
@@ -5713,9 +5747,13 @@
                             color: #000000 !important;
                             box-sizing: border-box;
                             font-family: Arial, "Segoe UI", "Helvetica Neue", Helvetica, sans-serif !important;
+                            background-image: none !important;
+                            box-shadow: none !important;
+                            text-shadow: none !important;
+                            filter: none !important;
                         }
-                        strong, th, .font-black {
-                            font-weight: 900 !important;
+                        strong, th, .font-black, [style*="font-weight: 900"] {
+                            font-weight: 700 !important;
                         }
                         img#k80-bill-qr-img {
                             width: 60px !important;
@@ -5727,6 +5765,7 @@
                             background: #ffffff !important;
                             border: none !important;
                             padding: 0 !important;
+                            image-rendering: pixelated !important;
                         }
                         table {
                             width: 100% !important;
@@ -5738,9 +5777,9 @@
                         .font-black { font-weight: 900; }
                         .font-bold { font-weight: 700; }
                         .uppercase { text-transform: uppercase; }
-                        .border-b-2 { border-bottom: 2px dashed #000000 !important; }
-                        .border-t-2 { border-top: 2px dashed #000000 !important; }
-                        .border-b { border-bottom: 1px dashed #000000 !important; }
+                        .border-b-2 { border-bottom: 1px solid #000000 !important; }
+                        .border-t-2 { border-top: 1px solid #000000 !important; }
+                        .border-b { border-bottom: 0.5px solid #000000 !important; }
                         .border-t { border-top: 1.5px solid #000000 !important; }
                         .rounded { border-radius: 4px; }
                         .py-1 { padding-top: 3px; padding-bottom: 3px; }

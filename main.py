@@ -7708,6 +7708,202 @@ def background_reminder_worker():
             time.sleep(5)
 
 
+TELEGRAM_SHOP_ASSISTANT_CHAT_ID = "-1004454482786"
+
+
+def _telegram_date_from_question(text: str) -> datetime.date:
+    today = vn_now().date()
+    normalized = normalize_str(text)
+    if "ngay mai" in normalized or normalized == "mai" or normalized.startswith("lich mai"):
+        return today + datetime.timedelta(days=1)
+    match = re.search(r"\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b", text)
+    if match:
+        day, month = int(match.group(1)), int(match.group(2))
+        year = int(match.group(3)) if match.group(3) else today.year
+        if year < 100:
+            year += 2000
+        try:
+            return datetime.date(year, month, day)
+        except ValueError:
+            pass
+    return today
+
+
+def _telegram_shop_assistant_answer(question: str) -> str:
+    """Tra cứu kín trong DB shop: tồn kho/lịch thuê và thông tin hóa đơn theo mã."""
+    q = (question or "").strip()
+    normalized = normalize_str(q)
+    if not normalized or normalized.split("@", 1)[0] in {"/start", "/help", "help"}:
+        return (
+            "Tiduba tra cứu nhanh: hỏi ‘còn váy lụa không?’, ‘lịch đồ ngày mai’, "
+            "hoặc ‘bill TDB-123456’. Có thể dùng /help để xem ví dụ."
+        )
+
+    conn = get_db()
+    try:
+        bill_match = re.search(r"\b(?:TDB-[A-Za-z0-9_-]+|HD\d+)\b", q, re.IGNORECASE)
+        asks_bill = any(word in normalized for word in ("bill", "hoa don", "don hang", "ma don"))
+        if bill_match or asks_bill:
+            if bill_match:
+                lookup_code = bill_match.group(0)
+                if lookup_code.upper().startswith("HD"):
+                    lookup_code = "TDB-" + lookup_code[2:]
+                rental = conn.execute("""
+                    SELECT r.rental_code, r.status, r.total_price, r.deposit_paid,
+                           r.start_time, r.end_time, r.rental_type, r.branch_code,
+                           u.full_name, u.phone,
+                           COALESCE(i.name, c.name, 'Sản phẩm') AS item_name
+                    FROM rentals r
+                    JOIN users u ON u.id = r.user_id
+                    LEFT JOIN items i ON i.id = r.item_id
+                    LEFT JOIN combos c ON c.id = r.combo_id
+                    WHERE UPPER(r.rental_code) = UPPER(?)
+                    LIMIT 1
+                """, (lookup_code,)).fetchone()
+            else:
+                rental = conn.execute("""
+                    SELECT r.rental_code, r.status, r.total_price, r.deposit_paid,
+                           r.start_time, r.end_time, r.rental_type, r.branch_code,
+                           u.full_name, u.phone,
+                           COALESCE(i.name, c.name, 'Sản phẩm') AS item_name
+                    FROM rentals r
+                    JOIN users u ON u.id = r.user_id
+                    LEFT JOIN items i ON i.id = r.item_id
+                    LEFT JOIN combos c ON c.id = r.combo_id
+                    ORDER BY r.id DESC LIMIT 1
+                """).fetchone()
+            if not rental:
+                return "Không tìm thấy bill. Gửi mã đơn, ví dụ: bill TDB-123456."
+            phone = rental["phone"] or ""
+            masked_phone = ("•" * max(0, len(phone) - 4) + phone[-4:]) if phone else "—"
+            status_names = {
+                "HOLD": "Chờ thanh toán", "PENDING": "Chờ duyệt", "APPROVED": "Đã duyệt",
+                "ACTIVE": "Đang thuê", "RETURNED": "Đã trả", "OVERDUE": "Quá hạn",
+                "CANCELLED": "Đã hủy"
+            }
+            return (
+                f"Bill {rental['rental_code']}\n"
+                f"Món: {rental['item_name']}\nKhách: {rental['full_name']} · {masked_phone}\n"
+                f"Trạng thái: {status_names.get(rental['status'], rental['status'])}\n"
+                f"Nhận: {rental['start_time']}\nTrả: {rental['end_time']}\n"
+                f"Tiền thuê: {int(rental['total_price'] or 0):,}đ · Cọc đã ghi nhận: {int(rental['deposit_paid'] or 0):,}đ\n"
+                f"Chi nhánh: {rental['branch_code'] or 'CN1'}"
+            )
+
+        asks_availability = any(phrase in normalized for phrase in ("con ", "co ", "con hang", "available", "het hang"))
+        asked_date = any(word in normalized for word in ("ngay mai", "hom nay", "ngay ")) or bool(re.search(r"\d{1,2}[/-]\d{1,2}", q))
+        date_request = ("lich" in normalized or asked_date) and not asks_availability
+        requested_day = _telegram_date_from_question(q) if asked_date else None
+        if date_request:
+            day = requested_day or _telegram_date_from_question(q)
+            day_start = f"{day.isoformat()} 00:00:00"
+            day_end = f"{(day + datetime.timedelta(days=1)).isoformat()} 00:00:00"
+            rentals = conn.execute("""
+                SELECT r.rental_code, r.status, r.start_time, r.end_time, r.branch_code,
+                       u.full_name, COALESCE(i.name, c.name, 'Sản phẩm') AS item_name
+                FROM rentals r
+                JOIN users u ON u.id = r.user_id
+                LEFT JOIN items i ON i.id = r.item_id
+                LEFT JOIN combos c ON c.id = r.combo_id
+                WHERE r.status IN ('HOLD','PENDING','APPROVED','ACTIVE','OVERDUE')
+                  AND r.start_time < ? AND r.end_time >= ?
+                ORDER BY r.start_time ASC LIMIT 40
+            """, (day_end, day_start)).fetchall()
+            if not rentals:
+                return f"Lịch {day.strftime('%d/%m/%Y')}: chưa có đơn thuê nào."
+            lines = [f"Lịch thuê {day.strftime('%d/%m/%Y')} · {len(rentals)} đơn:"]
+            for rental in rentals[:20]:
+                start = (rental["start_time"] or "").replace("T", " ")
+                end = (rental["end_time"] or "").replace("T", " ")
+                lines.append(f"• {start[-8:-3]}–{end[-8:-3]} · {rental['item_name']} · {rental['branch_code'] or 'CN1'} · {rental['rental_code']}")
+            if len(rentals) > 20:
+                lines.append(f"… còn {len(rentals) - 20} đơn khác.")
+            return "\n".join(lines)
+
+        stop_words = {
+            "con", "khong", "co", "shop", "minh", "toi", "muon", "hoi", "giup", "voi", "nha",
+            "nay", "do", "cai", "nao", "khong", "hang", "san", "pham", "thue", "duoc", "khong",
+            "kiem", "tra", "ton", "kho", "con", "hay", "khong", "a", "oi", "bot", "tiduba",
+            "lich", "ngay", "mai", "hom", "trong", "vao", "cn1", "cn2",
+            "may", "anh", "camera", "thiet", "bi", "body", "dang", "mau", "tai", "cho"
+        }
+        terms = [word for word in re.findall(r"[a-z0-9]+", normalized)
+                 if word not in stop_words and len(word) > 1 and not (requested_day and word.isdigit())]
+        if not terms:
+            return "Bạn có thể hỏi tồn kho (ví dụ ‘còn váy lụa không?’), lịch ( ‘lịch đồ ngày mai’) hoặc bill ( ‘bill TDB-123456’)."
+
+        items = conn.execute("""
+            SELECT id, name, category, subcategory, brand, serial_or_size, availability, branch_code, on_hand
+            FROM items WHERE availability != 'HIDDEN'
+            ORDER BY name COLLATE NOCASE LIMIT 2000
+        """).fetchall()
+        matched = []
+        for item in items:
+            haystack = normalize_str(" ".join(str(item[key] or "") for key in ("name", "subcategory", "brand", "serial_or_size") if key in item.keys()))
+            if all(term in haystack for term in terms):
+                matched.append(item)
+        if not matched:
+            return "Chưa tìm thấy mẫu phù hợp. Thử tên mẫu, nhóm hàng hoặc thương hiệu cụ thể hơn nhé."
+
+        now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
+        day_start = f"{requested_day.isoformat()} 00:00:00" if requested_day else None
+        day_end = f"{(requested_day + datetime.timedelta(days=1)).isoformat()} 00:00:00" if requested_day else None
+        lines = [f"Tìm thấy {len(matched)} mẫu phù hợp:"]
+        for item in matched[:8]:
+            if requested_day:
+                next_rental = conn.execute("""
+                    SELECT start_time FROM rentals
+                    WHERE item_id = ? AND status IN ('HOLD','PENDING','APPROVED','ACTIVE','OVERDUE')
+                      AND start_time < ? AND end_time >= ?
+                    ORDER BY start_time LIMIT 1
+                """, (item["id"], day_end, day_start)).fetchone()
+                is_available = item["availability"] != "UNAVAILABLE" and not next_rental
+                if is_available:
+                    state = f"Còn ngày {requested_day.strftime('%d/%m')}"
+                else:
+                    state = "Tạm ngưng" if item["availability"] == "UNAVAILABLE" else "Đã có lịch"
+            else:
+                next_rental = conn.execute("""
+                    SELECT start_time FROM rentals
+                    WHERE item_id = ? AND status IN ('HOLD','PENDING','APPROVED','ACTIVE','OVERDUE')
+                      AND end_time > ?
+                    ORDER BY start_time LIMIT 1
+                """, (item["id"], now_str)).fetchone()
+                is_available = item["availability"] == "AVAILABLE" and not next_rental
+                state = "Còn" if is_available else "Đang bận/tạm ngưng"
+            if next_rental:
+                state += f" · lịch tiếp theo {next_rental['start_time']}"
+            lines.append(f"• {item['name']} · {item['branch_code'] or 'CN1'} · {state}")
+        return "\n".join(lines)
+    finally:
+        conn.close()
+
+
+def _telegram_reply_to_shop_question(bot_token: str, message: Dict[str, Any]) -> None:
+    chat = message.get("chat") or {}
+    if str(chat.get("id")) != TELEGRAM_SHOP_ASSISTANT_CHAT_ID:
+        return
+    question = message.get("text") or message.get("caption") or ""
+    if not question:
+        return
+    answer = _telegram_shop_assistant_answer(question)
+    payload = {
+        "chat_id": chat["id"],
+        "text": answer[:4000],
+        "reply_to_message_id": message.get("message_id"),
+        "allow_sending_without_reply": True,
+    }
+    if message.get("message_thread_id"):
+        payload["message_thread_id"] = message["message_thread_id"]
+    req = urllib.request.Request(
+        f"https://api.telegram.org/bot{bot_token}/sendMessage",
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers={"Content-Type": "application/json"}, method="POST"
+    )
+    with urllib.request.urlopen(req, timeout=10):
+        pass
+
+
 def telegram_bot_updates_worker():
     """
     Lắng nghe liên tục các sự kiện từ Telegram Bot (Long-polling getUpdates):
@@ -7743,6 +7939,13 @@ def telegram_bot_updates_worker():
                 uid = u["update_id"]
                 if uid > last_update_id:
                     last_update_id = uid
+
+                if "message" in u:
+                    try:
+                        _telegram_reply_to_shop_question(bot_token, u["message"])
+                    except Exception as assistant_error:
+                        print(f"[TELEGRAM SHOP ASSISTANT] Query failed: {assistant_error}")
+                    continue
 
                 # Xử lý Callback Query khi Admin bấm nút Inline trong Telegram
                 if "callback_query" in u:
