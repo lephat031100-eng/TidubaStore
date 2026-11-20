@@ -180,9 +180,19 @@ async def handle_unexpected_api_error(request: Request, exc: Exception):
     print(f"[API ERROR {error_id}] {request.method} {request.url.path}: {type(exc).__name__}: {exc}")
     traceback.print_exc()
     if request.url.path == "/api/rentals/book_multi":
+        is_admin_request = False
+        try:
+            failed_user = get_current_user(request.headers.get("authorization"))
+            is_admin_request = bool(failed_user and failed_user.get("role") == "admin")
+        except Exception:
+            pass
+        detail = (
+            f"POS lỗi {type(exc).__name__}: {str(exc)[:240]} (mã {error_id})"
+            if is_admin_request else f"POS tạo đơn thất bại (mã lỗi {error_id})."
+        )
         return JSONResponse(
             status_code=500,
-            content={"detail": f"POS tạo đơn thất bại (mã lỗi {error_id}). Kiểm tra log Render để xem nguyên nhân."},
+            content={"detail": detail},
         )
     return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
 
