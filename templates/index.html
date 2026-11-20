@@ -360,45 +360,24 @@
         }
 
         .catalog-product-card {
-            background: linear-gradient(155deg, #fffefa 0%, #fff 55%, #fbf6ed 100%);
-            border-color: #e8dcc7;
-            box-shadow: 0 8px 24px rgba(87, 65, 43, .09), 0 2px 5px rgba(87, 65, 43, .05);
+            background: #ffffff;
+            border-color: #eae0d2;
+            border-radius: 20px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, .05);
         }
         .catalog-photo-arch {
             isolation: isolate;
-            border: 1px solid #cbb990;
-            border-radius: 48% 48% 1.15rem 1.15rem / 23% 23% 1.15rem 1.15rem;
-            box-shadow: inset 0 0 0 3px rgba(255, 252, 243, .88);
-            background: linear-gradient(180deg, #f8f2e7, #e9ddc7);
+            border: 0;
+            border-radius: 0;
+            background: #ffffff;
+            overflow: visible;
         }
-        .catalog-photo-arch::before {
-            content: "";
-            position: absolute;
-            z-index: 2;
-            inset: 8px;
-            border: 1px solid rgba(255, 250, 235, .88);
-            border-radius: 48% 48% .9rem .9rem / 23% 23% .9rem .9rem;
-            pointer-events: none;
-        }
-        .catalog-photo-arch::after {
-            content: "✦";
-            position: absolute;
-            z-index: 3;
-            top: 5px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: #b69a5e;
-            font-size: 22px;
-            line-height: 1;
-            text-shadow: 0 1px 4px rgba(45, 32, 19, .45);
-            pointer-events: none;
-        }
-        .catalog-botanical-frame { position:absolute; inset:0; z-index:3; width:100%; height:100%; pointer-events:none; }
-        .catalog-photo-image { position:absolute; z-index:1; left:7%; top:13%; width:86%; height:81%; object-fit:cover; border-radius:48% 48% .35rem .35rem / 25% 25% .35rem .35rem; }
-        .catalog-photo-arch::after { content:none; }
+        .catalog-photo-arch::before, .catalog-photo-arch::after { content: none; }
+        .catalog-botanical-frame { position:absolute; inset:0; z-index:3; width:100%; height:100%; pointer-events:none; overflow:visible; }
+        .catalog-photo-image { position:absolute; z-index:1; inset:0; width:100%; height:100%; object-fit:cover; clip-path:var(--catalog-photo-clip); -webkit-clip-path:var(--catalog-photo-clip); transform-origin:center; }
         .catalog-branch-pill { background:rgba(255,255,255,.94); color:#57534e; border:1px solid rgba(255,255,255,.9); box-shadow:0 3px 12px rgba(40,30,20,.13); }
         .catalog-image-action { background:rgba(38,35,29,.76); color:#fffdf7; backdrop-filter:blur(5px); }
-        .catalog-data-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:.25rem; }
+        .catalog-data-row { display:flex; justify-content:space-between; align-items:baseline; gap:.35rem; }
         .catalog-suspended-button { background:#a9a39b; color:white; }
         @media (max-width: 539px) {
             .catalog-product-card { min-width: 0; padding: .55rem !important; border-radius: 1.25rem !important; }
@@ -406,11 +385,7 @@
             .catalog-product-card .catalog-card-title { font-size: 1.18rem !important; line-height: 1.18 !important; }
             .catalog-product-card .catalog-card-price { font-size: 1rem !important; }
             .catalog-product-card .catalog-card-action { min-height: 2.55rem !important; font-size: .92rem !important; }
-            .catalog-photo-arch::before { inset: 5px; }
-            .catalog-photo-arch::after { top: 4px; font-size: 17px; }
-            .catalog-botanical-frame { opacity:.82; }
-            .catalog-photo-image { left:7%; top:13%; width:86%; height:81%; border-radius:48% 48% .35rem .35rem / 25% 25% .35rem .35rem; }
-            .catalog-grid { grid-template-columns:minmax(0,1fr) !important; gap:1rem !important; }
+            .catalog-botanical-frame { opacity:1; }
             .catalog-card-details { font-size:1rem; }
         }
 
@@ -4986,18 +4961,25 @@
                     <div class="catalog-product-card rounded-[1.65rem] p-3 sm:p-3.5 border hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300 flex flex-col justify-between group min-w-0">
                         
                         <!-- Ảnh Khung Vòm Cung Nghệ Thuật (Arch Window Chuẩn Phong Cách Sherent Hình 4) -->
-                        <div onclick="openProductGalleryModal(${item.id})" class="catalog-photo-arch cursor-pointer relative overflow-hidden aspect-[4/5] sm:aspect-[4/4.8] bg-[#f5ede3]" title="Bấm để xem album ảnh phóng to">
-                            <img src="${item.image_url || '/static/logo.png'}" alt="${item.name}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/static/logo.png';this.classList.add('object-contain','p-5')" class="catalog-photo-image group-hover:scale-[1.015] transition duration-500 ${isUnavail ? 'brightness-[.88]' : ''}">
+                        <div onclick="openProductGalleryModal(${item.id})" class="catalog-photo-arch cursor-pointer relative overflow-hidden aspect-[4/5] sm:aspect-[4/4.8] bg-white" title="Bấm để xem album ảnh phóng to">
+                            <img src="${item.image_url || '/static/logo.png'}" alt="${item.name}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/static/logo.png'" style="--catalog-photo-clip:url(#catalog-photo-clip-${item.id})" class="catalog-photo-image group-hover:scale-[1.015] transition duration-500 ${isUnavail ? 'brightness-[.88]' : ''}">
                             <svg class="catalog-botanical-frame" viewBox="0 0 400 500" preserveAspectRatio="none" aria-hidden="true">
-                                <path d="M24 482V143Q24 74 89 70Q148 68 200 22Q252 68 311 70Q376 74 376 143V482M34 478V145Q34 84 91 80Q151 76 200 34Q249 76 309 80Q366 84 366 145V478" fill="none" stroke="#b6a477" stroke-width="2"/>
-                                <path d="M200 18l8 18 19 3-14 13 3 19-16-9-16 9 3-19-14-13 19-3z" fill="#b69a5e"/>
-                                <g fill="none" stroke="#aa9a73" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M28 132C50 104 54 75 42 49M42 83C25 77 22 66 22 56 35 58 44 66 42 83ZM47 67C57 49 70 44 82 46 75 60 63 68 47 67ZM34 106C19 102 14 92 16 81 29 84 37 93 34 106ZM49 101C61 87 74 85 84 90 74 101 62 105 49 101Z"/>
-                                    <path d="M372 132C350 104 346 75 358 49M358 83C375 77 378 66 378 56 365 58 356 66 358 83ZM353 67C343 49 330 44 318 46 325 60 337 68 353 67ZM366 106C381 102 386 92 384 81 371 84 363 93 366 106ZM351 101C339 87 326 85 316 90 326 101 338 105 351 101Z"/>
+                                <defs>
+                                    <clipPath id="catalog-photo-clip-${item.id}" clipPathUnits="objectBoundingBox">
+                                        <path d="M.055 .985 L.055 .43 C.055 .31 .22 .29 .34 .22 C.43 .17 .465 .095 .5 .035 C.535 .095 .57 .17 .66 .22 C.78 .29 .945 .31 .945 .43 L.945 .965 L.925 .985 Z"/>
+                                    </clipPath>
+                                </defs>
+                                <path d="M16 492 L16 211 C16 137 91 133 133 99 C167 72 181 40 200 13 C219 40 233 72 267 99 C309 133 384 137 384 211 L384 475 L370 490 L30 490 Z" fill="none" stroke="#C2A67E" stroke-width="1.35" stroke-linejoin="round"/>
+                                <path d="M24 486 L24 211 C24 144 96 141 137 107 C170 80 184 50 200 28 C216 50 230 80 263 107 C304 141 376 144 376 211 L376 472 L364 482 L36 482 Z" fill="none" stroke="#C2A67E" stroke-opacity=".52" stroke-width=".8" stroke-linejoin="round"/>
+                                <path d="M200 12 C204 23 208 27 220 31 C208 35 204 39 200 50 C196 39 192 35 180 31 C192 27 196 23 200 12Z" fill="#C2A67E"/>
+                                <g fill="none" stroke="#C2A67E" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M27 205 C43 176 44 143 34 116 C30 103 24 94 18 88 M34 145 C20 141 13 132 12 119 C25 121 34 130 34 145 M38 127 C49 113 61 108 74 110 C66 123 54 129 38 127 M28 173 C15 169 9 160 9 148 C22 150 30 159 28 173 M41 160 C54 148 67 146 79 151 C68 161 55 164 41 160 M36 190 C51 181 65 181 76 187 C64 196 50 197 36 190"/>
+                                    <path d="M373 205 C357 176 356 143 366 116 C370 103 376 94 382 88 M366 145 C380 141 387 132 388 119 C375 121 366 130 366 145 M362 127 C351 113 339 108 326 110 C334 123 346 129 362 127 M372 173 C385 169 391 160 391 148 C378 150 370 159 372 173 M359 160 C346 148 333 146 321 151 C332 161 345 164 359 160 M364 190 C349 181 335 181 324 187 C336 196 350 197 364 190"/>
                                 </g>
+                                <path d="M30 474 L30 487 L43 487 M370 474 L370 487 L357 487 M43 487 L357 487" fill="none" stroke="#C2A67E" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
                             <span class="catalog-branch-pill absolute top-[18%] left-[9%] z-[4] rounded-full px-2.5 py-1 text-[10px] sm:text-xs font-semibold flex items-center gap-1.5 pointer-events-none"><i class="fa-solid fa-location-dot text-[#a35e43]"></i>${item.branch_code === 'CN2' ? 'CN2' : 'CN1'}</span>
-                            <div class="absolute bottom-[5%] left-[9%] z-[4] flex items-center gap-1.5">
+                            <div class="absolute bottom-[5%] left-[7%] right-[7%] z-[4] flex items-center justify-between gap-2">
                                 <button type="button" onclick="event.stopPropagation();openProductGalleryModal(${item.id})" class="catalog-image-action min-h-9 rounded-full px-3 py-1.5 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5"><i class="fa-regular fa-images"></i><span>Xem ảnh</span></button>
                                 ${isUnavail ? `<span class="catalog-image-action min-h-9 rounded-full px-3 py-1.5 text-xs sm:text-sm font-semibold flex items-center justify-center">TẠM NGƯNG</span>` : ''}
                             </div>
@@ -5006,7 +4988,7 @@
                         <!-- Thông Tin Sản Phẩm Phong Cách Studio Sang Trọng (Hình 4) -->
                         <div class="catalog-card-details pt-3 px-1 pb-1 space-y-2 flex-1 flex flex-col justify-between font-sans min-w-0">
                             <div class="space-y-0.5">
-                                <h4 onclick="openProductGalleryModal(${item.id})" class="catalog-card-title cursor-pointer font-serif text-base sm:text-lg font-bold text-[#1c1917] leading-snug hover:text-[#b37054] transition line-clamp-2" style="font-family: 'Playfair Display', Georgia, serif;" title="${item.name}">
+                                <h4 onclick="openProductGalleryModal(${item.id})" class="catalog-card-title cursor-pointer font-serif text-base sm:text-lg font-bold text-[#1c1917] leading-snug hover:text-[#b37054] transition line-clamp-1 whitespace-nowrap overflow-hidden text-ellipsis" style="font-family: 'Playfair Display', Georgia, serif;" title="${item.name}">
                                     ${item.name}
                                 </h4>
                                 <div class="text-xs text-[#78716c] font-sans flex items-center justify-between gap-1">
