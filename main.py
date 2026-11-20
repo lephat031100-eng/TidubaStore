@@ -2814,6 +2814,13 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
         if item["availability"] in ("UNAVAILABLE", "HIDDEN"):
             conn.close()
             raise HTTPException(status_code=400, detail="Thiết bị này hiện đang tạm ngưng phục vụ hoặc ẩn khỏi web!")
+        item_branch = str(item["branch_code"] or "CN1").upper()
+        selected_branch = str(req.branch_code or "CN1").upper().strip()
+        if selected_branch not in STORE_BRANCHES:
+            selected_branch = "CN1"
+        if item_branch in STORE_BRANCHES and selected_branch != item_branch:
+            conn.close()
+            raise HTTPException(status_code=400, detail=f"Sản phẩm '{item['name']}' thuộc kho {item_branch}. Vui lòng nhận và trả tại đúng chi nhánh này.")
         price_4h = item["price_4h"]
         price_8h = item["price_8h"]
         price_24h = item["price_24h"]
@@ -3279,6 +3286,8 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
     total_default_deposit = 0
     max_duration_hours = 24.0
     effective_overall_end = req.end_time
+    selected_branch = req.branch_code.upper().strip() if req.branch_code and req.branch_code.upper().strip() in STORE_BRANCHES else "CN1"
+    item_branch_codes = set()
 
     # Duyệt và tính toán từng sản phẩm trong giỏ hàng
     for item_req in req.items:
@@ -3308,6 +3317,12 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
             if item["availability"] in ("UNAVAILABLE", "HIDDEN") and not (is_admin_mode and req.is_direct_paid):
                 conn.close()
                 raise HTTPException(status_code=400, detail=f"Thiết bị '{item['name']}' hiện đang tạm ngưng phục vụ hoặc ẩn khỏi web!")
+            item_branch = str(item["branch_code"] or "CN1").upper()
+            if item_branch in STORE_BRANCHES:
+                item_branch_codes.add(item_branch)
+                if item_branch != selected_branch:
+                    conn.close()
+                    raise HTTPException(status_code=400, detail=f"Sản phẩm '{item['name']}' thuộc kho {item_branch}, nhưng đơn đang chọn {selected_branch}. Hãy chọn đúng chi nhánh hoặc tách đơn theo từng kho.")
             price_4h = item["price_4h"]
             price_8h = item["price_8h"]
             price_24h = item["price_24h"]
@@ -3456,6 +3471,10 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
         if req.pos_surcharge and req.pos_surcharge > 0:
             total_rental_price += req.pos_surcharge
 
+    if len(item_branch_codes) > 1:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Giỏ hàng có sản phẩm ở nhiều chi nhánh. Vui lòng tạo đơn riêng cho CN1 và CN2.")
+
     # PHẦN CỌC: Mặc định 0đ cho khách, Admin KiotViet POS có thể tự chọn hình thức cọc & nhập tiền cọc
     final_deposit = 0
     dep_type = "NONE"
@@ -3472,7 +3491,6 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
     now_str = now.strftime("%Y-%m-%d %H:%M:%S")
     hold_expires_at = (now + datetime.timedelta(minutes=15)).strftime("%Y-%m-%d %H:%M:%S")
     rental_code = f"TDB-{int(time.time()*1000)%1000000:06d}"
-    selected_branch = req.branch_code.upper().strip() if req.branch_code and req.branch_code.upper().strip() in STORE_BRANCHES else "CN1"
     branch_info = STORE_BRANCHES[selected_branch]
 
     # Trạng thái ban đầu:
@@ -4747,6 +4765,8 @@ def create_item_admin(req: CreateItemAdminRequest, admin: Dict[str, Any] = Depen
             now_str
         ))
 
+        sync_product_group_chips(conn, req.subcategory or "Thiết bị")
+
         conn.commit()
         new_id = cur.lastrowid
         sync_items_availability(conn)
@@ -4802,6 +4822,9 @@ def update_item_admin_full(item_id: int, req: UpdateItemFullAdminRequest, admin:
     if fields:
         params.append(item_id)
         cur.execute(f"UPDATE items SET {', '.join(fields)} WHERE id = ?", params)
+        updated_item = cur.execute("SELECT subcategory FROM items WHERE id = ?", (item_id,)).fetchone()
+        if updated_item:
+            sync_product_group_chips(conn, updated_item["subcategory"])
         conn.commit()
 
     conn.close()
@@ -5293,10 +5316,41 @@ def update_site_settings(req: UpdateSiteSettingsRequest, admin: Dict[str, Any] =
     return {"success": True, "message": "Đã lưu cài đặt website thành công!"}
 
 
+def sync_product_group_chips(conn: sqlite3.Connection, group_name: Optional[str] = None) -> None:
+    """Keep product groups available in both admin chips and public collection filters."""
+    names = [group_name.strip()] if group_name and group_name.strip() else [
+        row["subcategory"].strip()
+        for row in conn.execute("SELECT DISTINCT subcategory FROM items WHERE TRIM(COALESCE(subcategory, '')) != ''").fetchall()
+    ]
+    for name in names:
+        code = normalize_str(name).replace(" ", "_") or "product_group"
+        configured_groups = conn.execute(
+            "SELECT name, filter_value FROM categories_config WHERE filter_type = 'CATEGORY'"
+        ).fetchall()
+        if any(
+            normalize_str(row["filter_value"] or row["name"]) == normalize_str(name)
+            or normalize_str(row["name"]) == normalize_str(name)
+            for row in configured_groups
+        ):
+            continue
+        order = conn.execute("SELECT COALESCE(MAX(display_order), 20) + 1 AS n FROM categories_config").fetchone()["n"]
+        base_code = code
+        suffix = 2
+        while conn.execute("SELECT 1 FROM categories_config WHERE LOWER(code) = LOWER(?) LIMIT 1", (code,)).fetchone():
+            code = f"{base_code}_{suffix}"
+            suffix += 1
+        conn.execute(
+            "INSERT INTO categories_config (code, name, filter_type, filter_value, display_order, is_active) VALUES (?, ?, 'CATEGORY', ?, ?, 1)",
+            (code, name, name, order),
+        )
+
+
 @app.get("/api/categories")
 def get_categories():
     """Lấy danh sách các thư mục / bộ lọc chip phân loại (Tất cả, Sony, Canon, Váy...)."""
     conn = get_db()
+    sync_product_group_chips(conn)
+    conn.commit()
     rows = conn.execute("SELECT * FROM categories_config WHERE is_active = 1 ORDER BY display_order ASC, id ASC").fetchall()
     conn.close()
     return {"success": True, "categories": [dict(r) for r in rows]}

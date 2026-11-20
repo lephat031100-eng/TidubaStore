@@ -2071,7 +2071,7 @@
                             <!-- Invoice Branch Selection & Important Notes -->
                             <div>
                                 <label class="block text-[11px] font-bold text-emerald-800 mb-1">🏢 Xuất đơn tại Chi nhánh:</label>
-                                <select id="pos-branch-code" onchange="posRecalculateActiveInvoice()" class="w-full bg-white border border-emerald-400 rounded-xl p-2 text-xs font-bold text-gray-800">
+                                <select id="pos-branch-code" onchange="posSetInvoiceBranch(this.value)" class="w-full bg-white border border-emerald-400 rounded-xl p-2 text-xs font-bold text-gray-800">
                                     <option value="CN1">📍 CN1 (Trụ Sở): 120 Huỳnh Thúc Kháng, Pleiku, Gia Lai (0977.078.981)</option>
                                     <option value="CN2">📍 CN2: 801 Lê Duẩn, P. An Phú, TP. Pleiku, Gia Lai (0977.078.981)</option>
                                 </select>
@@ -3364,8 +3364,8 @@
             </div>
 
             <!-- Khu vực Bill Nhiệt K80 (Chuẩn máy in 80mm KiotViet Đậm Nét) -->
-            <div id="k80-preview-scroll" class="p-3 sm:p-4 flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scroll bg-gray-950 flex justify-center" style="-webkit-overflow-scrolling:touch;padding-bottom:calc(1rem + env(safe-area-inset-bottom));">
-                <div id="k80-printable-area" class="bg-white text-black font-sans text-xs p-3.5 sm:p-4 pb-6 rounded-xl shadow-2xl leading-normal max-w-[280px] w-full border border-gray-400 space-y-2 select-all">
+            <div id="k80-preview-scroll" class="p-3 sm:p-4 flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scroll bg-gray-950 flex justify-center items-start" style="-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding-bottom:calc(1.25rem + env(safe-area-inset-bottom));">
+                <div id="k80-printable-area" class="bg-white text-black font-sans text-xs p-3.5 sm:p-4 pb-6 rounded-xl shadow-2xl leading-normal max-w-[320px] w-full min-h-max shrink-0 self-start border border-gray-400 space-y-2">
                     
                     <!-- Phần đầu: Thương hiệu & Chi nhánh (Chữ TIDUBA to, đậm, sang trọng) -->
                     <div class="text-center pb-2.5 border-b border-dashed border-black">
@@ -3480,7 +3480,7 @@
                 <div class="flex items-center gap-2 ml-auto">
                     <!-- Nút In chỉ dành riêng cho Admin (Ẩn hoàn toàn với khách hàng) -->
                     <button type="button" id="k80-btn-admin-print" onclick="printK80Bill()" class="hidden bg-gray-800 hover:bg-gray-700 text-cyan-300 border border-cyan-700 px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5" title="Chỉ Admin in hóa đơn máy in nhiệt K80">
-                        <i class="fa-solid fa-print"></i> In K80
+                        <i class="fa-solid fa-print"></i> In Bill
                     </button>
                     <button type="button" onclick="closeK80Modal()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-xl text-xs font-bold transition">
                         Đóng
@@ -5876,42 +5876,52 @@
 
                 // Đảm bảo mã QR Code đã tải xong 100% trước khi chụp ảnh
                 const qrImg = document.getElementById('k80-bill-qr-img');
-                if (qrImg && !qrImg.complete) {
-                    await new Promise(res => {
-                        qrImg.onload = res;
-                        qrImg.onerror = res;
-                        setTimeout(res, 800);
-                    });
+                if (qrImg && qrImg.src) {
+                    try {
+                        if (qrImg.decode) await qrImg.decode();
+                        else if (!qrImg.complete) await new Promise(res => {
+                            qrImg.onload = res;
+                            qrImg.onerror = res;
+                            setTimeout(res, 2500);
+                        });
+                    } catch (_) { /* Export stays available if the QR service is unavailable. */ }
                 }
 
                 // Capture an off-screen, full-height copy so the modal's scroll viewport
                 // cannot crop the bottom rows / QR on mobile.
                 await (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve());
                 captureHost = document.createElement('div');
-                captureHost.style.cssText = 'position:fixed;left:-1200px;top:0;z-index:-1;width:max-content;height:auto;max-height:none;overflow:visible;background:#fff;';
+                captureHost.style.cssText = 'position:fixed;left:-10000px;top:0;z-index:2147483000;width:320px;height:auto;max-height:none;overflow:visible;background:#fff;pointer-events:none;';
                 const captureCopy = printable.cloneNode(true);
+                captureCopy.style.setProperty('display', 'block', 'important');
+                captureCopy.style.setProperty('position', 'relative', 'important');
+                captureCopy.style.setProperty('width', '320px', 'important');
+                captureCopy.style.setProperty('max-width', '320px', 'important');
                 captureCopy.style.setProperty('height', 'auto', 'important');
                 captureCopy.style.setProperty('max-height', 'none', 'important');
                 captureCopy.style.setProperty('min-height', '0', 'important');
                 captureCopy.style.setProperty('overflow', 'visible', 'important');
                 captureCopy.querySelectorAll('*').forEach(el => {
                     el.style.setProperty('max-height', 'none', 'important');
-                    if (getComputedStyle(el).overflowY === 'auto' || getComputedStyle(el).overflowY === 'scroll') {
+                    const style = getComputedStyle(el);
+                    if (style.overflowY === 'auto' || style.overflowY === 'scroll' || style.overflowY === 'hidden') {
                         el.style.setProperty('height', 'auto', 'important');
                         el.style.setProperty('overflow', 'visible', 'important');
                     }
                 });
                 captureHost.appendChild(captureCopy);
                 document.body.appendChild(captureHost);
+                const captureWidth = Math.ceil(captureCopy.getBoundingClientRect().width || captureCopy.scrollWidth || 320);
+                const captureHeight = Math.ceil(Math.max(captureCopy.getBoundingClientRect().height, captureCopy.scrollHeight));
                 const canvas = await html2canvas(captureCopy, {
-                    scale: 3,
+                    scale: Math.min(2.5, Math.max(1.5, window.devicePixelRatio || 1.5)),
                     useCORS: true,
                     allowTaint: false,
                     backgroundColor: '#ffffff',
-                    width: captureCopy.scrollWidth,
-                    height: captureCopy.scrollHeight,
-                    windowWidth: Math.max(document.documentElement.clientWidth, captureCopy.scrollWidth),
-                    windowHeight: Math.max(document.documentElement.clientHeight, captureCopy.scrollHeight),
+                    width: captureWidth,
+                    height: captureHeight,
+                    windowWidth: Math.max(document.documentElement.clientWidth, captureWidth),
+                    windowHeight: Math.max(document.documentElement.clientHeight, captureHeight),
                     onclone: clonedDoc => {
                         const clonedArea = clonedDoc.querySelector('#k80-printable-area');
                         if (clonedArea) {
@@ -6608,6 +6618,14 @@
             selectedItemForBooking = item;
             selectedComboForBooking = null;
 
+            // A product belongs to one physical branch; keep pickup/return on that stock location.
+            const branchSelect = document.getElementById('book-branch-code');
+            if (branchSelect) {
+                branchSelect.value = String(item.branch_code || 'CN1').toUpperCase() === 'CN2' ? 'CN2' : 'CN1';
+                branchSelect.disabled = true;
+                branchSelect.title = `Sản phẩm hiện có tại ${branchSelect.value}`;
+            }
+
             document.getElementById('modal-item-name').innerText = item.name;
             document.getElementById('modal-item-serial').innerText = `${item.brand} • ${item.size ? `Size ${item.size}` : item.serial_or_size}`;
             document.getElementById('modal-item-price').innerText = `${Number(item.price_24h).toLocaleString()}đ / ngày`;
@@ -6796,6 +6814,12 @@
 
             selectedComboForBooking = combo;
             selectedItemForBooking = null;
+            const branchSelect = document.getElementById('book-branch-code');
+            if (branchSelect) {
+                branchSelect.disabled = false;
+                branchSelect.value = 'CN1';
+                branchSelect.title = '';
+            }
             currentBookedRanges = [];
 
             document.getElementById('modal-item-name').innerText = `🌟 ${combo.name}`;
@@ -7962,6 +7986,7 @@
                     name: i.name,
                     image_url: i.image_url,
                     brand: i.brand,
+                    branch_code: i.branch_code || 'CN1',
                     size: i.size || '',
                     serial: i.serial_or_size,
                     category: i.category,
@@ -8055,6 +8080,7 @@
                         size: it.size || '',
                         serial_or_size: it.serial_or_size,
                         category: it.category,
+                        branch_code: it.branch_code || 'CN1',
                         price_4h: it.price_4h,
                         price_8h: it.price_8h,
                         price_24h: it.price_24h,
@@ -8069,6 +8095,13 @@
             if (!sourceItem) return;
 
             const hasItems = activeInv.items.length > 0;
+            const itemBranch = sourceItem.item_id ? (sourceItem.branch_code || 'CN1') : '';
+            const currentItemBranches = new Set(activeInv.items.filter(it => it.item_id).map(it => it.branch_code || 'CN1'));
+            if (itemBranch && currentItemBranches.size && !currentItemBranches.has(itemBranch)) {
+                showToast(`Món này thuộc ${itemBranch}; hãy tạo hóa đơn riêng cho chi nhánh khác.`);
+                return;
+            }
+            if (itemBranch && !hasItems) activeInv.branchCode = itemBranch;
             const hadCamera = activeInv.items.some(isCameraItem);
             if (!hasItems) posResetInvoiceWindow(activeInv);
             activeInv.items.push(sourceItem);
@@ -8371,6 +8404,9 @@
             const area = document.getElementById('pos-invoice-items-area');
             if (!activeInv || !area) return;
 
+            const branchSelect = document.getElementById('pos-branch-code');
+            if (branchSelect) branchSelect.value = activeInv.branchCode || 'CN1';
+
             document.getElementById('pos-cust-name-disp').innerText = activeInv.customerName || 'Khách Hàng Lẻ Tại Quầy';
             document.getElementById('pos-cust-phone-disp').innerText = `(${activeInv.customerPhone || '0900000000'})`;
             
@@ -8506,6 +8542,20 @@
                 `;
             }).join('');
 
+            posRecalculateActiveInvoice();
+        }
+
+        function posSetInvoiceBranch(branchCode) {
+            const activeInv = posInvoices[activePosTabIdx];
+            if (!activeInv) return;
+            const itemBranches = new Set(activeInv.items.filter(it => it.item_id).map(it => it.branch_code || 'CN1'));
+            if (itemBranches.size && (itemBranches.size > 1 || !itemBranches.has(branchCode))) {
+                showToast('Chi nhánh hóa đơn phải trùng với kho của sản phẩm đã chọn.');
+                const select = document.getElementById('pos-branch-code');
+                if (select) select.value = activeInv.branchCode || itemBranches.values().next().value;
+                return;
+            }
+            activeInv.branchCode = branchCode;
             posRecalculateActiveInvoice();
         }
 
@@ -8672,7 +8722,7 @@
                 };
             });
 
-            const branchCode = document.getElementById('pos-branch-code') ? document.getElementById('pos-branch-code').value : 'CN1';
+            const branchCode = activeInv.branchCode || (document.getElementById('pos-branch-code') ? document.getElementById('pos-branch-code').value : 'CN1');
 
             const depType = activeInv.depositType || 'NONE';
             const depAmt = activeInv.depositAmount || 0;
