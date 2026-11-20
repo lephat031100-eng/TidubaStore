@@ -362,21 +362,22 @@
         .catalog-product-card {
             background: #ffffff;
             border-color: #eae0d2;
-            border-radius: 20px;
+            border-radius: 22px;
             box-shadow: 0 8px 24px rgba(0, 0, 0, .05);
         }
         .catalog-photo-arch {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 5 / 6;
             isolation: isolate;
             border: 0;
             border-radius: 0;
             background: #ffffff;
             overflow: visible;
         }
-        .catalog-photo-arch::before, .catalog-photo-arch::after { content: none; }
-        .catalog-botanical-frame { position:absolute; inset:0; z-index:3; width:100%; height:100%; pointer-events:none; overflow:visible; }
-        .catalog-photo-image { position:absolute; z-index:1; inset:0; width:100%; height:100%; object-fit:cover; clip-path:var(--catalog-photo-clip); -webkit-clip-path:var(--catalog-photo-clip); transform-origin:center; }
-        .catalog-branch-pill { background:rgba(255,255,255,.94); color:#57534e; border:1px solid rgba(255,255,255,.9); box-shadow:0 3px 12px rgba(40,30,20,.13); }
-        .catalog-image-action { background:rgba(38,35,29,.76); color:#fffdf7; backdrop-filter:blur(5px); }
+        .catalog-photo-svg { width:100%; height:100%; display:block; }
+        .catalog-branch-pill { background:rgba(255,255,255,.92); color:#57534e; border:1px solid rgba(255,255,255,.9); box-shadow:0 3px 12px rgba(40,30,20,.13); }
+        .catalog-image-action { background:rgba(36,32,28,.6); color:#fffdf7; backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); border-radius:16px; }
         .catalog-data-row { display:flex; justify-content:space-between; align-items:baseline; gap:.35rem; }
         .catalog-suspended-button { background:#a9a39b; color:white; }
         @media (max-width: 539px) {
@@ -385,7 +386,6 @@
             .catalog-product-card .catalog-card-title { font-size: 1.18rem !important; line-height: 1.18 !important; }
             .catalog-product-card .catalog-card-price { font-size: 1rem !important; }
             .catalog-product-card .catalog-card-action { min-height: 2.55rem !important; font-size: .92rem !important; }
-            .catalog-botanical-frame { opacity:1; }
             .catalog-card-details { font-size:1rem; }
         }
 
@@ -2007,6 +2007,14 @@
                                 <button type="button" role="option" onclick="posFilterCategory('COMBOS')" class="pos-category-option w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-700 transition hover:bg-emerald-50 hover:text-emerald-800">Combo tiết kiệm</button>
                             </div>
                         </div>
+
+                        <div class="flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-gray-50/70 px-2.5 py-2 text-[11px]">
+                            <span class="font-bold text-gray-500">Kho:</span>
+                            <button type="button" data-pos-branch="ALL" onclick="posFilterBranch('ALL')" class="pos-branch-option rounded-full border border-emerald-600 bg-emerald-600 px-3 py-1 font-bold text-white">Tất cả</button>
+                            <button type="button" data-pos-branch="CN1" onclick="posFilterBranch('CN1')" class="pos-branch-option rounded-full border border-gray-200 bg-white px-3 py-1 font-semibold text-gray-600 hover:border-emerald-500">📍 CN1</button>
+                            <button type="button" data-pos-branch="CN2" onclick="posFilterBranch('CN2')" class="pos-branch-option rounded-full border border-gray-200 bg-white px-3 py-1 font-semibold text-gray-600 hover:border-emerald-500">📍 CN2</button>
+                        </div>
+                        <div id="pos-group-filters" class="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar"></div>
 
                         <!-- Subcategory Title -->
                         <div class="text-[11px] font-bold text-gray-500 uppercase tracking-wider px-1" id="pos-subcat-title">
@@ -4274,6 +4282,14 @@
                     </div>
                     <input type="hidden" id="add-item-gallery-json" value="[]">
                     <input type="hidden" id="add-item-img-url" value="">
+                    <div class="grid grid-cols-1 sm:grid-cols-[1fr_180px] items-center gap-2 pt-1 text-xs">
+                        <span class="text-gray-600">Căn chỉnh ảnh trong khung vòm</span>
+                        <select id="add-item-image-position" onchange="renderEditingGalleryThumbs()" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-800 focus:border-[#b37054] focus:outline-none">
+                            <option value="xMinYMin">Trên trái</option><option value="xMidYMin">Trên giữa</option><option value="xMaxYMin">Trên phải</option>
+                            <option value="xMinYMid">Giữa trái</option><option value="xMidYMid" selected>Giữa</option><option value="xMaxYMid">Giữa phải</option>
+                            <option value="xMinYMax">Dưới trái</option><option value="xMidYMax">Dưới giữa</option><option value="xMaxYMax">Dưới phải</option>
+                        </select>
+                    </div>
                 </div>
 
                 <!-- 2. FORM 2 CỘT CHUẨN KIOTVIET (HÌNH 1) -->
@@ -4672,11 +4688,10 @@
             const bar = document.getElementById('sherent-category-chips');
             if (!bar) return;
             const itemGroups = (items || []).map(item => (item.subcategory || '').trim()).filter(Boolean);
-            const itemGroupKeys = new Set(itemGroups.map(normalizeSearchText));
             const configuredGroups = (categories || [])
                 .filter(category => category.filter_type === 'CATEGORY')
                 .map(category => (category.filter_value || category.name || '').trim())
-                .filter(group => group && itemGroupKeys.has(normalizeSearchText(group)));
+                .filter(Boolean);
             const uniqueGroups = new Map();
             [...itemGroups, ...configuredGroups].forEach(group => {
                 const key = normalizeSearchText(group);
@@ -4761,6 +4776,10 @@
                 renderSherentCategoryChips(allItems, loadedCategoriesList);
                 refreshItemGroupSuggestions();
                 renderCatalog();
+                if (!document.getElementById('sec-kiotviet-pos')?.classList.contains('hidden')) {
+                    renderPosGroupFilters();
+                    posFilterCatalogList();
+                }
             } catch (err) {
                 console.error("Lỗi tải danh mục:", err);
             }
@@ -4956,32 +4975,48 @@
                 const isAdminView = currentUser && currentUser.role === 'admin';
 
                 const estTagPrice = Number(item.price_24h || 100000) * 5;
+                const imageAlignment = /^x(?:Min|Mid|Max)Y(?:Min|Mid|Max)$/.test(item.image_position || '') ? item.image_position : 'xMidYMid';
 
                 return `
-                    <div class="catalog-product-card rounded-[1.65rem] p-3 sm:p-3.5 border hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300 flex flex-col justify-between group min-w-0">
+                    <div class="catalog-product-card rounded-[22px] p-3 sm:p-3.5 border border-[#e8dec8] hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300 flex flex-col justify-between group min-w-0">
                         
                         <!-- Ảnh Khung Vòm Cung Nghệ Thuật (Arch Window Chuẩn Phong Cách Sherent Hình 4) -->
-                        <div onclick="openProductGalleryModal(${item.id})" class="catalog-photo-arch cursor-pointer relative overflow-hidden aspect-[4/5] sm:aspect-[4/4.8] bg-white" title="Bấm để xem album ảnh phóng to">
-                            <img src="${item.image_url || '/static/logo.png'}" alt="${item.name}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/static/logo.png'" style="--catalog-photo-clip:url(#catalog-photo-clip-${item.id})" class="catalog-photo-image group-hover:scale-[1.015] transition duration-500 ${isUnavail ? 'brightness-[.88]' : ''}">
-                            <svg class="catalog-botanical-frame" viewBox="0 0 400 500" preserveAspectRatio="none" aria-hidden="true">
+                        <div onclick="openProductGalleryModal(${item.id})" class="catalog-photo-arch cursor-pointer relative overflow-hidden aspect-[5/6] bg-white" title="Bấm để xem album ảnh phóng to">
+                            <svg viewBox="0 0 300 360" class="catalog-photo-svg w-full h-full block" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                 <defs>
-                                    <clipPath id="catalog-photo-clip-${item.id}" clipPathUnits="objectBoundingBox">
-                                        <path d="M.055 .985 L.055 .43 C.055 .31 .22 .29 .34 .22 C.43 .17 .465 .095 .5 .035 C.535 .095 .57 .17 .66 .22 C.78 .29 .945 .31 .945 .43 L.945 .965 L.925 .985 Z"/>
+                                    <clipPath id="arch-clip-${item.id}" clipPathUnits="userSpaceOnUse">
+                                        <path d="M 150 36 C 164 53, 193 62, 224 71 C 258 81, 281 101, 281 135 L 281 335 Q 281 343, 273 343 L 27 343 Q 19 343, 19 335 L 19 135 C 19 101, 42 81, 76 71 C 107 62, 136 53, 150 36 Z" />
                                     </clipPath>
                                 </defs>
-                                <path d="M16 492 L16 211 C16 137 91 133 133 99 C167 72 181 40 200 13 C219 40 233 72 267 99 C309 133 384 137 384 211 L384 475 L370 490 L30 490 Z" fill="none" stroke="#C2A67E" stroke-width="1.35" stroke-linejoin="round"/>
-                                <path d="M24 486 L24 211 C24 144 96 141 137 107 C170 80 184 50 200 28 C216 50 230 80 263 107 C304 141 376 144 376 211 L376 472 L364 482 L36 482 Z" fill="none" stroke="#C2A67E" stroke-opacity=".52" stroke-width=".8" stroke-linejoin="round"/>
-                                <path d="M200 12 C204 23 208 27 220 31 C208 35 204 39 200 50 C196 39 192 35 180 31 C192 27 196 23 200 12Z" fill="#C2A67E"/>
-                                <g fill="none" stroke="#C2A67E" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M27 205 C43 176 44 143 34 116 C30 103 24 94 18 88 M34 145 C20 141 13 132 12 119 C25 121 34 130 34 145 M38 127 C49 113 61 108 74 110 C66 123 54 129 38 127 M28 173 C15 169 9 160 9 148 C22 150 30 159 28 173 M41 160 C54 148 67 146 79 151 C68 161 55 164 41 160 M36 190 C51 181 65 181 76 187 C64 196 50 197 36 190"/>
-                                    <path d="M373 205 C357 176 356 143 366 116 C370 103 376 94 382 88 M366 145 C380 141 387 132 388 119 C375 121 366 130 366 145 M362 127 C351 113 339 108 326 110 C334 123 346 129 362 127 M372 173 C385 169 391 160 391 148 C378 150 370 159 372 173 M359 160 C346 148 333 146 321 151 C332 161 345 164 359 160 M364 190 C349 181 335 181 324 187 C336 196 350 197 364 190"/>
+                                <image href="${item.image_url || '/static/logo.png'}" onerror="this.onerror=null;this.setAttribute('href','/static/logo.png')" x="19" y="36" width="262" height="307" preserveAspectRatio="${imageAlignment} slice" clip-path="url(#arch-clip-${item.id})" />
+                                <path d="M 150 26 C 165 44, 195 54, 228 64 C 264 75, 288 96, 288 132 L 288 342 A 8 8 0 0 0 280 350 L 20 350 A 8 8 0 0 0 12 342 L 12 132 C 12 96, 36 75, 72 64 C 105 54, 135 44, 150 26 Z" stroke="#C4AA82" stroke-width="1.25" />
+                                <line x1="16" y1="356" x2="284" y2="356" stroke="#C4AA82" stroke-width="1" stroke-opacity="0.7" />
+                                <path d="M 150 4 Q 152.5 17.5 164 20 Q 152.5 22.5 150 35 Q 147.5 22.5 136 20 Q 147.5 17.5 150 4 Z" fill="#C4AA82" />
+                                <g stroke="#BFA57D" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                                    <g>
+                                        <path d="M 14 96 C 14 70, 22 44, 34 28 C 46 14, 72 18, 114 20" />
+                                        <path d="M 96 19 C 106 16, 115 20, 120 26" />
+                                        <path d="M 21 68 C 12 64, 10 54, 16 48 C 22 54, 23 62, 21 68 Z" />
+                                        <path d="M 24 54 C 31 54, 35 61, 31 67 C 25 65, 22 60, 24 54 Z" />
+                                        <path d="M 31 35 C 24 28, 25 18, 33 15 C 37 22, 36 30, 31 35 Z" />
+                                        <path d="M 54 19 C 58 27, 66 30, 72 25 C 67 19, 60 17, 54 19 Z" />
+                                        <path d="M 72 18 C 78 11, 88 10, 94 15 C 88 20, 79 20, 72 18 Z" />
+                                    </g>
+                                    <g transform="translate(300, 0) scale(-1, 1)">
+                                        <path d="M 14 96 C 14 70, 22 44, 34 28 C 46 14, 72 18, 114 20" />
+                                        <path d="M 96 19 C 106 16, 115 20, 120 26" />
+                                        <path d="M 21 68 C 12 64, 10 54, 16 48 C 22 54, 23 62, 21 68 Z" />
+                                        <path d="M 24 54 C 31 54, 35 61, 31 67 C 25 65, 22 60, 24 54 Z" />
+                                        <path d="M 31 35 C 24 28, 25 18, 33 15 C 37 22, 36 30, 31 35 Z" />
+                                        <path d="M 54 19 C 58 27, 66 30, 72 25 C 67 19, 60 17, 54 19 Z" />
+                                        <path d="M 72 18 C 78 11, 88 10, 94 15 C 88 20, 79 20, 72 18 Z" />
+                                    </g>
                                 </g>
-                                <path d="M30 474 L30 487 L43 487 M370 474 L370 487 L357 487 M43 487 L357 487" fill="none" stroke="#C2A67E" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
-                            <span class="catalog-branch-pill absolute top-[18%] left-[9%] z-[4] rounded-full px-2.5 py-1 text-[10px] sm:text-xs font-semibold flex items-center gap-1.5 pointer-events-none"><i class="fa-solid fa-location-dot text-[#a35e43]"></i>${item.branch_code === 'CN2' ? 'CN2' : 'CN1'}</span>
-                            <div class="absolute bottom-[5%] left-[7%] right-[7%] z-[4] flex items-center justify-between gap-2">
-                                <button type="button" onclick="event.stopPropagation();openProductGalleryModal(${item.id})" class="catalog-image-action min-h-9 rounded-full px-3 py-1.5 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5"><i class="fa-regular fa-images"></i><span>Xem ảnh</span></button>
-                                ${isUnavail ? `<span class="catalog-image-action min-h-9 rounded-full px-3 py-1.5 text-xs sm:text-sm font-semibold flex items-center justify-center">TẠM NGƯNG</span>` : ''}
+                            <span class="catalog-branch-pill absolute top-[22%] left-[12%] z-[4] rounded-full px-2.5 py-1 text-[10px] sm:text-xs font-semibold flex items-center gap-1.5 pointer-events-none"><i class="fa-solid fa-location-dot text-[#a35e43]"></i>${item.branch_code === 'CN2' ? 'CN2' : 'CN1'}</span>
+                            <div class="absolute bottom-[7.5%] left-[11%] right-[11%] z-[4] flex items-center justify-between gap-[10px]">
+                                <button type="button" onclick="event.stopPropagation();openProductGalleryModal(${item.id})" class="catalog-image-action min-h-9 rounded-2xl px-2.5 py-1.5 text-[12px] sm:text-[13px] font-semibold flex items-center justify-center gap-1.5"><i class="fa-regular fa-images"></i><span>Xem ảnh</span></button>
+                                ${isUnavail ? `<span class="catalog-image-action min-h-9 rounded-2xl px-2.5 py-1.5 text-[12px] sm:text-[13px] font-semibold flex items-center justify-center">TẠM NGƯNG</span>` : ''}
                             </div>
                         </div>
 
@@ -7855,9 +7890,12 @@
         ];
         let activePosTabIdx = 0;
         let posCurrentCat = 'ALL';
+        let posCurrentGroup = 'ALL';
+        let posCurrentBranch = 'ALL';
 
         function initKiotvietPos() {
             renderPosTabs();
+            renderPosGroupFilters();
             posFilterCatalogList();
             renderActivePosInvoice();
         }
@@ -7917,6 +7955,7 @@
 
         function posFilterCategory(cat) {
             posCurrentCat = cat;
+            posCurrentGroup = 'ALL';
             const labels = { ALL: 'Tất cả', CAMERA_GEAR: 'Máy ảnh & Gear', COSTUME_FASHION: 'Trang phục', COMBOS: 'Combo tiết kiệm' };
             const label = document.getElementById('pos-category-selected-label');
             if (label) label.innerText = labels[cat] || labels.ALL;
@@ -7932,6 +7971,48 @@
             if (button) button.setAttribute('aria-expanded', 'false');
             if (chevron) chevron.classList.remove('rotate-180');
             posFilterCatalogList();
+        }
+
+        function posFilterBranch(branch) {
+            posCurrentBranch = ['CN1', 'CN2'].includes(branch) ? branch : 'ALL';
+            document.querySelectorAll('.pos-branch-option').forEach(button => {
+                const selected = button.dataset.posBranch === posCurrentBranch;
+                button.className = selected
+                    ? 'pos-branch-option rounded-full border border-emerald-600 bg-emerald-600 px-3 py-1 font-bold text-white'
+                    : 'pos-branch-option rounded-full border border-gray-200 bg-white px-3 py-1 font-semibold text-gray-600 hover:border-emerald-500';
+            });
+            posFilterCatalogList();
+        }
+
+        function posFilterGroup(group) {
+            posCurrentGroup = group || 'ALL';
+            posCurrentCat = 'ALL';
+            const label = document.getElementById('pos-category-selected-label');
+            if (label) label.innerText = 'Tất cả';
+            document.querySelectorAll('.pos-category-option').forEach(option => {
+                const selected = option.innerText.trim() === 'Tất cả';
+                option.classList.toggle('bg-emerald-50', selected);
+                option.classList.toggle('text-emerald-800', selected);
+            });
+            renderPosGroupFilters();
+            posFilterCatalogList();
+        }
+
+        function renderPosGroupFilters() {
+            const bar = document.getElementById('pos-group-filters');
+            if (!bar) return;
+            const groups = new Map();
+            [...(allItems || []).map(item => item.subcategory || ''), ...(loadedCategoriesList || [])
+                .filter(category => category.filter_type === 'CATEGORY')
+                .map(category => category.filter_value || category.name || '')]
+                .map(name => String(name).trim())
+                .filter(Boolean)
+                .forEach(name => {
+                    const key = normalizeSearchText(name);
+                    if (key && !groups.has(key)) groups.set(key, name);
+                });
+            const makeButton = (label, value, selected) => `<button type="button" onclick="posFilterGroup(decodeURIComponent('${encodeURIComponent(value).replace(/'/g, '%27')}'))" class="shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold transition whitespace-nowrap ${selected ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-emerald-500'}">${label.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')}</button>`;
+            bar.innerHTML = makeButton('Nhóm: Tất cả', 'ALL', posCurrentGroup === 'ALL') + [...groups.values()].sort((a, b) => a.localeCompare(b, 'vi')).map(group => makeButton(group, group, normalizeSearchText(posCurrentGroup) === normalizeSearchText(group))).join('');
         }
 
         function togglePosCategoryMenu(forceOpen = null) {
@@ -7957,14 +8038,17 @@
         function posFilterCatalogList() {
             const listEl = document.getElementById('pos-catalog-items');
             if (!listEl) return;
+            renderPosGroupFilters();
             const searchVal = document.getElementById('pos-item-search').value.toLowerCase().trim();
 
             let itemsToShow = [];
             if (posCurrentCat === 'ALL' || posCurrentCat === 'CAMERA_GEAR' || posCurrentCat === 'COSTUME_FASHION') {
                 itemsToShow = allItems.filter(i => {
                     const matchCat = (posCurrentCat === 'ALL') || (i.category === posCurrentCat);
-                    const matchSearch = !searchVal || i.name.toLowerCase().includes(searchVal) || (i.brand && i.brand.toLowerCase().includes(searchVal));
-                    return matchCat && matchSearch;
+                    const matchGroup = (posCurrentGroup === 'ALL') || normalizeSearchText(i.subcategory) === normalizeSearchText(posCurrentGroup);
+                    const matchBranch = posCurrentBranch === 'ALL' || String(i.branch_code || 'CN1').toUpperCase() === posCurrentBranch;
+                    const matchSearch = !searchVal || i.name.toLowerCase().includes(searchVal) || (i.brand && i.brand.toLowerCase().includes(searchVal)) || (i.subcategory && i.subcategory.toLowerCase().includes(searchVal));
+                    return matchCat && matchGroup && matchBranch && matchSearch;
                 }).map(i => ({
                     id: i.id,
                     is_combo: false,
@@ -7983,7 +8067,7 @@
                 }));
             }
 
-            if (posCurrentCat === 'ALL' || posCurrentCat === 'COMBOS') {
+            if ((posCurrentCat === 'ALL' || posCurrentCat === 'COMBOS') && posCurrentGroup === 'ALL' && posCurrentBranch === 'ALL') {
                 const combosToShow = allCombos.filter(c => {
                     return !searchVal || c.name.toLowerCase().includes(searchVal) || c.description.toLowerCase().includes(searchVal);
                 }).map(c => ({
@@ -10425,6 +10509,7 @@
             document.getElementById('add-item-subcat').value = '';
             document.getElementById('add-item-brand').value = '';
             syncItemClassificationFromGroup();
+            document.getElementById('add-item-image-position').value = 'xMidYMid';
             document.getElementById('add-item-size').value = '';
             document.getElementById('add-item-serial').value = '';
             document.getElementById('add-item-cost').value = '0';
@@ -10456,6 +10541,7 @@
             document.getElementById('add-item-subcat').value = item.subcategory || '';
             document.getElementById('add-item-brand').value = item.brand || '';
             syncItemClassificationFromGroup();
+            document.getElementById('add-item-image-position').value = item.image_position || 'xMidYMid';
             document.getElementById('add-item-size').value = item.size || '';
             document.getElementById('add-item-serial').value = item.serial_or_size || '';
             document.getElementById('add-item-cost').value = item.deposit_amount || 0;
@@ -10512,11 +10598,13 @@
                 return;
             }
 
+            const imagePosition = getEditingImageObjectPosition();
+
             container.innerHTML = currentEditingGallery.map((img, idx) => {
                 const isCover = (idx === 0);
                 return `
                 <div class="relative group w-20 h-20 rounded-xl overflow-hidden border-2 ${isCover ? 'border-emerald-500 shadow-md ring-2 ring-emerald-200' : 'border-gray-200'} bg-gray-50 flex-shrink-0 transition">
-                    <img src="${img}" class="w-full h-full object-cover">
+                    <img src="${img}" style="object-position:${imagePosition}" class="w-full h-full object-cover">
                     <span class="absolute bottom-0 inset-x-0 text-[9px] font-bold py-0.5 text-center text-white ${isCover ? 'bg-emerald-600' : 'bg-black/60'}">
                         ${isCover ? '⭐ Ảnh chính' : `Ảnh phụ ${idx}`}
                     </span>
@@ -10533,6 +10621,13 @@
                 </div>
                 `;
             }).join('');
+        }
+
+        function getEditingImageObjectPosition() {
+            const alignment = document.getElementById('add-item-image-position')?.value || 'xMidYMid';
+            const x = alignment.includes('xMin') ? 'left' : alignment.includes('xMax') ? 'right' : 'center';
+            const y = alignment.endsWith('YMin') ? 'top' : alignment.endsWith('YMax') ? 'bottom' : 'center';
+            return `${x} ${y}`;
         }
 
         function setAsCoverImage(idx) {
@@ -10660,6 +10755,7 @@
                 price_7d: p7d,
                 deposit_amount: cost,
                 image_url: imgUrl,
+                image_position: document.getElementById('add-item-image-position').value,
                 gallery_json: galleryJsonStr,
                 condition_status: cond,
                 description: desc,

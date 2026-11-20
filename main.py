@@ -613,6 +613,12 @@ def init_db():
     except Exception:
         pass
 
+    try:
+        cur.execute("ALTER TABLE items ADD COLUMN image_position TEXT NOT NULL DEFAULT 'xMidYMid';")
+        conn.commit()
+    except Exception:
+        pass
+
     # Tự động cập nhật cột giá thuê nhiều ngày cho máy ảnh (price_2d, price_3d, price_7d)
     for col in ["price_2d", "price_3d", "price_7d"]:
         try:
@@ -4648,6 +4654,7 @@ class CreateItemAdminRequest(BaseModel):
     price_7d: Optional[int] = 0
     deposit_amount: Optional[int] = 0
     image_url: Optional[str] = "/static/logo.png"
+    image_position: Optional[str] = "xMidYMid"
     gallery_json: Optional[str] = "[]"
     description: Optional[str] = ""
     condition_status: Optional[str] = "Mới 99%"
@@ -4741,8 +4748,8 @@ def create_item_admin(req: CreateItemAdminRequest, admin: Dict[str, Any] = Depen
                 """, (c_code, sub, sub, max_order + 1))
 
         cur.execute("""
-        INSERT INTO items (name, category, subcategory, brand, size, serial_or_size, price_4h, price_8h, price_24h, price_2d, price_3d, price_7d, deposit_amount, image_url, gallery_json, description, condition_status, availability, branch_code, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AVAILABLE', ?, ?)
+        INSERT INTO items (name, category, subcategory, brand, size, serial_or_size, price_4h, price_8h, price_24h, price_2d, price_3d, price_7d, deposit_amount, image_url, image_position, gallery_json, description, condition_status, availability, branch_code, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AVAILABLE', ?, ?)
         """, (
             req.name.strip(),
             req.category or "CAMERA_GEAR",
@@ -4758,6 +4765,7 @@ def create_item_admin(req: CreateItemAdminRequest, admin: Dict[str, Any] = Depen
             req.price_7d or 0,
             req.deposit_amount or 0,
             req.image_url or "/static/logo.png",
+            req.image_position or "xMidYMid",
             req.gallery_json or "[]",
             req.description or req.name,
             req.condition_status or "Mới 99%",
@@ -4793,6 +4801,7 @@ class UpdateItemFullAdminRequest(BaseModel):
     price_7d: Optional[int] = None
     deposit_amount: Optional[int] = None
     image_url: Optional[str] = None
+    image_position: Optional[str] = None
     gallery_json: Optional[str] = None
     description: Optional[str] = None
     condition_status: Optional[str] = None
@@ -4809,7 +4818,7 @@ def update_item_admin_full(item_id: int, req: UpdateItemFullAdminRequest, admin:
     ALLOWED_ITEM_FIELDS = {
         "name", "category", "subcategory", "brand", "size", "serial_or_size",
         "price_4h", "price_8h", "price_24h", "price_2d", "price_3d", "price_7d", "deposit_amount",
-        "image_url", "gallery_json", "description", "condition_status", "availability", "branch_code"
+        "image_url", "image_position", "gallery_json", "description", "condition_status", "availability", "branch_code"
     }
 
     fields = []
