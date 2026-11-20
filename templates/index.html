@@ -365,8 +365,11 @@
             box-shadow: 0 8px 24px rgba(87, 65, 43, .09), 0 2px 5px rgba(87, 65, 43, .05);
         }
         .catalog-photo-arch {
+            isolation: isolate;
             border: 1px solid #cbb990;
+            border-radius: 48% 48% 1.15rem 1.15rem / 23% 23% 1.15rem 1.15rem;
             box-shadow: inset 0 0 0 3px rgba(255, 252, 243, .88);
+            background: linear-gradient(180deg, #f8f2e7, #e9ddc7);
         }
         .catalog-photo-arch::before {
             content: "";
@@ -374,30 +377,37 @@
             z-index: 2;
             inset: 8px;
             border: 1px solid rgba(255, 250, 235, .88);
-            border-radius: inherit;
+            border-radius: 48% 48% .9rem .9rem / 23% 23% .9rem .9rem;
             pointer-events: none;
         }
         .catalog-photo-arch::after {
             content: "✦";
             position: absolute;
             z-index: 3;
-            top: 8px;
+            top: 5px;
             left: 50%;
             transform: translateX(-50%);
-            color: #dfc78d;
-            font-size: 18px;
+            color: #b69a5e;
+            font-size: 22px;
             line-height: 1;
             text-shadow: 0 1px 4px rgba(45, 32, 19, .45);
             pointer-events: none;
         }
+        .catalog-botanical-frame { position:absolute; inset:0; z-index:3; width:100%; height:100%; pointer-events:none; }
+        .catalog-photo-arch::after { content:none; }
+        .catalog-branch-pill { background:rgba(255,255,255,.94); color:#57534e; border:1px solid rgba(255,255,255,.9); box-shadow:0 3px 12px rgba(40,30,20,.13); }
+        .catalog-image-action { background:rgba(38,35,29,.76); color:#fffdf7; backdrop-filter:blur(5px); }
+        .catalog-data-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:.25rem; }
+        .catalog-suspended-button { background:#a9a39b; color:white; }
         @media (max-width: 539px) {
-            .catalog-product-card { min-width: 0; padding: .55rem !important; border-radius: 1.1rem !important; }
-            .catalog-product-card .catalog-card-details { padding: .55rem .1rem .1rem !important; gap: .45rem !important; }
-            .catalog-product-card .catalog-card-title { font-size: .88rem !important; line-height: 1.2 !important; }
-            .catalog-product-card .catalog-card-price { font-size: .82rem !important; }
-            .catalog-product-card .catalog-card-action { height: 2rem !important; font-size: .66rem !important; }
+            .catalog-product-card { min-width: 0; padding: .55rem !important; border-radius: 1.25rem !important; }
+            .catalog-product-card .catalog-card-details { padding: .62rem .12rem .08rem !important; gap: .5rem !important; }
+            .catalog-product-card .catalog-card-title { font-size: clamp(.78rem, 3.5vw, .98rem) !important; line-height: 1.18 !important; }
+            .catalog-product-card .catalog-card-price { font-size: clamp(.76rem, 3.25vw, .9rem) !important; }
+            .catalog-product-card .catalog-card-action { min-height: 2.15rem !important; font-size: .68rem !important; }
             .catalog-photo-arch::before { inset: 5px; }
-            .catalog-photo-arch::after { top: 6px; font-size: 14px; }
+            .catalog-photo-arch::after { top: 4px; font-size: 17px; }
+            .catalog-botanical-frame { opacity:.82; }
         }
 
         /* XP-80C: chữ đen trắng thuần, nét vừa và không dùng đường kẻ dạng chấm */
@@ -4977,26 +4987,20 @@
                     <div class="catalog-product-card rounded-[1.65rem] p-3 sm:p-3.5 border hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300 flex flex-col justify-between group min-w-0">
                         
                         <!-- Ảnh Khung Vòm Cung Nghệ Thuật (Arch Window Chuẩn Phong Cách Sherent Hình 4) -->
-                        <div onclick="openProductGalleryModal(${item.id})" class="catalog-photo-arch cursor-pointer relative overflow-hidden aspect-[4/5] rounded-t-[46%] rounded-b-2xl bg-[#f5ede3]" title="Bấm để xem album ảnh phóng to">
-                            <img src="${item.image_url || '/static/logo.png'}" alt="${item.name}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/static/logo.png';this.classList.add('object-contain','p-5')" class="w-full h-full object-cover group-hover:scale-105 transition duration-700 ${isUnavail ? 'brightness-[.88]' : ''}">
-                            ${catalogQuickFilter === 'all' ? `
-                                <span class="absolute top-2.5 left-2.5 bg-white/90 text-[#57534e] text-[9px] font-bold px-2 py-1 rounded-full shadow-sm pointer-events-none">📍 ${item.branch_code === 'CN2' ? 'CN2' : 'CN1'}</span>
-                            ` : ''}
-                            
-                            <!-- Nhãn tình trạng & danh mục tinh tế phía dưới ảnh (Không che đỉnh vòm cong) -->
-                            <div class="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none">
-                                <span class="bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm backdrop-blur-sm pointer-events-auto">
-                                    <i class="fa-regular fa-images text-[9px]"></i> Xem ảnh
-                                </span>
-                                ${isRented ? `
-                                    <span class="bg-rose-950/80 text-rose-200 border border-rose-600 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm backdrop-blur-sm">
-                                        ĐANG THUÊ
-                                    </span>
-                                ` : isUnavail ? `
-                                    <span class="bg-gray-900/80 text-gray-300 border border-gray-600 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm backdrop-blur-sm">
-                                        TẠM NGƯNG
-                                    </span>
-                                ` : ''}
+                        <div onclick="openProductGalleryModal(${item.id})" class="catalog-photo-arch cursor-pointer relative overflow-hidden aspect-[4/5] sm:aspect-[4/4.8] bg-[#f5ede3]" title="Bấm để xem album ảnh phóng to">
+                            <img src="${item.image_url || '/static/logo.png'}" alt="${item.name}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/static/logo.png';this.classList.add('object-contain','p-5')" class="absolute inset-[7px] w-[calc(100%-14px)] h-[calc(100%-14px)] object-cover rounded-[inherit] group-hover:scale-[1.025] transition duration-500 ${isUnavail ? 'brightness-[.88]' : ''}">
+                            <svg class="catalog-botanical-frame" viewBox="0 0 400 500" preserveAspectRatio="none" aria-hidden="true">
+                                <path d="M24 482V143Q24 74 89 70Q148 68 200 22Q252 68 311 70Q376 74 376 143V482M34 478V145Q34 84 91 80Q151 76 200 34Q249 76 309 80Q366 84 366 145V478" fill="none" stroke="#b6a477" stroke-width="2"/>
+                                <path d="M200 18l8 18 19 3-14 13 3 19-16-9-16 9 3-19-14-13 19-3z" fill="#b69a5e"/>
+                                <g fill="none" stroke="#aa9a73" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M28 132C50 104 54 75 42 49M42 83C25 77 22 66 22 56 35 58 44 66 42 83ZM47 67C57 49 70 44 82 46 75 60 63 68 47 67ZM34 106C19 102 14 92 16 81 29 84 37 93 34 106ZM49 101C61 87 74 85 84 90 74 101 62 105 49 101Z"/>
+                                    <path d="M372 132C350 104 346 75 358 49M358 83C375 77 378 66 378 56 365 58 356 66 358 83ZM353 67C343 49 330 44 318 46 325 60 337 68 353 67ZM366 106C381 102 386 92 384 81 371 84 363 93 366 106ZM351 101C339 87 326 85 316 90 326 101 338 105 351 101Z"/>
+                                </g>
+                            </svg>
+                            <span class="catalog-branch-pill absolute top-[18%] left-[9%] z-[4] rounded-full px-2.5 py-1 text-[10px] sm:text-xs font-semibold flex items-center gap-1.5 pointer-events-none"><i class="fa-solid fa-location-dot text-[#a35e43]"></i>${item.branch_code === 'CN2' ? 'CN2' : 'CN1'}</span>
+                            <div class="absolute bottom-2.5 left-2 right-2 z-[4] grid grid-cols-2 gap-1.5">
+                                <button type="button" onclick="event.stopPropagation();openProductGalleryModal(${item.id})" class="catalog-image-action min-h-8 rounded-full px-1.5 py-1 text-[9px] sm:text-xs font-semibold flex items-center justify-center gap-1"><i class="fa-regular fa-images"></i><span>Xem ảnh</span></button>
+                                <span class="catalog-image-action min-h-8 rounded-full px-1.5 py-1 text-[9px] sm:text-xs font-semibold flex items-center justify-center text-center">${isRented ? 'ĐANG THUÊ' : isUnavail ? 'TẠM NGƯNG' : 'SẴN SÀNG'}</span>
                             </div>
                         </div>
 
@@ -5006,7 +5010,7 @@
                                 <h4 onclick="openProductGalleryModal(${item.id})" class="catalog-card-title cursor-pointer font-serif text-base sm:text-lg font-bold text-[#1c1917] leading-snug hover:text-[#b37054] transition line-clamp-2" style="font-family: 'Playfair Display', Georgia, serif;" title="${item.name}">
                                     ${item.name}
                                 </h4>
-                                <div class="text-xs text-[#78716c] font-sans flex items-center justify-between">
+                                <div class="text-xs text-[#78716c] font-sans flex items-center justify-between gap-1">
                                     <span class="truncate">${item.brand || 'Tiduba'} • ${item.size || item.serial_or_size || 'Free Size'}</span>
                                     <button onclick="openReviewsModal(${item.id}, '${encodeURIComponent(item.name)}')" class="text-[#b37054] hover:underline flex items-center gap-0.5 font-bold text-[11px] flex-shrink-0 ml-1">
                                         ⭐ 5.0
@@ -5015,21 +5019,21 @@
                             </div>
 
                             <!-- Bảng Giá Chuẩn Hình 4: Phí thuê, Phí cọc, Giá tag -->
-                            <div class="pt-1.5 border-t border-[#f2ece4] space-y-1 text-xs font-sans">
-                                <div class="flex items-center justify-between">
+                            <div class="pt-2 border-t border-[#eee6d8] space-y-1.5 text-xs font-sans">
+                                <div class="catalog-data-row">
                                     <span class="text-[#78716c]">Phí thuê:</span>
                                     <div>
-                                        <strong class="catalog-card-price text-[#1c1917] font-bold text-sm sm:text-base">${Number(item.price_24h).toLocaleString()}đ</strong>
+                                        <strong class="catalog-card-price text-[#1c1917] font-extrabold text-sm sm:text-base">${Number(item.price_24h).toLocaleString()}đ</strong>
                                         <span class="text-[#78716c] text-[10.5px]">/ 1 ngày</span>
                                     </div>
                                 </div>
-                                <div class="flex items-center justify-between text-[#78716c] text-[11px]">
+                                <div class="catalog-data-row text-[#78716c] text-[11px]">
                                     <span>Cọc tại cửa hàng:</span>
-                                    <span class="font-medium text-[#2e7d32] font-mono">${Number(item.deposit_amount || 0).toLocaleString()}đ</span>
+                                    <span class="font-semibold text-[#72908b] font-mono">${Number(item.deposit_amount || 0).toLocaleString()}đ</span>
                                 </div>
-                                <div class="flex items-center justify-between text-[#a8a29e] text-[10.5px]">
+                                <div class="catalog-data-row text-[#a8a29e] text-[10.5px]">
                                     <span>Giá tag:</span>
-                                    <span class="font-mono">${Number(estTagPrice).toLocaleString()}đ</span>
+                                    <span class="font-mono line-through">${Number(estTagPrice).toLocaleString()}đ</span>
                                 </div>
                                 ${isCameraItem(item) ? `
                                     <div class="bg-[#f0fdf4] border border-[#bbf7d0] rounded-lg px-2 py-0.5 text-[10px] font-mono flex items-center justify-between text-emerald-800 mt-1">
@@ -5045,7 +5049,7 @@
                                     <i class="fa-regular fa-calendar-days text-[#b37054]"></i>
                                 </button>
                                 ${isUnavail
-                                    ? `<span class="flex-1 bg-[#f5f5f4] text-[#78716c] py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 font-sans font-bold"><i class="fa-solid fa-ban"></i> Tạm Ngưng</span>`
+                                    ? `<span class="catalog-suspended-button flex-1 min-h-9 py-2 rounded-full text-xs flex items-center justify-center gap-1.5 font-sans font-semibold"><i class="fa-solid fa-ban"></i> Tạm Ngưng</span>`
                                     : `
                                         <button onclick="addToCart(${item.id})" class="w-8 h-8 rounded-xl bg-[#fff7ed] hover:bg-[#ffedd5] text-[#b37054] border border-[#fed7aa] flex items-center justify-center text-xs shadow-sm transition flex-shrink-0" title="Thêm vào giỏ hàng">
                                             <i class="fa-solid fa-cart-plus"></i>
