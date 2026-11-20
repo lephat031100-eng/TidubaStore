@@ -1267,6 +1267,13 @@
                             </div>
                         </div>
 
+                        <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-[#ded0bf]" role="group" aria-label="Lọc kho theo chi nhánh">
+                            <span class="text-[#57534e] font-bold">Chi nhánh:</span>
+                            <button type="button" data-inventory-branch="ALL" onclick="setAdminInventoryBranch('ALL')" class="adm-inventory-branch-filter px-3 py-1.5 rounded-full border text-[11px] font-bold transition bg-[#1c1917] text-white border-[#1c1917]">Tất cả kho</button>
+                            <button type="button" data-inventory-branch="CN1" onclick="setAdminInventoryBranch('CN1')" class="adm-inventory-branch-filter px-3 py-1.5 rounded-full border text-[11px] font-bold transition bg-white text-[#57534e] border-[#ded0bf] hover:border-[#b37054]">CN1</button>
+                            <button type="button" data-inventory-branch="CN2" onclick="setAdminInventoryBranch('CN2')" class="adm-inventory-branch-filter px-3 py-1.5 rounded-full border text-[11px] font-bold transition bg-white text-[#57534e] border-[#ded0bf] hover:border-[#b37054]">CN2</button>
+                            <span class="ml-auto text-[10px] text-[#78716c]">Mỗi món hiển thị rõ kho đang quản lý</span>
+                        </div>
                         <!-- Hàng 2: Thao tác nhanh hàng loạt & Toàn bộ kho -->
                         <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#ded0bf] text-[11px]">
                             <div class="flex flex-wrap items-center gap-1.5">
@@ -1296,10 +1303,10 @@
                     <div class="space-y-1">
                         <div class="text-[10px] text-[#78716c] font-mono sm:hidden flex items-center justify-between px-1">
                             <span>← Vuốt ngang để xem đủ bảng →</span>
-                            <span class="text-[#b37054] font-bold">8 cột thông tin</span>
+                            <span class="text-[#b37054] font-bold">9 cột thông tin</span>
                         </div>
                         <div class="overflow-x-auto custom-scroll border border-[#e5dcd3] rounded-2xl bg-white shadow-sm">
-                            <table class="w-full text-left text-xs font-mono min-w-[760px]">
+                            <table class="w-full text-left text-xs font-mono min-w-[900px]">
                             <thead class="bg-[#faf6f0] text-[#57534e] font-bold uppercase text-[11px] border-b border-[#e5dcd3]">
                                 <tr>
                                     <th class="p-3 w-8 text-center">
@@ -1307,6 +1314,7 @@
                                     </th>
                                     <th class="p-3 text-[#57534e]">Ảnh</th>
                                     <th class="p-3 text-[#1c1917]">Tên Sản Phẩm</th>
+                                    <th class="p-3 text-[#0369a1]">Chi Nhánh</th>
                                     <th class="p-3 text-[#8c5e4f]">Phân Loại / Brand</th>
                                     <th class="p-3 text-[#047857]">Giá Thuê 24h</th>
                                     <th class="p-3 text-[#0369a1]">Album Ảnh</th>
@@ -3343,9 +3351,9 @@
 
     <!-- K80 THERMAL BILL PREVIEW MODAL (KIOTVIET STYLE) WITH DYNAMIC QR CODE -->
     <div id="k80-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 items-center justify-center p-2 sm:p-4" style="display: none;">
-        <div id="k80-modal-box" class="bg-gray-900 border border-gray-700 rounded-3xl max-w-md w-full max-h-[96vh] flex flex-col shadow-2xl overflow-hidden font-sans">
+        <div id="k80-modal-box" class="bg-gray-900 border border-gray-700 rounded-3xl max-w-md w-full max-h-[96vh] flex flex-col shadow-2xl overflow-hidden font-sans" style="height:96dvh;max-height:96dvh;min-height:0;">
             <!-- Header xem trước trên màn hình -->
-            <div class="px-5 py-3 border-b border-gray-800 bg-gray-950 flex items-center justify-between k80-no-print">
+            <div class="px-5 py-3 border-b border-gray-800 bg-gray-950 flex-shrink-0 flex items-center justify-between k80-no-print">
                 <div class="flex items-center gap-2">
                     <span class="text-[10px] font-mono bg-amber-950 text-amber-300 border border-amber-600 px-2 py-0.5 rounded font-bold uppercase">HÓA ĐƠN THUÊ ĐỒ</span>
                     <h3 class="text-xs sm:text-sm font-bold text-white">Hóa Đơn Thuê Thiết Bị & Trang Phục</h3>
@@ -3356,7 +3364,7 @@
             </div>
 
             <!-- Khu vực Bill Nhiệt K80 (Chuẩn máy in 80mm KiotViet Đậm Nét) -->
-            <div class="p-3 sm:p-4 flex-1 overflow-auto custom-scroll bg-gray-950 flex justify-center">
+            <div id="k80-preview-scroll" class="p-3 sm:p-4 flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scroll bg-gray-950 flex justify-center" style="-webkit-overflow-scrolling:touch;padding-bottom:calc(1rem + env(safe-area-inset-bottom));">
                 <div id="k80-printable-area" class="bg-white text-black font-sans text-xs p-3.5 sm:p-4 pb-6 rounded-xl shadow-2xl leading-normal max-w-[280px] w-full border border-gray-400 space-y-2 select-all">
                     
                     <!-- Phần đầu: Thương hiệu & Chi nhánh (Chữ TIDUBA to, đậm, sang trọng) -->
@@ -3460,7 +3468,7 @@
             </div>
 
             <!-- Các nút thao tác ở Footer (Ẩn khi bấm In) -->
-            <div class="px-5 py-3 border-t border-gray-800 bg-gray-950 flex flex-wrap items-center justify-between gap-2 text-xs font-mono k80-no-print">
+            <div class="px-5 py-3 border-t border-gray-800 bg-gray-950 flex-shrink-0 flex flex-wrap items-center justify-between gap-2 text-xs font-mono k80-no-print">
                 <div id="k80-admin-action" class="hidden flex items-center gap-2">
                     <button onclick="quickReturnCurrentBill()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-lg shadow-emerald-600/30">
                         <i class="fa-solid fa-check-double"></i> Nhận Trả Đồ Này
@@ -5703,6 +5711,8 @@
             }
 
             document.getElementById('k80-modal').style.display = 'flex';
+            const previewScroll = document.getElementById('k80-preview-scroll');
+            if (previewScroll) requestAnimationFrame(() => { previewScroll.scrollTop = 0; });
         }
 
         function closeK80Modal() {
@@ -8702,9 +8712,12 @@
                     },
                     body: JSON.stringify(payload)
                 });
-                const data = await res.json();
+                const responseText = await res.text();
+                let data = {};
+                try { data = responseText ? JSON.parse(responseText) : {}; }
+                catch (_) { data = { detail: responseText.trim() || `Máy chủ trả về lỗi HTTP ${res.status}.` }; }
                 if (!res.ok) {
-                    alert(data.detail || "Lỗi tạo hóa đơn KiotViet");
+                    alert(data.detail || data.message || `Không thể tạo hóa đơn (HTTP ${res.status}).`);
                     return;
                 }
 
@@ -9430,6 +9443,7 @@
 
         let rawAdminInventoryItems = [];
         let adminInventoryCurrentLimit = 50;
+        let adminInventoryBranchFilter = 'ALL';
         let isFetchingAdminInventory = false;
         let forceAdminInventoryReloadQueued = false;
 
@@ -9502,6 +9516,19 @@
             adminFilterInventoryTable();
         }
 
+        function setAdminInventoryBranch(branchCode) {
+            adminInventoryBranchFilter = ['CN1', 'CN2'].includes(branchCode) ? branchCode : 'ALL';
+            document.querySelectorAll('.adm-inventory-branch-filter').forEach(button => {
+                const selected = button.dataset.inventoryBranch === adminInventoryBranchFilter;
+                button.classList.toggle('bg-[#1c1917]', selected);
+                button.classList.toggle('text-white', selected);
+                button.classList.toggle('border-[#1c1917]', selected);
+                button.classList.toggle('bg-white', !selected);
+                button.classList.toggle('text-[#57534e]', !selected);
+                button.classList.toggle('border-[#ded0bf]', !selected);
+            });
+            adminFilterInventoryTable();
+        }
         function adminFilterInventoryTable(resetLimit = true) {
             if (resetLimit) adminInventoryCurrentLimit = 50;
 
@@ -9511,6 +9538,9 @@
             let filtered = rawAdminInventoryItems || [];
             if (filterAvail !== 'ALL') {
                 filtered = filtered.filter(i => i.availability === filterAvail);
+            }
+            if (adminInventoryBranchFilter !== 'ALL') {
+                filtered = filtered.filter(i => String(i.branch_code || '').toUpperCase() === adminInventoryBranchFilter);
             }
             if (searchKw) {
                 filtered = filtered.filter(i => {
@@ -9533,7 +9563,7 @@
                 if (!rawAdminInventoryItems || rawAdminInventoryItems.length === 0) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="8" class="p-12 text-center font-mono">
+                            <td colspan="9" class="p-12 text-center font-mono">
                                 <div class="max-w-md mx-auto space-y-3">
                                     <div class="w-14 h-14 mx-auto rounded-2xl bg-slate-900 border border-slate-700 flex items-center justify-center text-2xl text-amber-400">
                                         <i class="fa-solid fa-boxes-packing"></i>
@@ -9555,7 +9585,7 @@
                         </tr>
                     `;
                 } else {
-                    tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-gray-500 font-mono text-xs">Không tìm thấy thiết bị hoặc trang phục nào khớp với từ khóa tìm kiếm.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-gray-500 font-mono text-xs">Không tìm thấy thiết bị hoặc trang phục nào khớp với từ khóa tìm kiếm.</td></tr>`;
                 }
                 return;
             }
@@ -9587,6 +9617,9 @@
                         <td class="p-3">
                             <div class="font-bold text-[#1c1917] text-xs">${it.name}</div>
                             <div class="text-[11px] text-[#78716c] font-mono">${it.serial_or_size}${it.size ? ` • Size ${it.size}` : ''}</div>
+                        </td>
+                        <td class="p-3">
+                            ${(() => { const branch = String(it.branch_code || '').toUpperCase(); const tone = branch === 'CN2' ? 'bg-violet-50 text-violet-700 border-violet-200' : branch === 'CN1' ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-stone-100 text-stone-600 border-stone-200'; return `<span class="inline-flex px-2.5 py-1 rounded-full text-[10px] font-black border ${tone}">${branch === 'CN1' || branch === 'CN2' ? '📍 ' + branch : 'Chưa gán kho'}</span>`; })()}
                         </td>
                         <td class="p-3">
                             <span class="px-2 py-0.5 rounded text-[10px] font-bold ${it.category === 'CAMERA_GEAR' ? 'bg-[#f0f9ff] text-[#0369a1] border border-[#bae6fd]' : 'bg-[#fdf2f8] text-[#be185d] border border-[#fbcfe8]'}">
@@ -9628,7 +9661,7 @@
             if (visibleItems.length < filtered.length) {
                 rowsHtml += `
                     <tr>
-                        <td colspan="8" class="p-4 text-center bg-[#faf6f0]">
+                        <td colspan="9" class="p-4 text-center bg-[#faf6f0]">
                             <button type="button" onclick="adminLoadMoreInventoryItems()" class="bg-[#b37054] hover:bg-[#9c5942] text-white font-bold px-5 py-2 rounded-xl text-xs transition shadow-sm">
                                 <i class="fa-solid fa-angles-down"></i> Xem Thêm ${Math.min(50, filtered.length - visibleItems.length)} Món Tiếp Theo (Còn ${filtered.length - visibleItems.length} món)
                             </button>

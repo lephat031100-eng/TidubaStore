@@ -3244,6 +3244,9 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
     for item_req in req.items:
         it_start = item_req.start_time or req.start_time
         it_end = item_req.end_time or req.end_time
+        # Combo rows do not load an item record; keep it explicitly empty so
+        # price/subcategory lookups cannot reuse a previous loop iteration.
+        item = None
 
         if item_req.combo_id:
             combo = cur.execute("SELECT * FROM combos WHERE id = ?", (item_req.combo_id,)).fetchone()
