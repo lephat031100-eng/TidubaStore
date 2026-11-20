@@ -22,6 +22,7 @@ import threading
 import urllib.parse
 import urllib.request
 import urllib.error
+import traceback
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union, Tuple
 from pydantic import BaseModel, Field
@@ -170,6 +171,20 @@ app = FastAPI(
     description="Nền tảng trực tuyến cho thuê máy ảnh, ống kính và trang phục sự kiện cao cấp - Tiduba Store",
     version="3.5.0"
 )
+
+
+@app.exception_handler(Exception)
+async def handle_unexpected_api_error(request: Request, exc: Exception):
+    """Log unexpected failures and keep API errors JSON-shaped for the UI."""
+    error_id = uuid.uuid4().hex[:10]
+    print(f"[API ERROR {error_id}] {request.method} {request.url.path}: {type(exc).__name__}: {exc}")
+    traceback.print_exc()
+    if request.url.path == "/api/rentals/book_multi":
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"POS tạo đơn thất bại (mã lỗi {error_id}). Kiểm tra log Render để xem nguyên nhân."},
+        )
+    return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
 
 app.add_middleware(
     CORSMiddleware,
