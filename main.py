@@ -6332,7 +6332,10 @@ def _send_telegram_notification(
         if event_type in topic_routes:
             active_chat_id = "-1004454482786"
             topic = cfg[topic_routes[event_type]] if cfg and topic_routes[event_type] in cfg.keys() else ""
-            message_thread_id = str(topic).strip() if topic else None
+            try:
+                message_thread_id = str(int(str(topic).strip())) if topic else None
+            except (TypeError, ValueError):
+                message_thread_id = None
         elif event_type in ("NEW_RENTAL", "PAYMENT", "RETURN"):
             active_chat_id = "-1004454482786"
 
