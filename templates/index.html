@@ -390,6 +390,15 @@
             text-shadow: 0 1px 4px rgba(45, 32, 19, .45);
             pointer-events: none;
         }
+        @media (max-width: 539px) {
+            .catalog-product-card { min-width: 0; padding: .55rem !important; border-radius: 1.1rem !important; }
+            .catalog-product-card .catalog-card-details { padding: .55rem .1rem .1rem !important; gap: .45rem !important; }
+            .catalog-product-card .catalog-card-title { font-size: .88rem !important; line-height: 1.2 !important; }
+            .catalog-product-card .catalog-card-price { font-size: .82rem !important; }
+            .catalog-product-card .catalog-card-action { height: 2rem !important; font-size: .66rem !important; }
+            .catalog-photo-arch::before { inset: 5px; }
+            .catalog-photo-arch::after { top: 6px; font-size: 14px; }
+        }
 
         /* XP-80C: chữ đen trắng thuần, nét vừa và không dùng đường kẻ dạng chấm */
         @media print {
@@ -881,7 +890,7 @@
             </div>
 
             <!-- Items & Combos Grid (Mobile 2 cột mượt mà, Tablet 3 cột, PC 4 cột) -->
-            <div id="catalog-grid" class="grid grid-cols-1 min-[540px]:grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 md:gap-5">
+            <div id="catalog-grid" class="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 md:gap-5">
                 <!-- Javascript renders product cards or combos here -->
             </div>
         </section>
@@ -1183,6 +1192,13 @@
                                 <i class="fa-solid fa-trash-can"></i> Xóa Toàn Bộ Đơn Thuê
                             </button>
                         </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2 rounded-2xl border border-[#eee3d4] bg-[#fcfaf7] p-2.5">
+                        <span class="px-2 text-[11px] font-bold text-[#78716c]">Đơn theo chi nhánh</span>
+                        <button type="button" onclick="setAdminRentalBranchFilter('ALL')" id="adm-branch-all" class="rounded-xl border px-3 py-1.5 text-xs font-bold bg-[#b37054] text-white border-[#9c5942]">Tất cả kho</button>
+                        <button type="button" onclick="setAdminRentalBranchFilter('CN1')" id="adm-branch-cn1" class="rounded-xl border px-3 py-1.5 text-xs font-bold">📍 CN1 · Huỳnh Thúc Kháng <span id="adm-branch-cn1-count"></span></button>
+                        <button type="button" onclick="setAdminRentalBranchFilter('CN2')" id="adm-branch-cn2" class="rounded-xl border px-3 py-1.5 text-xs font-bold">📍 CN2 · Lê Duẩn <span id="adm-branch-cn2-count"></span></button>
                     </div>
 
                     <div class="overflow-x-auto custom-scroll border border-[#e5dcd3] rounded-2xl bg-white shadow-sm">
@@ -1625,6 +1641,17 @@
                             <p class="text-[10px] text-[#78716c] mt-1 font-sans">
                                 💡 Báo ngay khi khách yêu cầu hủy đơn hoặc dời lịch kèm STK hoàn tiền và ảnh biên lai chuyển khoản.
                             </p>
+                        </div>
+                        <div class="rounded-xl border border-[#cfe4db] bg-[#f4faf6] p-3 space-y-2">
+                            <div class="font-bold text-[#285746]">Chủ đề trong nhóm TidubaStore · ID nhóm -1004454482786</div>
+                            <p class="text-[10px] text-[#64746b] font-sans">Trong từng chủ đề, gửi <code>/topicid</code> cho bot rồi nhập ID trả về. Tin nhắn shop sẽ tự vào đúng chủ đề.</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <label class="text-[10px] text-[#57534e]">Tính tiền cọc<input id="telegram-deposit-thread-id" inputmode="numeric" class="mt-1 w-full bg-white border border-[#ded0bf] rounded-lg p-2 font-mono" placeholder="ID chủ đề"></label>
+                                <label class="text-[10px] text-[#57534e]">Thông báo giờ<input id="telegram-overdue-thread-id" inputmode="numeric" class="mt-1 w-full bg-white border border-[#ded0bf] rounded-lg p-2 font-mono" placeholder="ID chủ đề"></label>
+                                <label class="text-[10px] text-[#57534e]">Hủy / Dời lịch<input id="telegram-cancel-thread-id" inputmode="numeric" class="mt-1 w-full bg-white border border-[#ded0bf] rounded-lg p-2 font-mono" placeholder="ID chủ đề"></label>
+                                <label class="text-[10px] text-[#57534e]">Đơn đang chờ duyệt<input id="telegram-pending-thread-id" inputmode="numeric" class="mt-1 w-full bg-white border border-[#ded0bf] rounded-lg p-2 font-mono" placeholder="ID chủ đề"></label>
+                                <label class="text-[10px] text-[#57534e]">Tổng doanh thu ngày<input id="telegram-revenue-thread-id" inputmode="numeric" class="mt-1 w-full bg-white border border-[#ded0bf] rounded-lg p-2 font-mono" placeholder="ID chủ đề"></label>
+                            </div>
                         </div>
                         <div class="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-[#44403c] font-sans">
                             <label class="flex items-center gap-1.5 cursor-pointer">
@@ -4939,11 +4966,11 @@
                 const estTagPrice = Number(item.price_24h || 100000) * 5;
 
                 return `
-                    <div class="catalog-product-card rounded-[1.65rem] p-3 sm:p-3.5 border hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300 flex flex-col justify-between group">
+                    <div class="catalog-product-card rounded-[1.65rem] p-3 sm:p-3.5 border hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300 flex flex-col justify-between group min-w-0">
                         
                         <!-- Ảnh Khung Vòm Cung Nghệ Thuật (Arch Window Chuẩn Phong Cách Sherent Hình 4) -->
                         <div onclick="openProductGalleryModal(${item.id})" class="catalog-photo-arch cursor-pointer relative overflow-hidden aspect-[4/5] rounded-t-[46%] rounded-b-2xl bg-[#f5ede3]" title="Bấm để xem album ảnh phóng to">
-                            <img src="${item.image_url}" alt="${item.name}" loading="lazy" decoding="async" class="w-full h-full object-cover group-hover:scale-105 transition duration-700 ${isUnavail ? 'brightness-[.88]' : ''}">
+                            <img src="${item.image_url || '/static/logo.png'}" alt="${item.name}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/static/logo.png';this.classList.add('object-contain','p-5')" class="w-full h-full object-cover group-hover:scale-105 transition duration-700 ${isUnavail ? 'brightness-[.88]' : ''}">
                             ${catalogQuickFilter === 'all' ? `
                                 <span class="absolute top-2.5 left-2.5 bg-white/90 text-[#57534e] text-[9px] font-bold px-2 py-1 rounded-full shadow-sm pointer-events-none">📍 ${item.branch_code === 'CN2' ? 'CN2' : 'CN1'}</span>
                             ` : ''}
@@ -4966,9 +4993,9 @@
                         </div>
 
                         <!-- Thông Tin Sản Phẩm Phong Cách Studio Sang Trọng (Hình 4) -->
-                        <div class="pt-3 px-1 pb-1 space-y-2 flex-1 flex flex-col justify-between font-sans">
+                        <div class="catalog-card-details pt-3 px-1 pb-1 space-y-2 flex-1 flex flex-col justify-between font-sans min-w-0">
                             <div class="space-y-0.5">
-                                <h4 onclick="openProductGalleryModal(${item.id})" class="cursor-pointer font-serif text-base sm:text-lg font-bold text-[#1c1917] leading-snug hover:text-[#b37054] transition line-clamp-1" style="font-family: 'Playfair Display', Georgia, serif;" title="${item.name}">
+                                <h4 onclick="openProductGalleryModal(${item.id})" class="catalog-card-title cursor-pointer font-serif text-base sm:text-lg font-bold text-[#1c1917] leading-snug hover:text-[#b37054] transition line-clamp-2" style="font-family: 'Playfair Display', Georgia, serif;" title="${item.name}">
                                     ${item.name}
                                 </h4>
                                 <div class="text-xs text-[#78716c] font-sans flex items-center justify-between">
@@ -4984,7 +5011,7 @@
                                 <div class="flex items-center justify-between">
                                     <span class="text-[#78716c]">Phí thuê:</span>
                                     <div>
-                                        <strong class="text-[#1c1917] font-bold text-sm sm:text-base">${Number(item.price_24h).toLocaleString()}đ</strong>
+                                        <strong class="catalog-card-price text-[#1c1917] font-bold text-sm sm:text-base">${Number(item.price_24h).toLocaleString()}đ</strong>
                                         <span class="text-[#78716c] text-[10.5px]">/ 1 ngày</span>
                                     </div>
                                 </div>
@@ -5015,7 +5042,7 @@
                                         <button onclick="addToCart(${item.id})" class="w-8 h-8 rounded-xl bg-[#fff7ed] hover:bg-[#ffedd5] text-[#b37054] border border-[#fed7aa] flex items-center justify-center text-xs shadow-sm transition flex-shrink-0" title="Thêm vào giỏ hàng">
                                             <i class="fa-solid fa-cart-plus"></i>
                                         </button>
-                                        <button onclick="openBookingModal(${item.id})" class="flex-1 h-8 bg-[#b37054] hover:bg-[#9c5942] text-white font-bold shadow-sm px-2.5 rounded-xl text-xs transition flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer" title="${isRented ? 'Món này đang có khách thuê, bấm để đặt thuê ngày/giờ khác' : 'Bấm để đặt thuê ngay'}">
+                                        <button onclick="openBookingModal(${item.id})" class="catalog-card-action flex-1 h-8 bg-[#b37054] hover:bg-[#9c5942] text-white font-bold shadow-sm px-2.5 rounded-xl text-xs transition flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer" title="${isRented ? 'Món này đang có khách thuê, bấm để đặt thuê ngày/giờ khác' : 'Bấm để đặt thuê ngay'}">
                                             <i class="fa-solid ${isRented ? 'fa-calendar-check' : 'fa-bolt'} text-[11px]"></i>
                                             <span>${isRented ? 'Thuê Ngày Khác' : 'Thuê Ngay'}</span>
                                         </button>
@@ -5825,6 +5852,7 @@
             }
             showToast("Đang tạo file ảnh hóa đơn để lưu...");
 
+            let captureHost = null;
             try {
                 if (typeof html2canvas === 'undefined') {
                     await new Promise((resolve, reject) => {
@@ -5846,13 +5874,44 @@
                     });
                 }
 
-                // Render canvas chất lượng cao 3x cho hóa đơn siêu nét
-                const canvas = await html2canvas(printable, {
+                // Capture an off-screen, full-height copy so the modal's scroll viewport
+                // cannot crop the bottom rows / QR on mobile.
+                await (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve());
+                captureHost = document.createElement('div');
+                captureHost.style.cssText = 'position:fixed;left:-1200px;top:0;z-index:-1;width:max-content;height:auto;max-height:none;overflow:visible;background:#fff;';
+                const captureCopy = printable.cloneNode(true);
+                captureCopy.style.setProperty('height', 'auto', 'important');
+                captureCopy.style.setProperty('max-height', 'none', 'important');
+                captureCopy.style.setProperty('min-height', '0', 'important');
+                captureCopy.style.setProperty('overflow', 'visible', 'important');
+                captureCopy.querySelectorAll('*').forEach(el => {
+                    el.style.setProperty('max-height', 'none', 'important');
+                    if (getComputedStyle(el).overflowY === 'auto' || getComputedStyle(el).overflowY === 'scroll') {
+                        el.style.setProperty('height', 'auto', 'important');
+                        el.style.setProperty('overflow', 'visible', 'important');
+                    }
+                });
+                captureHost.appendChild(captureCopy);
+                document.body.appendChild(captureHost);
+                const canvas = await html2canvas(captureCopy, {
                     scale: 3,
                     useCORS: true,
                     allowTaint: false,
-                    backgroundColor: '#ffffff'
+                    backgroundColor: '#ffffff',
+                    width: captureCopy.scrollWidth,
+                    height: captureCopy.scrollHeight,
+                    windowWidth: Math.max(document.documentElement.clientWidth, captureCopy.scrollWidth),
+                    windowHeight: Math.max(document.documentElement.clientHeight, captureCopy.scrollHeight),
+                    onclone: clonedDoc => {
+                        const clonedArea = clonedDoc.querySelector('#k80-printable-area');
+                        if (clonedArea) {
+                            clonedArea.style.setProperty('height', 'auto', 'important');
+                            clonedArea.style.setProperty('max-height', 'none', 'important');
+                            clonedArea.style.setProperty('overflow', 'visible', 'important');
+                        }
+                    }
                 });
+                captureHost.remove();
 
                 const filename = `HoaDon_${currentK80Code || 'TidubaStore'}.png`;
 
@@ -5890,6 +5949,7 @@
                 console.error("Lỗi lưu ảnh hóa đơn:", err);
                 alert("Không thể tự động xuất ảnh. Bạn có thể chụp ảnh màn hình tờ hóa đơn này để lưu lại!");
             } finally {
+                if (captureHost) captureHost.remove();
                 if (btn) {
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fa-solid fa-download text-sm"></i> Lưu Ảnh Hóa Đơn';
@@ -9995,16 +10055,40 @@
             `).join('');
         }
 
+        let adminRentalBranchFilter = 'ALL';
+        let adminRentalRows = [];
+        function setAdminRentalBranchFilter(branch) {
+            adminRentalBranchFilter = branch;
+            ['ALL', 'CN1', 'CN2'].forEach(key => {
+                const button = document.getElementById(`adm-branch-${key.toLowerCase()}`);
+                if (!button) return;
+                const active = key === branch;
+                button.className = `rounded-xl border px-3 py-1.5 text-xs font-bold transition ${active ? 'bg-[#b37054] text-white border-[#9c5942]' : 'bg-white text-[#57534e] border-[#ded0bf] hover:bg-[#f6eee5]'}`;
+            });
+            renderAdminRentals();
+        }
+
         function renderAdminRentals(rentals) {
             const tbody = document.getElementById('adm-rentals-tbody');
             if (!tbody) return;
-            if (!rentals || !Array.isArray(rentals) || rentals.length === 0) {
+            if (Array.isArray(rentals)) adminRentalRows = rentals;
+            const allRows = adminRentalRows;
+            const cn1Count = allRows.filter(r => (r.branch_code || 'CN1') === 'CN1').length;
+            const cn2Count = allRows.filter(r => (r.branch_code || 'CN1') === 'CN2').length;
+            const cn1CountEl = document.getElementById('adm-branch-cn1-count');
+            const cn2CountEl = document.getElementById('adm-branch-cn2-count');
+            if (cn1CountEl) cn1CountEl.textContent = `(${cn1Count})`;
+            if (cn2CountEl) cn2CountEl.textContent = `(${cn2Count})`;
+            const visibleRentals = adminRentalBranchFilter === 'ALL'
+                ? allRows
+                : allRows.filter(r => (r.branch_code || 'CN1') === adminRentalBranchFilter);
+            if (!visibleRentals || visibleRentals.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-gray-400 font-mono text-xs">Không có đơn thuê nào.</td></tr>`;
                 return;
             }
 
             try {
-                tbody.innerHTML = rentals.map(r => {
+                tbody.innerHTML = visibleRentals.map(r => {
                     const safeCode = r.rental_code || ('#' + (r.id || ''));
                     const rawName = String(r.item_name || r.rental_type || 'Đơn Thuê Nhiều Món');
                     const safeItemName = rawName.replace(/'/g, '’');
@@ -11852,16 +11936,23 @@
         // ==============================================================
         async function fetchTelegramConfig() {
             try {
+                ['telegram-overdue-chat-id', 'telegram-revenue-chat-id', 'telegram-deposit-chat-id', 'telegram-cancel-chat-id'].forEach(id => {
+                    document.getElementById(id)?.parentElement?.classList.add('hidden');
+                });
                 const token = localStorage.getItem('tiduba_token');
                 const res = await fetch('/api/admin/telegram/config', { headers: { 'Authorization': `Bearer ${token}` } });
                 const cfg = await res.json();
                 if (cfg) {
                     if (document.getElementById('telegram-bot-token')) document.getElementById('telegram-bot-token').value = cfg.bot_token || '';
-                    if (document.getElementById('telegram-chat-id')) document.getElementById('telegram-chat-id').value = cfg.chat_id || '';
+                    if (document.getElementById('telegram-chat-id')) document.getElementById('telegram-chat-id').value = '-1004454482786';
                     if (document.getElementById('telegram-overdue-chat-id')) document.getElementById('telegram-overdue-chat-id').value = cfg.overdue_chat_id || '-1004498214603';
                     if (document.getElementById('telegram-revenue-chat-id')) document.getElementById('telegram-revenue-chat-id').value = cfg.revenue_chat_id || '-1003930707954';
                     if (document.getElementById('telegram-deposit-chat-id')) document.getElementById('telegram-deposit-chat-id').value = cfg.deposit_chat_id || '-1004476055497';
                     if (document.getElementById('telegram-cancel-chat-id')) document.getElementById('telegram-cancel-chat-id').value = cfg.cancel_chat_id || '-1004467743740';
+                    ['deposit', 'overdue', 'revenue', 'cancel', 'pending'].forEach(topic => {
+                        const field = document.getElementById(`telegram-${topic}-thread-id`);
+                        if (field) field.value = cfg[`${topic}_thread_id`] || '';
+                    });
                     if (document.getElementById('tele-chk-new')) document.getElementById('tele-chk-new').checked = !!cfg.auto_notify_new_rental;
                     if (document.getElementById('tele-chk-pay')) document.getElementById('tele-chk-pay').checked = !!cfg.auto_notify_payment;
                     if (document.getElementById('tele-chk-return')) document.getElementById('tele-chk-return').checked = !!cfg.auto_notify_return;
@@ -11874,11 +11965,16 @@
             const token = localStorage.getItem('tiduba_token');
             const payload = {
                 bot_token: document.getElementById('telegram-bot-token').value.trim(),
-                chat_id: document.getElementById('telegram-chat-id').value.trim(),
+                chat_id: '-1004454482786',
                 overdue_chat_id: document.getElementById('telegram-overdue-chat-id') ? document.getElementById('telegram-overdue-chat-id').value.trim() : '-1004498214603',
                 revenue_chat_id: document.getElementById('telegram-revenue-chat-id') ? document.getElementById('telegram-revenue-chat-id').value.trim() : '-1003930707954',
                 deposit_chat_id: document.getElementById('telegram-deposit-chat-id') ? document.getElementById('telegram-deposit-chat-id').value.trim() : '-1004476055497',
                 cancel_chat_id: document.getElementById('telegram-cancel-chat-id') ? document.getElementById('telegram-cancel-chat-id').value.trim() : '-1004467743740',
+                deposit_thread_id: document.getElementById('telegram-deposit-thread-id')?.value.trim() || '',
+                overdue_thread_id: document.getElementById('telegram-overdue-thread-id')?.value.trim() || '',
+                revenue_thread_id: document.getElementById('telegram-revenue-thread-id')?.value.trim() || '',
+                cancel_thread_id: document.getElementById('telegram-cancel-thread-id')?.value.trim() || '',
+                pending_thread_id: document.getElementById('telegram-pending-thread-id')?.value.trim() || '',
                 is_active: 1,
                 auto_notify_new_rental: document.getElementById('tele-chk-new').checked ? 1 : 0,
                 auto_notify_payment: document.getElementById('tele-chk-pay').checked ? 1 : 0,

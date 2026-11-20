@@ -356,6 +356,15 @@ def init_db():
     );
     """)
 
+    # Guest details recorded at the counter must not be replaced by the signed-in admin profile.
+    for column in ("customer_name_override", "customer_phone_override"):
+        try:
+            cur.execute(f"ALTER TABLE rentals ADD COLUMN {column} TEXT DEFAULT ''")
+            conn.commit()
+        except Exception:
+            pass
+
+
     # 6. Bảng Biên bản bàn giao số (Digital Handover QC & Camera Snapshots & E-Signature)
     cur.execute("""
     CREATE TABLE IF NOT EXISTS handover_protocols (
@@ -436,6 +445,13 @@ def init_db():
         updated_at TEXT NOT NULL
     );
     """)
+    # Telegram forum topic IDs (message_thread_id) for the single TidubaStore parent group.
+    for column in ("deposit_thread_id", "overdue_thread_id", "revenue_thread_id", "cancel_thread_id", "pending_thread_id"):
+        try:
+            cur.execute(f"ALTER TABLE telegram_config ADD COLUMN {column} TEXT DEFAULT ''")
+            conn.commit()
+        except Exception:
+            pass
 
     # 9.2 Bảng Lịch sử gửi thông báo Telegram
     cur.execute("""
@@ -1850,8 +1866,8 @@ def login(req: LoginRequest):
     user = conn.execute("""
     SELECT id, username, email, full_name, phone, role, loyalty_points 
     FROM users 
-    WHERE (username = ? OR email = ?) AND password_hash = ?
-    """, (req.username.strip(), req.username.strip().lower(), p_hash)).fetchone()
+    WHERE (LOWER(username) = ? OR LOWER(email) = ?) AND password_hash = ?
+    """, (req.username.strip().lower(), req.username.strip().lower(), p_hash)).fetchone()
     conn.close()
 
     if not user:
@@ -2450,7 +2466,8 @@ def get_legal_overdue_dossier(rental_id: int, admin: Dict[str, Any] = Depends(re
     r = conn.execute("""
     SELECT r.*, COALESCE(i.name, c.name) as item_name, COALESCE(i.serial_or_size, 'Combo') as serial_or_size,
            COALESCE(i.deposit_amount, 5000000) as item_value,
-           u.full_name as customer_name, u.phone as customer_phone, u.email as customer_email,
+           COALESCE(NULLIF(r.customer_name_override, ''), u.full_name) as customer_name,
+           COALESCE(NULLIF(r.customer_phone_override, ''), u.phone) as customer_phone, u.email as customer_email,
            u.cccd_number, u.cccd_front_img, u.cccd_back_img
     FROM rentals r
     LEFT JOIN items i ON r.item_id = i.id
@@ -3180,9 +3197,9 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
     target_user_cccd = "Chính chủ"
     is_admin_mode = user and user.get("role") == "admin"
 
-    if is_admin_mode and req.walk_in_customer_name:
-        target_user_name = req.walk_in_customer_name.strip()
-        target_user_phone = req.walk_in_customer_phone.strip() if req.walk_in_customer_phone else "0900000000"
+    if is_admin_mode and req.is_direct_paid:
+        target_user_name = (req.walk_in_customer_name or "").strip() or "Khách tại quầy"
+        target_user_phone = (req.walk_in_customer_phone or "").strip() or "Không cung cấp"
         # Tìm xem khách này đã có tài khoản chưa, nếu chưa dùng tài khoản admin hoặc khách mặc định
         existing_u = cur.execute("SELECT * FROM users WHERE phone = ?", (target_user_phone,)).fetchone()
         if existing_u:
@@ -3430,14 +3447,17 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
     INSERT INTO rentals (
         rental_code, user_id, item_id, combo_id, rental_type, start_time, end_time,
         rental_duration_hours, hold_expires_at, total_price, deposit_paid, deposit_type,
-        deposit_required_amount, deposit_asset_desc, branch_code, refund_bank_info, status, items_json, customer_notes, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        deposit_required_amount, deposit_asset_desc, branch_code, refund_bank_info, status, items_json,
+        customer_notes, customer_name_override, customer_phone_override, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         rental_code, target_user_id, first_item_id, first_combo_id,
         f"Gói {len(processed_items)} món", req.start_time, effective_overall_end,
         max_duration_hours, hold_expires_at, total_rental_price, final_deposit,
         dep_type, deposit_required_amount, asset_desc, selected_branch, req.refund_bank_info, initial_status, items_json_str,
         req.customer_notes or ("Bán tại quầy KiotViet POS" if is_admin_mode else "Đơn giỏ hàng Shopee"),
+        target_user_name if (is_admin_mode and req.is_direct_paid) else "",
+        target_user_phone if (is_admin_mode and req.is_direct_paid) else "",
         now_str
     ))
     rental_id = cur.lastrowid
@@ -3461,6 +3481,14 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
     conn.commit()
     sync_items_availability(conn)
     conn.close()
+
+    if is_admin_mode and req.is_direct_paid and target_user_phone != "Không cung cấp":
+        upsert_customer_from_rental(
+            full_name=target_user_name,
+            phone=target_user_phone,
+            cccd_number=target_user_cccd,
+            amount=total_rental_price,
+        )
 
     total_payable = total_rental_price
     qr_url = generate_vietqr_url(total_payable, rental_code)
@@ -6293,6 +6321,20 @@ def _send_telegram_notification(
 
         active_token = (override_token or (cfg["bot_token"] if cfg else "")).strip()
         active_chat_id = (override_chat_id or (cfg["chat_id"] if cfg else "")).strip()
+        message_thread_id = None
+        topic_routes = {
+            "DEPOSIT": "deposit_thread_id", "OVERDUE": "overdue_thread_id",
+            "WARNING_DUE_SOON": "overdue_thread_id", "PICKUP_REMINDER": "overdue_thread_id",
+            "DAILY_REVENUE": "revenue_thread_id", "CANCEL_PENDING": "cancel_thread_id",
+            "PENDING_APPROVAL": "pending_thread_id", "NEW_RENTAL_PENDING": "pending_thread_id",
+            "NEW_RENTAL": "pending_thread_id",
+        }
+        if event_type in topic_routes:
+            active_chat_id = "-1004454482786"
+            topic = cfg[topic_routes[event_type]] if cfg and topic_routes[event_type] in cfg.keys() else ""
+            message_thread_id = str(topic).strip() if topic else None
+        elif event_type in ("NEW_RENTAL", "PAYMENT", "RETURN"):
+            active_chat_id = "-1004454482786"
 
         # Nếu là sự kiện QUÁ HẠN hoặc NHẮC HẸN SẮP TỚI GIỜ TRẢ/NHẬN: Ưu tiên gửi sang Group quá hạn riêng nếu có cấu hình
         if not override_chat_id and cfg and "overdue_chat_id" in cfg.keys() and cfg["overdue_chat_id"]:
@@ -6318,6 +6360,13 @@ def _send_telegram_notification(
         if not override_chat_id and cfg and "pending_approval_chat_id" in cfg.keys() and cfg["pending_approval_chat_id"]:
             if event_type in ("PENDING_APPROVAL", "NEW_RENTAL_PENDING"):
                 active_chat_id = cfg["pending_approval_chat_id"].strip()
+
+        # Legacy per-event chat IDs are ignored for shop events after migration to the
+        # TidubaStore forum. Topic IDs remain optional until each Telegram topic is set.
+        if event_type in topic_routes:
+            active_chat_id = "-1004454482786"
+        elif event_type in ("NEW_RENTAL", "PAYMENT", "RETURN"):
+            active_chat_id = "-1004454482786"
 
         if active_token and active_chat_id:
             # Kiểm tra phân loại sự kiện theo cấu hình bật/tắt (nếu không phải TEST hoặc override)
@@ -6396,6 +6445,8 @@ def _send_telegram_notification(
                         body_bytes.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="chat_id"\r\n\r\n{target_chat_id}\r\n'.encode('utf-8'))
                         body_bytes.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="caption"\r\n\r\n{message}\r\n'.encode('utf-8'))
                         body_bytes.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="parse_mode"\r\n\r\nHTML\r\n'.encode('utf-8'))
+                        if message_thread_id:
+                            body_bytes.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="message_thread_id"\r\n\r\n{message_thread_id}\r\n'.encode('utf-8'))
                         if safe_inline_keyboard:
                             body_bytes.extend(f'--{boundary}\r\nContent-Disposition: form-data; name="reply_markup"\r\n\r\n{json.dumps({"inline_keyboard": safe_inline_keyboard})}\r\n'.encode('utf-8'))
                         with open(local_photo_path, "rb") as f:
@@ -6424,6 +6475,8 @@ def _send_telegram_notification(
                             "caption": message,
                             "parse_mode": "HTML"
                         }
+                        if message_thread_id:
+                            body_dict["message_thread_id"] = int(message_thread_id)
                         if safe_inline_keyboard:
                             body_dict["reply_markup"] = {"inline_keyboard": safe_inline_keyboard}
 
@@ -6442,6 +6495,8 @@ def _send_telegram_notification(
                             "parse_mode": "HTML",
                             "disable_web_page_preview": True
                         }
+                        if message_thread_id:
+                            body_dict["message_thread_id"] = int(message_thread_id)
                         if safe_inline_keyboard:
                             body_dict["reply_markup"] = {"inline_keyboard": safe_inline_keyboard}
 
@@ -6552,6 +6607,11 @@ class TelegramConfigRequest(BaseModel):
     overdue_chat_id: Optional[str] = None
     revenue_chat_id: Optional[str] = None
     deposit_chat_id: Optional[str] = None
+    deposit_thread_id: Optional[str] = None
+    overdue_thread_id: Optional[str] = None
+    revenue_thread_id: Optional[str] = None
+    cancel_thread_id: Optional[str] = None
+    pending_thread_id: Optional[str] = None
     is_active: Optional[int] = None
     auto_notify_new_rental: Optional[int] = None
     auto_notify_payment: Optional[int] = None
@@ -7751,7 +7811,8 @@ def _telegram_shop_assistant_answer(question: str) -> str:
                 rental = conn.execute("""
                     SELECT r.rental_code, r.status, r.total_price, r.deposit_paid,
                            r.start_time, r.end_time, r.rental_type, r.branch_code,
-                           u.full_name, u.phone,
+                           COALESCE(NULLIF(r.customer_name_override, ''), u.full_name) AS full_name,
+                           COALESCE(NULLIF(r.customer_phone_override, ''), u.phone) AS phone,
                            COALESCE(i.name, c.name, 'Sản phẩm') AS item_name
                     FROM rentals r
                     JOIN users u ON u.id = r.user_id
@@ -7764,7 +7825,8 @@ def _telegram_shop_assistant_answer(question: str) -> str:
                 rental = conn.execute("""
                     SELECT r.rental_code, r.status, r.total_price, r.deposit_paid,
                            r.start_time, r.end_time, r.rental_type, r.branch_code,
-                           u.full_name, u.phone,
+                           COALESCE(NULLIF(r.customer_name_override, ''), u.full_name) AS full_name,
+                           COALESCE(NULLIF(r.customer_phone_override, ''), u.phone) AS phone,
                            COALESCE(i.name, c.name, 'Sản phẩm') AS item_name
                     FROM rentals r
                     JOIN users u ON u.id = r.user_id
@@ -7885,6 +7947,26 @@ def _telegram_reply_to_shop_question(bot_token: str, message: Dict[str, Any]) ->
         return
     question = message.get("text") or message.get("caption") or ""
     if not question:
+        return
+    first_word = question.strip().split(maxsplit=1)
+    if first_word and first_word[0].lower().split("@", 1)[0] == "/topicid":
+        thread_id = message.get("message_thread_id")
+        response = f"ID chủ đề này: {thread_id}" if thread_id else "Đây là chủ đề Chung; Telegram dùng ID chủ đề 1."
+        payload = {
+            "chat_id": chat["id"], "text": response,
+            "reply_to_message_id": message.get("message_id"),
+            "allow_sending_without_reply": True,
+        }
+        if thread_id:
+            payload["message_thread_id"] = thread_id
+        request = urllib.request.Request(
+            f"https://api.telegram.org/bot{bot_token}/sendMessage",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json", "User-Agent": "TidubaStoreBot/1.0"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=8):
+            pass
         return
     answer = _telegram_shop_assistant_answer(question)
     payload = {
