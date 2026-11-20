@@ -3213,6 +3213,21 @@ def create_multi_item_booking(req: MultiItemBookingRequest, user: Optional[Dict[
         raise HTTPException(status_code=403, detail="Phiên Quản trị viên không hợp lệ. Đăng nhập tài khoản Admin để sử dụng POS KiotViet.")
 
     conn = get_db()
+    # Ensure persisted Render databases receive this migration before POS writes.
+    rental_columns = {row["name"] for row in conn.execute("PRAGMA table_info(rentals)").fetchall()}
+    for column in ("customer_name_override", "customer_phone_override"):
+        if column in rental_columns:
+            continue
+        try:
+            conn.execute(f"ALTER TABLE rentals ADD COLUMN {column} TEXT DEFAULT ''")
+            conn.commit()
+            rental_columns.add(column)
+        except sqlite3.OperationalError:
+            # Another worker may have added the column after our initial check.
+            rental_columns = {row["name"] for row in conn.execute("PRAGMA table_info(rentals)").fetchall()}
+            if column not in rental_columns:
+                conn.close()
+                raise
     cur = conn.cursor()
 
     # Xác định người đặt (User đăng nhập hoặc Khách tại quầy KiotViet của Admin)
