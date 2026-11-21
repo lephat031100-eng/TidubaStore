@@ -2000,11 +2000,14 @@
                                 <span class="flex min-w-0 items-center gap-2"><i class="fa-solid fa-box-open text-emerald-600"></i><span class="font-semibold text-gray-700">Sản Phẩm</span><span class="truncate text-gray-500" id="pos-category-selected-label">Tất cả</span></span>
                                 <i class="fa-solid fa-chevron-down text-gray-500 text-[10px] transition-transform" id="pos-category-chevron"></i>
                             </button>
-                            <div id="pos-category-menu" role="listbox" aria-label="Lọc sản phẩm" class="hidden absolute z-30 mt-1.5 w-full overflow-hidden rounded-xl border border-[#e5e0d8] bg-white p-1 shadow-xl">
+                            <div id="pos-category-menu" role="listbox" aria-label="Lọc sản phẩm" class="hidden absolute z-30 mt-1.5 max-h-[55vh] w-full overflow-y-auto rounded-xl border border-[#e5e0d8] bg-white p-1 shadow-xl">
                                 <button type="button" role="option" onclick="posFilterCategory('ALL')" class="pos-category-option w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-700 transition hover:bg-emerald-50 hover:text-emerald-800">Tất cả</button>
                                 <button type="button" role="option" onclick="posFilterCategory('CAMERA_GEAR')" class="pos-category-option w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-700 transition hover:bg-emerald-50 hover:text-emerald-800">Máy ảnh &amp; Gear</button>
                                 <button type="button" role="option" onclick="posFilterCategory('COSTUME_FASHION')" class="pos-category-option w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-700 transition hover:bg-emerald-50 hover:text-emerald-800">Trang phục</button>
                                 <button type="button" role="option" onclick="posFilterCategory('COMBOS')" class="pos-category-option w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-gray-700 transition hover:bg-emerald-50 hover:text-emerald-800">Combo tiết kiệm</button>
+                                <div class="mx-2 my-1 border-t border-gray-100"></div>
+                                <div class="px-3 pt-1 pb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">Nhóm hàng</div>
+                                <div id="pos-group-filters" class="flex flex-wrap items-center gap-1.5 px-2 pb-2"></div>
                             </div>
                         </div>
 
@@ -2014,8 +2017,6 @@
                             <button type="button" data-pos-branch="CN1" onclick="posFilterBranch('CN1')" class="pos-branch-option rounded-full border border-gray-200 bg-white px-3 py-1 font-semibold text-gray-600 hover:border-emerald-500">📍 CN1</button>
                             <button type="button" data-pos-branch="CN2" onclick="posFilterBranch('CN2')" class="pos-branch-option rounded-full border border-gray-200 bg-white px-3 py-1 font-semibold text-gray-600 hover:border-emerald-500">📍 CN2</button>
                         </div>
-                        <div id="pos-group-filters" class="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar"></div>
-
                         <!-- Subcategory Title -->
                         <div class="text-[11px] font-bold text-gray-500 uppercase tracking-wider px-1" id="pos-subcat-title">
                             Danh sách thiết bị & trang phục sẵn sàng cho thuê
@@ -4992,24 +4993,31 @@
                                 <path d="M 150 26 C 165 44, 195 54, 228 64 C 264 75, 288 96, 288 132 L 288 342 A 8 8 0 0 0 280 350 L 20 350 A 8 8 0 0 0 12 342 L 12 132 C 12 96, 36 75, 72 64 C 105 54, 135 44, 150 26 Z" stroke="#C4AA82" stroke-width="1.25" />
                                 <line x1="16" y1="356" x2="284" y2="356" stroke="#C4AA82" stroke-width="1" stroke-opacity="0.7" />
                                 <path d="M 150 4 Q 152.5 17.5 164 20 Q 152.5 22.5 150 35 Q 147.5 22.5 136 20 Q 147.5 17.5 150 4 Z" fill="#C4AA82" />
-                                <g stroke="#BFA57D" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                                <!-- Họa tiết dây leo & lá mảnh đối xứng 2 góc trên -->
+                                <g stroke="#B89F78" stroke-width="1.05" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                                    <!-- Góc trên trái -->
                                     <g>
-                                        <path d="M 14 96 C 14 70, 22 44, 34 28 C 46 14, 72 18, 114 20" />
-                                        <path d="M 96 19 C 106 16, 115 20, 120 26" />
-                                        <path d="M 21 68 C 12 64, 10 54, 16 48 C 22 54, 23 62, 21 68 Z" />
-                                        <path d="M 24 54 C 31 54, 35 61, 31 67 C 25 65, 22 60, 24 54 Z" />
-                                        <path d="M 31 35 C 24 28, 25 18, 33 15 C 37 22, 36 30, 31 35 Z" />
-                                        <path d="M 54 19 C 58 27, 66 30, 72 25 C 67 19, 60 17, 54 19 Z" />
-                                        <path d="M 72 18 C 78 11, 88 10, 94 15 C 88 20, 79 20, 72 18 Z" />
+                                        <!-- Thân dây leo uốn sóng mềm (không nhánh thừa, vuốt thoáng về phía ngôi sao) -->
+                                        <path d="M 14 90 C 15 76, 26 66, 24 52 C 22 39, 20 26, 33 20 C 44 15, 50 26, 62 24 C 76 22, 92 12, 112 22" />
+                                        <!-- Lá dưới trái -->
+                                        <path d="M 19.3 72.8 C 12 69, 9.5 62, 11.5 54 C 17 58, 19.8 65, 19.3 72.8 Z" />
+                                        <!-- Lá dưới phải (ôm vào khoảng trắng trên vai vòm) -->
+                                        <path d="M 22.9 63.7 C 30 61, 35.5 54.5, 36.5 47 C 30 49.5, 25 55.5, 22.9 63.7 Z" />
+                                        <!-- Lá góc cong trên trái -->
+                                        <path d="M 22.6 38.7 C 16.5 35.5, 14.5 29, 17 22.5 C 21.5 26.5, 23.2 32.5, 22.6 38.7 Z" />
+                                        <!-- Lá rủ xuống dưới sóng dây -->
+                                        <path d="M 43.2 19.4 C 42.5 27, 47 32.5, 54 34.5 C 52.5 27.5, 48.5 22, 43.2 19.4 Z" />
+                                        <!-- Lá vươn nhọn lên phía trên sóng dây -->
+                                        <path d="M 51.1 22.6 C 52 15.5, 56.5 11, 62.5 9.5 C 61 16, 56.8 20.8, 51.1 22.6 Z" />
                                     </g>
+                                    <!-- Góc trên phải (lật đối xứng chuẩn) -->
                                     <g transform="translate(300, 0) scale(-1, 1)">
-                                        <path d="M 14 96 C 14 70, 22 44, 34 28 C 46 14, 72 18, 114 20" />
-                                        <path d="M 96 19 C 106 16, 115 20, 120 26" />
-                                        <path d="M 21 68 C 12 64, 10 54, 16 48 C 22 54, 23 62, 21 68 Z" />
-                                        <path d="M 24 54 C 31 54, 35 61, 31 67 C 25 65, 22 60, 24 54 Z" />
-                                        <path d="M 31 35 C 24 28, 25 18, 33 15 C 37 22, 36 30, 31 35 Z" />
-                                        <path d="M 54 19 C 58 27, 66 30, 72 25 C 67 19, 60 17, 54 19 Z" />
-                                        <path d="M 72 18 C 78 11, 88 10, 94 15 C 88 20, 79 20, 72 18 Z" />
+                                        <path d="M 14 90 C 15 76, 26 66, 24 52 C 22 39, 20 26, 33 20 C 44 15, 50 26, 62 24 C 76 22, 92 12, 112 22" />
+                                        <path d="M 19.3 72.8 C 12 69, 9.5 62, 11.5 54 C 17 58, 19.8 65, 19.3 72.8 Z" />
+                                        <path d="M 22.9 63.7 C 30 61, 35.5 54.5, 36.5 47 C 30 49.5, 25 55.5, 22.9 63.7 Z" />
+                                        <path d="M 22.6 38.7 C 16.5 35.5, 14.5 29, 17 22.5 C 21.5 26.5, 23.2 32.5, 22.6 38.7 Z" />
+                                        <path d="M 43.2 19.4 C 42.5 27, 47 32.5, 54 34.5 C 52.5 27.5, 48.5 22, 43.2 19.4 Z" />
+                                        <path d="M 51.1 22.6 C 52 15.5, 56.5 11, 62.5 9.5 C 61 16, 56.8 20.8, 51.1 22.6 Z" />
                                     </g>
                                 </g>
                             </svg>
@@ -7988,13 +7996,14 @@
             posCurrentGroup = group || 'ALL';
             posCurrentCat = 'ALL';
             const label = document.getElementById('pos-category-selected-label');
-            if (label) label.innerText = 'Tất cả';
+            if (label) label.innerText = posCurrentGroup === 'ALL' ? 'Tất cả' : `Nhóm: ${posCurrentGroup}`;
             document.querySelectorAll('.pos-category-option').forEach(option => {
                 const selected = option.innerText.trim() === 'Tất cả';
                 option.classList.toggle('bg-emerald-50', selected);
                 option.classList.toggle('text-emerald-800', selected);
             });
             renderPosGroupFilters();
+            togglePosCategoryMenu(false);
             posFilterCatalogList();
         }
 

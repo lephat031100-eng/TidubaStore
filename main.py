@@ -471,12 +471,20 @@ def init_db():
     );
     """)
     # Telegram forum topic IDs (message_thread_id) for the single TidubaStore parent group.
-    for column in ("deposit_thread_id", "overdue_thread_id", "revenue_thread_id", "cancel_thread_id", "pending_thread_id"):
+    for column, default_thread_id in (
+        ("deposit_thread_id", "205"),
+        ("overdue_thread_id", "1"),
+        ("revenue_thread_id", "199"),
+        ("cancel_thread_id", "203"),
+        ("pending_thread_id", "201"),
+    ):
         try:
-            cur.execute(f"ALTER TABLE telegram_config ADD COLUMN {column} TEXT DEFAULT ''")
+            cur.execute(f"ALTER TABLE telegram_config ADD COLUMN {column} TEXT DEFAULT '{default_thread_id}'")
             conn.commit()
         except Exception:
             pass
+        cur.execute(f"UPDATE telegram_config SET {column} = ? WHERE {column} IS NULL OR TRIM({column}) = ''", (default_thread_id,))
+    conn.commit()
 
     # 9.2 Bảng Lịch sử gửi thông báo Telegram
     cur.execute("""
@@ -6432,6 +6440,7 @@ def _send_telegram_notification(
             "DEPOSIT": "deposit_thread_id", "OVERDUE": "overdue_thread_id",
             "WARNING_DUE_SOON": "overdue_thread_id", "PICKUP_REMINDER": "overdue_thread_id",
             "DAILY_REVENUE": "revenue_thread_id", "CANCEL_PENDING": "cancel_thread_id",
+            "NOTIFY": "cancel_thread_id",
             "PENDING_APPROVAL": "pending_thread_id", "NEW_RENTAL_PENDING": "pending_thread_id",
             "NEW_RENTAL": "pending_thread_id",
         }
@@ -7905,13 +7914,56 @@ def _telegram_shop_assistant_answer(question: str) -> str:
     if not normalized or normalized.split("@", 1)[0] in {"/start", "/help", "help"}:
         return (
             "Tiduba tra cứu nhanh: hỏi ‘còn váy lụa không?’, ‘lịch đồ ngày mai’, "
-            "hoặc ‘bill TDB-123456’. Có thể dùng /help để xem ví dụ."
+            "‘tìm khách Nga’, ‘tìm đơn của Nga’ hoặc ‘bill TDB-123456’."
         )
 
     conn = get_db()
     try:
+        asks_customer = any(word in normalized for word in ("khach", "sdt", "so dien thoai", "ten khach"))
+        asks_order = any(word in normalized for word in ("don", "hoa don", "ma don", "bill"))
+        has_bill_code = bool(re.search(r"\b(?:TDB-[A-Za-z0-9_-]+|HD\d+)\b", q, re.IGNORECASE))
+        if (asks_customer or asks_order) and not has_bill_code:
+            generic_words = {
+                "tim", "khach", "hang", "sdt", "so", "dien", "thoai", "ten", "don", "hoa", "ma", "bill",
+                "cua", "cho", "toi", "minh", "shop", "giup", "voi", "nha", "la", "nay", "nao", "hoi"
+            }
+            terms = [word for word in re.findall(r"[a-z0-9]+", normalized) if word not in generic_words and len(word) > 1]
+            if not terms:
+                return "Gửi tên hoặc số điện thoại để tìm khách; tìm đơn cụ thể thì gửi mã TDB-…"
+            pattern = f"%{terms[0]}%"
+            rentals = conn.execute("""
+                SELECT r.rental_code, r.status, r.total_price, r.start_time, r.end_time, r.branch_code,
+                       COALESCE(NULLIF(r.customer_name_override, ''), u.full_name) AS customer_name,
+                       COALESCE(NULLIF(r.customer_phone_override, ''), u.phone) AS phone,
+                       COALESCE(i.name, c.name, 'Sản phẩm') AS item_name
+                FROM rentals r JOIN users u ON u.id = r.user_id
+                LEFT JOIN items i ON i.id = r.item_id LEFT JOIN combos c ON c.id = r.combo_id
+                WHERE COALESCE(NULLIF(r.customer_name_override, ''), u.full_name) LIKE ?
+                   OR COALESCE(NULLIF(r.customer_phone_override, ''), u.phone) LIKE ?
+                   OR r.rental_code LIKE ?
+                ORDER BY r.id DESC LIMIT 8
+            """, (pattern, pattern, pattern)).fetchall()
+            customers = conn.execute("""
+                SELECT full_name, phone FROM users
+                WHERE role != 'admin' AND (full_name LIKE ? OR phone LIKE ?)
+                ORDER BY full_name COLLATE NOCASE LIMIT 8
+            """, (pattern, pattern)).fetchall()
+            if asks_order:
+                if not rentals:
+                    return f"Không tìm thấy đơn khớp ‘{terms[0]}’. Thử mã TDB-… hoặc tên khách cụ thể hơn."
+                lines = [f"Đơn khớp ‘{terms[0]}’:"]
+                for rental in rentals:
+                    lines.append(f"• {rental['rental_code']} · {rental['item_name']} · {rental['customer_name']} · {rental['status']} · {rental['branch_code'] or 'CN1'} · {int(rental['total_price'] or 0):,}đ")
+                return "\n".join(lines)
+            if not customers and not rentals:
+                return f"Không tìm thấy khách hoặc đơn khớp ‘{terms[0]}’."
+            lines = [f"Kết quả tìm khách ‘{terms[0]}’:"]
+            lines.extend(f"• {row['full_name']} · {row['phone'] or 'chưa có SĐT'}" for row in customers)
+            lines.extend(f"• Đơn {row['rental_code']} · {row['item_name']} · {row['status']} · {row['branch_code'] or 'CN1'} · {row['start_time']}" for row in rentals)
+            return "\n".join(lines[:12])
+
         bill_match = re.search(r"\b(?:TDB-[A-Za-z0-9_-]+|HD\d+)\b", q, re.IGNORECASE)
-        asks_bill = any(word in normalized for word in ("bill", "hoa don", "don hang", "ma don"))
+        asks_bill = False
         if bill_match or asks_bill:
             if bill_match:
                 lookup_code = bill_match.group(0)
@@ -7980,8 +8032,13 @@ def _telegram_shop_assistant_answer(question: str) -> str:
                   AND r.start_time < ? AND r.end_time >= ?
                 ORDER BY r.start_time ASC LIMIT 40
             """, (day_end, day_start)).fetchall()
+            schedule_ignored = {"lich", "do", "ngay", "hom", "nay", "mai", "con", "khong", "co", "shop", "tim", "kiem", "tra", "cho", "thue", "cua", "toi", "web", "ko"}
+            schedule_terms = [word for word in re.findall(r"[a-z0-9]+", normalized)
+                              if word not in schedule_ignored and not word.isdigit() and len(word) > 1]
+            if schedule_terms:
+                rentals = [r for r in rentals if all(term in normalize_str(r["item_name"]) for term in schedule_terms)]
             if not rentals:
-                return f"Lịch {day.strftime('%d/%m/%Y')}: chưa có đơn thuê nào."
+                return f"Lịch {day.strftime('%d/%m/%Y')}: chưa có đơn khớp."
             lines = [f"Lịch thuê {day.strftime('%d/%m/%Y')} · {len(rentals)} đơn:"]
             for rental in rentals[:20]:
                 start = (rental["start_time"] or "").replace("T", " ")
@@ -7994,8 +8051,8 @@ def _telegram_shop_assistant_answer(question: str) -> str:
         stop_words = {
             "con", "khong", "co", "shop", "minh", "toi", "muon", "hoi", "giup", "voi", "nha",
             "nay", "do", "cai", "nao", "khong", "hang", "san", "pham", "thue", "duoc", "khong",
-            "kiem", "tra", "ton", "kho", "con", "hay", "khong", "a", "oi", "bot", "tiduba",
-            "lich", "ngay", "mai", "hom", "trong", "vao", "cn1", "cn2",
+            "kiem", "tra", "ton", "kho", "con", "hay", "khong", "ko", "web", "tren", "tim", "a", "oi", "bot", "tiduba",
+            "lich", "ngay", "mai", "hom", "trong", "vao", "don", "hoa", "ma", "cn1", "cn2",
             "may", "anh", "camera", "thiet", "bi", "body", "dang", "mau", "tai", "cho"
         }
         terms = [word for word in re.findall(r"[a-z0-9]+", normalized)
@@ -8058,6 +8115,19 @@ def _telegram_reply_to_shop_question(bot_token: str, message: Dict[str, Any]) ->
     if not question:
         return
     first_word = question.strip().split(maxsplit=1)
+    sender_id = (message.get("from") or {}).get("id")
+    # Do not expose customer/order data to ordinary group members.
+    if sender_id is not None:
+        check_req = urllib.request.Request(
+            f"https://api.telegram.org/bot{bot_token}/getChatMember",
+            data=json.dumps({"chat_id": chat["id"], "user_id": sender_id}).encode("utf-8"),
+            headers={"Content-Type": "application/json", "User-Agent": "TidubaStoreBot/1.0"},
+            method="POST",
+        )
+        with urllib.request.urlopen(check_req, timeout=8) as check_resp:
+            member = json.loads(check_resp.read().decode("utf-8")).get("result", {})
+        if member.get("status") not in {"administrator", "creator"}:
+            return
     if first_word and first_word[0].lower().split("@", 1)[0] == "/topicid":
         thread_id = message.get("message_thread_id")
         response = f"ID chủ đề này: {thread_id}" if thread_id else "Đây là chủ đề Chung; Telegram dùng ID chủ đề 1."
