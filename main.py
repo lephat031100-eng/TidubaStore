@@ -23,6 +23,7 @@ import urllib.parse
 import urllib.request
 import urllib.error
 import traceback
+import unicodedata
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union, Tuple
 from pydantic import BaseModel, Field
@@ -1280,6 +1281,62 @@ def normalize_str(s: str) -> str:
     s = re.sub(r'[ỳýỵỷỹ]', 'y', s)
     s = re.sub(r'[đ]', 'd', s)
     return s
+
+
+def normalize_group_key(value: Optional[str]) -> str:
+    """Case/accent/punctuation-insensitive key for product group names."""
+    text = unicodedata.normalize("NFD", str(value or "").casefold().replace("đ", "d"))
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+    return re.sub(r"[^a-z0-9]+", " ", text).strip()
+
+
+def canonical_product_group(conn: sqlite3.Connection, value: Optional[str]) -> str:
+    """Reuse the existing spelling of a group instead of creating case variants."""
+    name = re.sub(r"\s+", " ", str(value or "")).strip()
+    key = normalize_group_key(name)
+    if not key:
+        return ""
+    rows = conn.execute(
+        "SELECT name, filter_value FROM categories_config WHERE filter_type = 'CATEGORY' ORDER BY is_active DESC, display_order, id"
+    ).fetchall()
+    for row in rows:
+        canonical = (row["filter_value"] or row["name"] or "").strip()
+        if key in {normalize_group_key(canonical), normalize_group_key(row["name"])}:
+            return canonical
+    rows = conn.execute(
+        "SELECT subcategory, MIN(id) AS first_id FROM items WHERE TRIM(COALESCE(subcategory, '')) != '' GROUP BY subcategory ORDER BY first_id"
+    ).fetchall()
+    for row in rows:
+        canonical = re.sub(r"\s+", " ", (row["subcategory"] or "").strip())
+        if normalize_group_key(canonical) == key:
+            return canonical
+    return name
+
+
+def infer_item_category(group_name: Optional[str], item_name: Optional[str], fallback: Optional[str] = None) -> str:
+    """Prefer explicit group semantics, so clothing names containing camera brands stay clothing."""
+    group = normalize_group_key(group_name)
+    name = normalize_group_key(item_name)
+    fashion_terms = (
+        "vay", "dam", "ao dai", "ao khoac", "trang phuc", "co phuc", "viet phuc",
+        "nhat binh", "yem", "vest", "blazer", "bikini", "do boi", "suon xam",
+        "giay dep", "giay", "guoc", "boot", "non", "mu", "tui xach",
+    )
+    camera_terms = (
+        "may anh", "camera", "body", "lens", "ong kinh", "gimbal", "flycam", "drone",
+        "tripod", "chan may", "micro", "thu am", "flash", "the nho", "ronin",
+    )
+    if any(term in group for term in fashion_terms):
+        return "COSTUME_FASHION"
+    if any(term in group for term in camera_terms):
+        return "CAMERA_GEAR"
+    if any(term in name for term in fashion_terms):
+        return "COSTUME_FASHION"
+    if any(term in name for term in camera_terms) or any(
+        brand in name.split() for brand in ("sony", "canon", "fuji", "fujifilm", "nikon", "dji", "lumix")
+    ):
+        return "CAMERA_GEAR"
+    return fallback if fallback in {"CAMERA_GEAR", "COSTUME_FASHION"} else "COSTUME_FASHION"
 
 
 def is_ao_dai_item(item_category: Optional[str] = None, item_name: Optional[str] = None, subcategory: Optional[str] = None, brand: Optional[str] = None) -> bool:
@@ -4781,26 +4838,21 @@ def create_item_admin(req: CreateItemAdminRequest, admin: Dict[str, Any] = Depen
     now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
 
     try:
-        # Tự động tạo category chip nếu nhóm hàng chưa có
-        if req.subcategory and req.subcategory.strip():
-            sub = req.subcategory.strip()
-            c_code = normalize_str(sub).replace(" ", "_")
-            exists_cat = cur.execute("SELECT id FROM categories_config WHERE LOWER(name) = ? OR LOWER(code) = ?", (sub.lower(), c_code.lower())).fetchone()
-            if not exists_cat:
-                max_order = cur.execute("SELECT MAX(display_order) as m FROM categories_config").fetchone()["m"] or 20
-                cur.execute("""
-                INSERT INTO categories_config (code, name, filter_type, filter_value, display_order, is_active)
-                VALUES (?, ?, 'CATEGORY', ?, ?, 1)
-                """, (c_code, sub, sub, max_order + 1))
+        sub = canonical_product_group(conn, req.subcategory or "Thiết bị")
+        category = infer_item_category(sub, req.name, req.category)
+        brand = req.brand or "Tiduba"
+        if category == "COSTUME_FASHION" and brand in {"Canon", "Sony", "Nikon", "Fujifilm", "DJI", "Lumix", "Godox", "Blackmagic"}:
+            brand = "Tiduba"
+        sync_product_group_chips(conn, sub)
 
         cur.execute("""
         INSERT INTO items (name, category, subcategory, brand, size, serial_or_size, price_4h, price_8h, price_24h, price_2d, price_3d, price_7d, deposit_amount, image_url, image_position, gallery_json, description, condition_status, availability, branch_code, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'AVAILABLE', ?, ?)
         """, (
             req.name.strip(),
-            req.category or "CAMERA_GEAR",
-            req.subcategory or "Thiết bị",
-            req.brand or "Tiduba",
+            category,
+            sub,
+            brand,
             req.size or "",
             req.serial_or_size or "SN: TDB-001",
             req.price_4h or 0,
@@ -4818,8 +4870,6 @@ def create_item_admin(req: CreateItemAdminRequest, admin: Dict[str, Any] = Depen
             req.branch_code or "CN1",
             now_str
         ))
-
-        sync_product_group_chips(conn, req.subcategory or "Thiết bị")
 
         conn.commit()
         new_id = cur.lastrowid
@@ -4868,9 +4918,25 @@ def update_item_admin_full(item_id: int, req: UpdateItemFullAdminRequest, admin:
         "image_url", "image_position", "gallery_json", "description", "condition_status", "availability", "branch_code"
     }
 
+    current = cur.execute("SELECT name, category, subcategory, brand FROM items WHERE id = ?", (item_id,)).fetchone()
+    if not current:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Không tìm thấy sản phẩm!")
+
+    updates = req.dict(exclude_none=True)
+    group = canonical_product_group(conn, updates.get("subcategory", current["subcategory"]))
+    category = infer_item_category(group, updates.get("name", current["name"]), updates.get("category", current["category"]))
+    if "subcategory" in updates:
+        updates["subcategory"] = group
+    if any(key in updates for key in ("subcategory", "name", "category")):
+        updates["category"] = category
+    if category == "COSTUME_FASHION" and updates.get("brand", current["brand"]) in {"Canon", "Sony", "Nikon", "Fujifilm", "DJI", "Lumix", "Godox", "Blackmagic"}:
+        updates["brand"] = "Tiduba"
+    sync_product_group_chips(conn, group)
+
     fields = []
     params = []
-    for k, v in req.dict(exclude_none=True).items():
+    for k, v in updates.items():
         if k in ALLOWED_ITEM_FIELDS:
             fields.append(f"{k} = ?")
             params.append(v)
@@ -4878,9 +4944,6 @@ def update_item_admin_full(item_id: int, req: UpdateItemFullAdminRequest, admin:
     if fields:
         params.append(item_id)
         cur.execute(f"UPDATE items SET {', '.join(fields)} WHERE id = ?", params)
-        updated_item = cur.execute("SELECT subcategory FROM items WHERE id = ?", (item_id,)).fetchone()
-        if updated_item:
-            sync_product_group_chips(conn, updated_item["subcategory"])
         conn.commit()
 
     conn.close()
@@ -5374,18 +5437,20 @@ def update_site_settings(req: UpdateSiteSettingsRequest, admin: Dict[str, Any] =
 
 def sync_product_group_chips(conn: sqlite3.Connection, group_name: Optional[str] = None) -> None:
     """Keep product groups available in both admin chips and public collection filters."""
+    dedupe_category_group_chips(conn)
     names = [group_name.strip()] if group_name and group_name.strip() else [
         row["subcategory"].strip()
         for row in conn.execute("SELECT DISTINCT subcategory FROM items WHERE TRIM(COALESCE(subcategory, '')) != ''").fetchall()
     ]
     for name in names:
-        code = normalize_str(name).replace(" ", "_") or "product_group"
+        name = canonical_product_group(conn, name)
+        code = normalize_group_key(name).replace(" ", "_") or "product_group"
         configured_groups = conn.execute(
             "SELECT name, filter_value FROM categories_config WHERE filter_type = 'CATEGORY'"
         ).fetchall()
         if any(
-            normalize_str(row["filter_value"] or row["name"]) == normalize_str(name)
-            or normalize_str(row["name"]) == normalize_str(name)
+            normalize_group_key(row["filter_value"] or row["name"]) == normalize_group_key(name)
+            or normalize_group_key(row["name"]) == normalize_group_key(name)
             for row in configured_groups
         ):
             continue
@@ -5399,6 +5464,25 @@ def sync_product_group_chips(conn: sqlite3.Connection, group_name: Optional[str]
             "INSERT INTO categories_config (code, name, filter_type, filter_value, display_order, is_active) VALUES (?, ?, 'CATEGORY', ?, ?, 1)",
             (code, name, name, order),
         )
+
+
+def dedupe_category_group_chips(conn: sqlite3.Connection) -> None:
+    """Remove duplicate CATEGORY chips while preserving the first configured row."""
+    rows = conn.execute(
+        "SELECT id, name, filter_value FROM categories_config WHERE filter_type = 'CATEGORY' ORDER BY is_active DESC, display_order, id"
+    ).fetchall()
+    seen = set()
+    duplicates = []
+    for row in rows:
+        key = normalize_group_key(row["filter_value"] or row["name"])
+        if not key:
+            continue
+        if key in seen:
+            duplicates.append(row["id"])
+        else:
+            seen.add(key)
+    if duplicates:
+        conn.executemany("DELETE FROM categories_config WHERE id = ?", [(row_id,) for row_id in duplicates])
 
 
 @app.get("/api/categories")
@@ -5427,6 +5511,25 @@ def save_category_chip(req: CategoryConfigItem, admin: Dict[str, Any] = Depends(
     """Admin thêm mới hoặc chỉnh sửa 1 thư mục / chip lọc."""
     conn = get_db()
     cur = conn.cursor()
+    if req.filter_type == "CATEGORY":
+        candidate = req.filter_value.strip() or req.name.strip()
+        key = normalize_group_key(candidate)
+        existing = cur.execute(
+            "SELECT id, name, filter_value FROM categories_config WHERE filter_type = 'CATEGORY' ORDER BY is_active DESC, display_order, id"
+        ).fetchall()
+        duplicate = next((row for row in existing if normalize_group_key(row["filter_value"]) == key), None)
+        if not duplicate:
+            duplicate = next((row for row in existing if normalize_group_key(row["name"]) == key), None)
+        if duplicate and (not req.id or duplicate["id"] != req.id):
+            if req.id:
+                conn.close()
+                raise HTTPException(status_code=409, detail=f"Nhóm hàng đã tồn tại: {duplicate['name']}")
+            conn.close()
+            return {"success": True, "message": f"Nhóm hàng '{duplicate['name']}' đã có sẵn, không tạo trùng."}
+        canonical = canonical_product_group(conn, candidate)
+        req.name = canonical
+        req.filter_value = canonical
+        req.code = normalize_group_key(canonical).replace(" ", "_") or req.code.strip().lower()
     if req.id:
         cur.execute("""
         UPDATE categories_config 
@@ -5438,6 +5541,8 @@ def save_category_chip(req: CategoryConfigItem, admin: Dict[str, Any] = Depends(
         INSERT INTO categories_config (code, name, filter_type, filter_value, display_order, is_active)
         VALUES (?, ?, ?, ?, ?, ?)
         """, (req.code, req.name, req.filter_type, req.filter_value, req.display_order, req.is_active))
+    conn.commit()
+    dedupe_category_group_chips(conn)
     conn.commit()
     conn.close()
     return {"success": True, "message": f"Đã lưu danh mục '{req.name}' thành công!"}

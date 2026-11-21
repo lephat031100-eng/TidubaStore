@@ -4313,7 +4313,7 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label class="block text-gray-700 font-semibold mb-1">Loại hàng hóa / Nhóm hàng <span class="text-rose-500">*</span></label>
-                                <input type="text" id="add-item-subcat" list="add-item-subcat-list" placeholder="Chọn hoặc nhập nhóm, ví dụ: Giày dép, Camera Body" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none" oninput="syncItemClassificationFromGroup()">
+                                <input type="text" id="add-item-subcat" list="add-item-subcat-list" placeholder="Chọn hoặc nhập nhóm, ví dụ: Giày dép, Camera Body" class="w-full bg-white border border-gray-300 rounded-xl p-2.5 text-gray-900 focus:border-emerald-500 focus:outline-none" oninput="syncItemClassificationFromGroup()" onchange="canonicalizeItemGroupInput()">
                                 <datalist id="add-item-subcat-list">
                                     <option value="Áo dài"><option value="Váy tiệc"><option value="Camera Body">
                                     <option value="Ống kính (Lens)"><option value="Gimbal / Flycam">
@@ -4694,8 +4694,8 @@
                 .map(category => (category.filter_value || category.name || '').trim())
                 .filter(Boolean);
             const uniqueGroups = new Map();
-            [...itemGroups, ...configuredGroups].forEach(group => {
-                const key = normalizeSearchText(group);
+            [...configuredGroups, ...itemGroups].forEach(group => {
+                const key = normalizeGroupKey(group);
                 if (key && !uniqueGroups.has(key)) uniqueGroups.set(key, group);
             });
             const groups = [...uniqueGroups.values()].sort((a, b) => a.localeCompare(b, 'vi'));
@@ -4706,7 +4706,7 @@
                     class="sher-cat-btn px-4 py-2 rounded-xl ${selected ? 'bg-[#b37054] text-white font-bold shadow-sm' : 'bg-[#faf7f2] hover:bg-[#ede3d6] text-[#44403c] border border-[#e5dcd3] font-medium'} transition whitespace-nowrap">
                     ${label.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}
                 </button>`;
-            bar.innerHTML = button('Tất cả', 'ALL', active === 'ALL') + groups.map(group => button(group, group, active === group)).join('');
+            bar.innerHTML = button('Tất cả', 'ALL', active === 'ALL') + groups.map(group => button(group, group, normalizeGroupKey(active) === normalizeGroupKey(group))).join('');
         }
 
         function onSherentDropdownFilterChanged() {
@@ -4793,6 +4793,10 @@
                 .replace(/đ/g, "d").replace(/Đ/g, "d");
         }
 
+        function normalizeGroupKey(s) {
+            return normalizeSearchText(s).replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
+        }
+
         function syncItemClassificationFromGroup() {
             const groupInput = document.getElementById('add-item-subcat');
             const categorySelect = document.getElementById('add-item-cat');
@@ -4802,14 +4806,22 @@
 
             const group = groupInput.value.trim();
             const name = document.getElementById('add-item-name')?.value.trim() || '';
-            const norm = normalizeSearchText(`${group} ${name}`);
-            const known = (allItems || []).find(item => normalizeSearchText(item.subcategory) === normalizeSearchText(group));
-            const camera = known ? known.category === 'CAMERA_GEAR' : /camera|may anh|body|lens|ong kinh|gimbal|flycam|drone|tripod|micro|flash|sony|canon|fuji|nikon|dji|blackmagic/.test(norm);
+            const groupNorm = normalizeGroupKey(group);
+            const nameNorm = normalizeGroupKey(name);
+            const fashionTerms = /\b(vay|dam|ao dai|ao khoac|trang phuc|co phuc|viet phuc|nhat binh|yem|vest|blazer|bikini|do boi|suon xam|giay dep|giay|guoc|boot|non|mu|tui xach)\b/;
+            const cameraTerms = /\b(may anh|camera|body|lens|ong kinh|gimbal|flycam|drone|tripod|chan may|micro|thu am|flash|the nho|ronin)\b/;
+            const groupIsFashion = fashionTerms.test(groupNorm);
+            const groupIsCamera = cameraTerms.test(groupNorm);
+            const matchingItems = (allItems || []).filter(item => normalizeGroupKey(item.subcategory) === groupNorm);
+            const known = matchingItems[0];
+            const camera = !groupNorm && !nameNorm ? categorySelect.value === 'CAMERA_GEAR' : groupIsFashion ? false : groupIsCamera ? true :
+                matchingItems.length ? matchingItems.filter(item => item.category === 'CAMERA_GEAR').length > matchingItems.filter(item => item.category === 'COSTUME_FASHION').length :
+                !fashionTerms.test(nameNorm) && (cameraTerms.test(nameNorm) || /\b(sony|canon|fuji|fujifilm|nikon|dji|lumix)\b/.test(nameNorm));
             categorySelect.value = camera ? 'CAMERA_GEAR' : 'COSTUME_FASHION';
 
-            const brandMatch = norm.match(/\b(sony|canon|fujifilm|fuji|nikon|dji|godox|lumix|panasonic|blackmagic)\b/);
+            const brandMatch = camera ? `${groupNorm} ${nameNorm}`.match(/\b(sony|canon|fujifilm|fuji|nikon|dji|godox|lumix|panasonic|blackmagic)\b/) : null;
             const brandNames = { fuji: 'Fujifilm', fujifilm: 'Fujifilm', panasonic: 'Lumix', lumix: 'Lumix', sony: 'Sony', canon: 'Canon', nikon: 'Nikon', dji: 'DJI', godox: 'Godox', blackmagic: 'Blackmagic' };
-            let brand = known?.brand || (brandMatch ? brandNames[brandMatch[0]] : 'Tiduba');
+            let brand = camera ? (known?.brand || (brandMatch ? brandNames[brandMatch[0]] : 'Tiduba')) : 'Tiduba';
             brandInput.value = brand;
 
             if (hint) {
@@ -4818,15 +4830,32 @@
             }
         }
 
+        function canonicalizeItemGroupInput() {
+            const input = document.getElementById('add-item-subcat');
+            if (!input) return;
+            const key = normalizeGroupKey(input.value);
+            const candidates = [
+                ...(loadedCategoriesList || []).filter(c => c.filter_type === 'CATEGORY').map(c => (c.filter_value || c.name || '').trim()),
+                ...(allItems || []).map(item => (item.subcategory || '').trim())
+            ];
+            const canonical = candidates.find(value => value && normalizeGroupKey(value) === key);
+            if (canonical) input.value = canonical.replace(/\s+/g, ' ').trim();
+            syncItemClassificationFromGroup();
+        }
+
         function refreshItemGroupSuggestions() {
             const list = document.getElementById('add-item-subcat-list');
             if (!list) return;
-            const groups = new Set([
-                ...(allItems || []).map(item => (item.subcategory || '').trim()),
-                ...(loadedCategoriesList || []).filter(c => c.filter_type === 'CATEGORY').map(c => (c.filter_value || c.name || '').trim())
-            ].filter(Boolean));
+            const groups = new Map();
+            [
+                ...(loadedCategoriesList || []).filter(c => c.filter_type === 'CATEGORY').map(c => (c.filter_value || c.name || '').trim()),
+                ...(allItems || []).map(item => (item.subcategory || '').trim())
+            ].filter(Boolean).forEach(value => {
+                const key = normalizeGroupKey(value);
+                if (key && !groups.has(key)) groups.set(key, value.replace(/\s+/g, ' ').trim());
+            });
             while (list.firstChild) list.removeChild(list.firstChild);
-            [...groups].sort((a, b) => a.localeCompare(b, 'vi')).forEach(value => {
+            [...groups.values()].sort((a, b) => a.localeCompare(b, 'vi')).forEach(value => {
                 const option = document.createElement('option');
                 option.value = value;
                 list.appendChild(option);
@@ -4858,9 +4887,9 @@
                 const cf = normalizeSearchText(currentCategory);
                 filtered = filtered.filter(i => {
                     const catNorm = normalizeSearchText(i.category);
-                    const subNorm = normalizeSearchText(i.subcategory);
+                    const subNorm = normalizeGroupKey(i.subcategory);
                     const brandNorm = normalizeSearchText(i.brand);
-                    return catNorm === cf || subNorm === cf || brandNorm === cf;
+                    return catNorm === cf || subNorm === normalizeGroupKey(currentCategory) || brandNorm === cf;
                 });
             }
             if (activeBrandFilter) {
@@ -8011,17 +8040,17 @@
             const bar = document.getElementById('pos-group-filters');
             if (!bar) return;
             const groups = new Map();
-            [...(allItems || []).map(item => item.subcategory || ''), ...(loadedCategoriesList || [])
+            [...(loadedCategoriesList || [])
                 .filter(category => category.filter_type === 'CATEGORY')
-                .map(category => category.filter_value || category.name || '')]
+                .map(category => category.filter_value || category.name || ''), ...(allItems || []).map(item => item.subcategory || '')]
                 .map(name => String(name).trim())
                 .filter(Boolean)
                 .forEach(name => {
-                    const key = normalizeSearchText(name);
+                    const key = normalizeGroupKey(name);
                     if (key && !groups.has(key)) groups.set(key, name);
                 });
             const makeButton = (label, value, selected) => `<button type="button" onclick="posFilterGroup(decodeURIComponent('${encodeURIComponent(value).replace(/'/g, '%27')}'))" class="shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold transition whitespace-nowrap ${selected ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-200 bg-white text-gray-600 hover:border-emerald-500'}">${label.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')}</button>`;
-            bar.innerHTML = makeButton('Nhóm: Tất cả', 'ALL', posCurrentGroup === 'ALL') + [...groups.values()].sort((a, b) => a.localeCompare(b, 'vi')).map(group => makeButton(group, group, normalizeSearchText(posCurrentGroup) === normalizeSearchText(group))).join('');
+            bar.innerHTML = makeButton('Nhóm: Tất cả', 'ALL', posCurrentGroup === 'ALL') + [...groups.values()].sort((a, b) => a.localeCompare(b, 'vi')).map(group => makeButton(group, group, normalizeGroupKey(posCurrentGroup) === normalizeGroupKey(group))).join('');
         }
 
         function togglePosCategoryMenu(forceOpen = null) {
@@ -8054,7 +8083,7 @@
             if (posCurrentCat === 'ALL' || posCurrentCat === 'CAMERA_GEAR' || posCurrentCat === 'COSTUME_FASHION') {
                 itemsToShow = allItems.filter(i => {
                     const matchCat = (posCurrentCat === 'ALL') || (i.category === posCurrentCat);
-                    const matchGroup = (posCurrentGroup === 'ALL') || normalizeSearchText(i.subcategory) === normalizeSearchText(posCurrentGroup);
+                    const matchGroup = (posCurrentGroup === 'ALL') || normalizeGroupKey(i.subcategory) === normalizeGroupKey(posCurrentGroup);
                     const matchBranch = posCurrentBranch === 'ALL' || String(i.branch_code || 'CN1').toUpperCase() === posCurrentBranch;
                     const matchSearch = !searchVal || i.name.toLowerCase().includes(searchVal) || (i.brand && i.brand.toLowerCase().includes(searchVal)) || (i.subcategory && i.subcategory.toLowerCase().includes(searchVal));
                     return matchCat && matchGroup && matchBranch && matchSearch;
