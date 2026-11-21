@@ -225,6 +225,40 @@ def get_db():
     return conn
 
 
+def ensure_item_schema(conn: sqlite3.Connection) -> None:
+    """Bring older persistent SQLite databases up to the current item schema.
+
+    Render may keep a database created by an earlier deployment. Run this at
+    startup and before item writes so a stale volume cannot break product saves.
+    """
+    existing = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(items)").fetchall()
+    }
+    required = {
+        "branch_code": "TEXT DEFAULT 'CN1'",
+        "size": "TEXT NOT NULL DEFAULT ''",
+        "image_position": "TEXT NOT NULL DEFAULT 'xMidYMid'",
+        "price_2d": "INTEGER DEFAULT 0",
+        "price_3d": "INTEGER DEFAULT 0",
+        "price_7d": "INTEGER DEFAULT 0",
+        "gallery_json": "TEXT NOT NULL DEFAULT '[]'",
+        "kiotviet_id": "INTEGER DEFAULT 0",
+        "kiotviet_code": "TEXT DEFAULT ''",
+        "on_hand": "INTEGER DEFAULT 1",
+    }
+    for column, definition in required.items():
+        if column not in existing:
+            try:
+                conn.execute(f"ALTER TABLE items ADD COLUMN {column} {definition}")
+            except sqlite3.OperationalError:
+                # Another worker may have applied the same migration meanwhile.
+                refreshed = {row[1] for row in conn.execute("PRAGMA table_info(items)").fetchall()}
+                if column not in refreshed:
+                    raise
+    conn.commit()
+
+
 DISPOSABLE_DOMAINS = {
     "tempmail.com", "10minutemail.com", "guerrillamail.com", "mailinator.com",
     "throwawaymail.com", "sharklasers.com", "yopmail.com", "trashmail.com",
@@ -1130,6 +1164,9 @@ def init_db():
 
 
 init_db()
+_schema_conn = get_db()
+ensure_item_schema(_schema_conn)
+_schema_conn.close()
 
 
 # =============================================================================
@@ -4739,6 +4776,7 @@ async def upload_payment_proof_image(
 @app.post("/api/admin/items")
 def create_item_admin(req: CreateItemAdminRequest, admin: Dict[str, Any] = Depends(require_admin)):
     conn = get_db()
+    ensure_item_schema(conn)
     cur = conn.cursor()
     now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -4820,6 +4858,7 @@ class UpdateItemFullAdminRequest(BaseModel):
 @app.patch("/api/admin/items/{item_id}")
 def update_item_admin_full(item_id: int, req: UpdateItemFullAdminRequest, admin: Dict[str, Any] = Depends(require_admin)):
     conn = get_db()
+    ensure_item_schema(conn)
     cur = conn.cursor()
 
     # Whitelist các cột được phép sửa để tránh SQL injection
