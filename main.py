@@ -2940,10 +2940,11 @@ def create_rental_booking(req: RentalBookingRequest, user: Optional[Dict[str, An
         raise HTTPException(status_code=400, detail="Vui lòng chọn thiết bị hoặc combo!")
 
     # Tiền cọc chỉ là mức dự kiến; khách nộp tại cửa hàng lúc nhận đồ.
-    deposit_required_amount = default_deposit or 0
+    requested_deposit = max(0, int(req.custom_deposit_amount or 0))
+    deposit_required_amount = requested_deposit or (default_deposit or 0)
     deposit_amount = 0
     dep_type = "NONE"
-    asset_desc = (
+    asset_desc = (req.deposit_asset_desc or "").strip() or (
         f"Cọc dự kiến {deposit_required_amount:,}đ; thu tại cửa hàng khi bàn giao thiết bị và hoàn lại khi trả."
         if deposit_required_amount > 0 else "Cọc (nếu có) thu tại cửa hàng khi nhận đồ."
     )
@@ -4923,7 +4924,7 @@ def update_item_admin_full(item_id: int, req: UpdateItemFullAdminRequest, admin:
         conn.close()
         raise HTTPException(status_code=404, detail="Không tìm thấy sản phẩm!")
 
-    updates = req.dict(exclude_none=True)
+    updates = req.model_dump(exclude_none=True)
     group = canonical_product_group(conn, updates.get("subcategory", current["subcategory"]))
     category = infer_item_category(group, updates.get("name", current["name"]), updates.get("category", current["category"]))
     if "subcategory" in updates:
@@ -6577,8 +6578,8 @@ def _send_telegram_notification(
         now_str = vn_now().strftime("%Y-%m-%d %H:%M:%S")
         status = "LOG_ONLY"
 
-        active_token = (override_token or (cfg["bot_token"] if cfg else "")).strip()
-        active_chat_id = (override_chat_id or (cfg["chat_id"] if cfg else "")).strip()
+        active_token = str(override_token or (cfg["bot_token"] if cfg else "") or "").strip()
+        active_chat_id = str(override_chat_id or (cfg["chat_id"] if cfg else "") or "").strip()
         message_thread_id = None
         topic_routes = {
             "DEPOSIT": "deposit_thread_id", "OVERDUE": "overdue_thread_id",
@@ -6890,7 +6891,7 @@ def save_telegram_config(req: TelegramConfigRequest, admin: Dict[str, Any] = Dep
 
     fields = []
     params = []
-    for k, v in req.dict(exclude_none=True).items():
+    for k, v in req.model_dump(exclude_none=True).items():
         fields.append(f"{k} = ?")
         params.append(v)
 

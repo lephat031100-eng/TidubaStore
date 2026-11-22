@@ -73,11 +73,11 @@ def test_rental_metrics_calculation():
     rtype, hours, days, total_price, dt_s, dt_e = calculate_rental_metrics(
         start_time, end_time, price_4h, price_8h, price_24h
     )
-    assert rtype == "24h"
+    assert rtype == "24h + phụ thu đêm (2 đêm)"
     assert hours == 48.0
     assert days == 2.0
-    # Thuê 2 ngày được chiết khấu 15% (350.000 * 2 * 0.85 = 595.000đ)
-    assert total_price == 595000
+    # Gói 2 ngày sau chiết khấu là 595.000đ, cộng phụ thu 2 đêm (60.000đ).
+    assert total_price == 655000
 
     # Lỗi khi ngày trả trước ngày nhận
     with pytest.raises(ValueError):
@@ -366,7 +366,9 @@ def test_custom_deposit_and_admin_confirm_payment_and_zalo():
     book_res = client.post("/api/rentals/book", json=booking_payload, headers=cus_headers)
     assert book_res.status_code == 200
     b_data = book_res.json()
-    assert b_data["deposit_amount"] == 1500000
+    # Booking chỉ lưu mức cọc dự kiến; nhân viên ghi nhận tiền/tài sản thực tế lúc bàn giao.
+    assert b_data["deposit_amount"] == 0
+    assert b_data["deposit_required_amount"] == 1500000
     rental_id = b_data["rental_id"]
 
     # 3. Đăng nhập Admin & bấm Xác Nhận Đã Nhận Tiền
@@ -771,13 +773,7 @@ def test_qr_bill_lookup_preview():
 
 def test_qr_image_and_reschedule_and_cancel_penalty_and_deposit_update():
     """Kiểm tra sinh ảnh QR nội bộ, dời lịch miễn phí, hủy lịch phạt 50% và admin chọn cọc khi quét QR."""
-    # 1. Sinh ảnh QR backend (Same-origin cho mobile tải ảnh không lỗi)
-    qr_res = client.get("/api/qr_image?data=http://localhost:9000/return-qr?code=TDB-TEST")
-    assert qr_res.status_code == 200
-    assert qr_res.headers["content-type"] == "image/png"
-    assert len(qr_res.content) > 100
-
-    # 2. Đăng nhập khách hàng
+    # 1. Đăng nhập khách hàng
     login_cus = client.post("/api/auth/login", json={"username": "khachhang", "password": "123456"})
     cus_token = login_cus.json()["token"]
     cus_headers = {"Authorization": f"Bearer {cus_token}"}
@@ -862,6 +858,15 @@ def test_qr_image_and_reschedule_and_cancel_penalty_and_deposit_update():
     # Hiện lại
     unhide_res = client.post("/api/admin/items/bulk_status", json={"item_ids": [1], "action": "SET_UNHIDDEN"}, headers=adm_headers)
     assert unhide_res.status_code == 200
+
+
+def test_qr_image_endpoint():
+    """QR dùng dependency qrcode đã khai báo trong requirements.txt."""
+    pytest.importorskip("qrcode", reason="Cài dependencies từ requirements.txt để chạy kiểm thử QR")
+    qr_res = client.get("/api/qr_image", params={"data": "http://localhost:9000/return-qr?code=TDB-TEST"})
+    assert qr_res.status_code == 200
+    assert qr_res.headers["content-type"] == "image/png"
+    assert len(qr_res.content) > 100
 
 
 def test_otp_send_and_verification():
@@ -963,7 +968,7 @@ def test_ao_dai_multi_days_pricing():
     assert pv2 == 110000
 
 
-def test_deposit_summary_and_telegram_report():
+def test_deposit_summary_and_telegram_report(monkeypatch):
     """Kiểm tra tính năng quản lý tiền cọc và báo cáo group -1004476055497."""
     login_adm = client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
     adm_headers = {"Authorization": f"Bearer {login_adm.json()['token']}"}
@@ -973,6 +978,8 @@ def test_deposit_summary_and_telegram_report():
     assert res.json()["success"] is True
     assert "total_holding_cash" in res.json()["data"]
 
+    import main
+    monkeypatch.setattr(main, "_send_telegram_notification", lambda *args, **kwargs: True)
     rep = client.post("/api/admin/deposits/send_telegram_report", headers=adm_headers)
     assert rep.status_code == 200
     assert rep.json()["success"] is True
@@ -1362,7 +1369,7 @@ def test_camera_multi_day_pricing_custom_and_auto():
         price_2d=800000, price_3d=1150000, price_7d=2400000
     )
     assert r_days == 2.0
-    assert price_custom == 800000
+    assert price_custom == 860000  # Giá gói 2 ngày + phụ thu 2 đêm.
 
     # 3 ngày với giá cấu hình riêng
     _, _, r_days3, price_custom3, _, _ = calculate_rental_metrics(
@@ -1371,7 +1378,7 @@ def test_camera_multi_day_pricing_custom_and_auto():
         price_2d=800000, price_3d=1150000, price_7d=2400000
     )
     assert r_days3 == 3.0
-    assert price_custom3 == 1150000
+    assert price_custom3 == 1240000  # Giá gói 3 ngày + phụ thu 3 đêm.
 
     # 7 ngày với giá cấu hình riêng
     _, _, r_days7, price_custom7, _, _ = calculate_rental_metrics(
@@ -1380,7 +1387,7 @@ def test_camera_multi_day_pricing_custom_and_auto():
         price_2d=800000, price_3d=1150000, price_7d=2400000
     )
     assert r_days7 == 7.0
-    assert price_custom7 == 2400000
+    assert price_custom7 == 2610000  # Giá gói 7 ngày + phụ thu 7 đêm.
 
     # 2. Máy ảnh không cấu hình giá riêng (price_2d=0) -> Tự động chiết khấu 15% cho 2 ngày: 450k * 2 * 0.85 = 765k
     _, _, r_days_auto, price_auto, _, _ = calculate_rental_metrics(
@@ -1388,7 +1395,7 @@ def test_camera_multi_day_pricing_custom_and_auto():
         item_category="CAMERA_GEAR", item_name="Sony A7 IV Body",
         price_2d=0, price_3d=0, price_7d=0
     )
-    assert price_auto == int(2 * 450000 * 0.85)
+    assert price_auto == int(2 * 450000 * 0.85) + 60000
 
 
 def test_admin_create_and_update_item_multi_day_prices():
@@ -1495,8 +1502,9 @@ def test_track_rental_returns_saved_deposit_info():
     track_res1 = client.get(f"/api/rentals/track/{code}", headers=adm_headers)
     assert track_res1.status_code == 200
     r1 = track_res1.json()["rental"]
-    assert r1["deposit_type"] == "ASSET"
-    assert r1["deposit_paid"] == 1500000
+    assert r1["deposit_type"] == "NONE"
+    assert r1["deposit_paid"] == 0
+    assert r1["deposit_required_amount"] == 1500000
     assert "iPhone 15 Pro" in r1["deposit_asset_desc"]
 
     # 3. Admin sửa thông tin cọc qua /update_deposit
