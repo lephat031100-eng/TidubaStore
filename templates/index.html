@@ -7840,23 +7840,23 @@
                 return;
             }
 
-            const dtStart = new Date(startTime);
-            const pad = (n) => String(n).padStart(2, '0');
-            let maxDays = 1.0;
-            customerCart.forEach(it => {
-                if (it.days && it.days > maxDays) maxDays = it.days;
+            // The store interprets these timezone-free timestamps as Vietnam time.
+            const startMinutes = Date.parse(`${startTime}Z`);
+            const shortPackageHours = { '4h': 4, '8h': 8 };
+            const itemsPayload = customerCart.map(item => {
+                const rentalType = item.rental_type || '24h';
+                const days = item.days || 1;
+                const hours = shortPackageHours[rentalType] || days * 24;
+                return {
+                    item_id: item.item_id || null,
+                    combo_id: item.combo_id || null,
+                    rental_type: rentalType,
+                    days,
+                    start_time: startTime,
+                    end_time: new Date(startMinutes + hours * 3600000).toISOString().slice(0, 16)
+                };
             });
-            const dtEnd = new Date(dtStart.getTime() + maxDays * 24 * 3600000);
-            const endTime = `${dtEnd.getFullYear()}-${pad(dtEnd.getMonth()+1)}-${pad(dtEnd.getDate())}T${pad(dtEnd.getHours())}:${pad(dtEnd.getMinutes())}`;
-
-            const itemsPayload = customerCart.map(it => ({
-                item_id: it.item_id || null,
-                combo_id: it.combo_id || null,
-                rental_type: it.rental_type || '24h',
-                days: it.days || 1.0,
-                start_time: startTime,
-                end_time: endTime
-            }));
+            const endTime = itemsPayload.map(item => item.end_time).sort().at(-1);
 
             const branchCode = document.getElementById('cart-branch-code') ? document.getElementById('cart-branch-code').value : 'CN1';
 
