@@ -11442,7 +11442,7 @@
         function commitAuthSession(user, token = null) {
             authSessionRevision++;
             if (token) localStorage.setItem('tiduba_token', token);
-            else localStorage.removeItem('tiduba_token');
+            else if (!user) localStorage.removeItem('tiduba_token');
             currentUser = user || null;
             if ((!currentUser || currentUser.role !== 'admin') && adminRealtimePoller) {
                 clearInterval(adminRealtimePoller);
